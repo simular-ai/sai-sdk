@@ -19,12 +19,12 @@ describe('parseDuration', () => {
     expect(parseDuration('1d')).toBe(86_400_000)
   })
 
-  it('defaults to 72h for unrecognised formats', () => {
-    expect(parseDuration('abc')).toBe(72 * 3_600_000)
-    expect(parseDuration('24')).toBe(72 * 3_600_000)
-    expect(parseDuration('h')).toBe(72 * 3_600_000)
-    expect(parseDuration('')).toBe(72 * 3_600_000)
-    expect(parseDuration('2w')).toBe(72 * 3_600_000)
+  it('returns null for unrecognised formats', () => {
+    expect(parseDuration('abc')).toBeNull()
+    expect(parseDuration('24')).toBeNull()
+    expect(parseDuration('h')).toBeNull()
+    expect(parseDuration('')).toBeNull()
+    expect(parseDuration('2w')).toBeNull()
   })
 })
 

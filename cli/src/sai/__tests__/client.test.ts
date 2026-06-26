@@ -78,7 +78,7 @@ describe('streamMessage', () => {
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(makeSseResponse({ type: 'finish', finishReason: 'stop' }))
 
-    await streamMessage(FAKE_CREDS.idToken, 'machine-1', 'hello', undefined, vi.fn())
+    await streamMessage(FAKE_CREDS.idToken, 'machine-1', 'hello', 30_000, undefined, vi.fn())
 
     const [url, opts] = spy.mock.calls[0] as [string, RequestInit]
     expect(url).toContain('/v1/agents/message')
@@ -102,7 +102,7 @@ describe('streamMessage', () => {
     )
 
     const onEvent = vi.fn()
-    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', undefined, onEvent)
+    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, onEvent)
 
     expect(onEvent).toHaveBeenCalledTimes(5)
     expect(onEvent.mock.calls[0][0]).toEqual({ type: 'data-status', data: { text: 'Working...' } })
@@ -121,7 +121,7 @@ describe('streamMessage', () => {
     )
 
     const onEvent = vi.fn()
-    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', undefined, onEvent)
+    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, onEvent)
 
     expect(onEvent).toHaveBeenCalledTimes(1)
     expect(onEvent.mock.calls[0][0]).toEqual({ type: 'finish', finishReason: 'stop' })
@@ -133,7 +133,7 @@ describe('streamMessage', () => {
     )
 
     const onEvent = vi.fn()
-    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', undefined, onEvent)
+    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, onEvent)
 
     expect(onEvent).toHaveBeenCalledTimes(1)
     expect(onEvent.mock.calls[0][0]).toEqual({ type: 'error', errorText: 'Something went wrong' })
@@ -143,7 +143,7 @@ describe('streamMessage', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'forbidden' }), { status: 403 }),
     )
-    await expect(streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', undefined, vi.fn())).rejects.toThrow(
+    await expect(streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, vi.fn())).rejects.toThrow(
       '403',
     )
   })
@@ -153,7 +153,7 @@ describe('streamMessage', () => {
       // Stream contains only a status event — no finish/error
       makeSseResponse({ type: 'data-status', data: { text: 'Working...' } }),
     )
-    await expect(streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', undefined, vi.fn())).rejects.toThrow(
+    await expect(streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, vi.fn())).rejects.toThrow(
       'Connection closed unexpectedly',
     )
   })
@@ -170,7 +170,7 @@ describe('streamMessage', () => {
       size: 42,
       downloadUrl: 'https://storage.example.com/f',
     }
-    await streamMessage(FAKE_CREDS.idToken, 'm1', 'run this', [attachment], vi.fn())
+    await streamMessage(FAKE_CREDS.idToken, 'm1', 'run this', 30_000, [attachment], vi.fn())
 
     const [, opts] = spy.mock.calls[0] as [string, RequestInit]
     const body = JSON.parse(opts.body as string)
@@ -183,7 +183,7 @@ describe('streamMessage', () => {
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(makeSseResponse({ type: 'finish', finishReason: 'stop' }))
 
-    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', undefined, vi.fn())
+    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, vi.fn())
 
     const [, opts] = spy.mock.calls[0] as [string, RequestInit]
     const body = JSON.parse(opts.body as string)
@@ -205,7 +205,7 @@ describe('streamMessage', () => {
     )
 
     const onEvent = vi.fn()
-    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', undefined, onEvent)
+    await streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, onEvent)
 
     // Only the data events should fire, not the keepalive lines
     const types = onEvent.mock.calls.map((c) => (c[0] as SseEvent).type)
