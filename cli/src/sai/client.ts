@@ -1,4 +1,4 @@
-import { CLOUD_API_URL, RESPONSE_TIMEOUT_MS } from '../config.js'
+import { CLOUD_API_URL } from '../config.js'
 
 export interface SessionInfo {
   machineId: string
