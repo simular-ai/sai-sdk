@@ -1,0 +1,25 @@
+{
+  "name": "@simular/sapi-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "sapi": "./dist/cli.cjs"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.3"
+  }
+}
