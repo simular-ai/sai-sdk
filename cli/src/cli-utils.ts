@@ -28,7 +28,7 @@ export function parseDuration(s: string): number | null {
 // Options that take a value argument (space-separated form: --opt val).
 // These must be listed so collectPositionalArgs skips the value token too.
 // Note: --opt=val form is handled automatically (the whole token starts with '-').
-const VALUE_OPTIONS = new Set(['--file', '-f', '--verbose', '--timeout'])
+const VALUE_OPTIONS = new Set(['--file', '-f', '--verbose', '-v', '--timeout'])
 
 export function collectPositionalArgs(argv: string[]): string[] {
   const positional: string[] = []
