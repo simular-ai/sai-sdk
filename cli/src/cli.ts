@@ -50,9 +50,9 @@ Examples:
   $ sapi "what have you done recently?"          Ask about past activity
   $ sapi -f report.pdf "review this"             Attach a file
   $ sapi -f before.png -f after.png "what changed?"  Attach multiple files
-  $ sapi --verbose=0 "take a screenshot"         Quiet mode (suppress narrations)
-  $ sapi --verbose=2 "close apps and check gmail"  Show script progress lines and debug info
-  $ sapi --verbose=3 "do a task"                 Show raw SSE event stream (debug)
+  $ sapi -v 0 "take a screenshot"               Quiet mode (suppress narrations)
+  $ sapi -v 2 "close apps and check gmail"       Show script progress lines and debug info
+  $ sapi -v 3 "do a task"                        Show raw SSE event stream (debug)
   $ sapi config set verbose 2                    Set default verbosity level to 2
   $ sapi abort                                   Abort the currently running task
   $ sapi sessions                                List recent conversations
@@ -591,7 +591,7 @@ program
     [] as string[],
   )
   .option(
-    '--verbose <n>',
+    '-v, --verbose <n>',
     'Verbosity level: 0=quiet, 1=narrations, 2=+script progress lines+debug info, 3=+raw SSE (default: from `sapi config`, initially 1)',
   )
   .option(
