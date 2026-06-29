@@ -32,7 +32,7 @@ import { classifyMessage } from './concierge/index.js'
 import { queryContext } from './context/query.js'
 import { uploadFile } from './upload/simulang.js'
 import { CLOUD_API_URL, RESPONSE_TIMEOUT_MS } from './config.js'
-import { parseDuration, formatDuration, collectPositionalArgs } from './cli-utils.js'
+import { parseDuration, formatDuration } from './cli-utils.js'
 
 const program = new Command()
 
@@ -46,13 +46,14 @@ Examples:
   $ sapi whoami                                  Show current authenticated user
   $ sapi machine                                 Choose a Sai workspace (run again to switch)
   $ sapi new                                     Start a fresh conversation on the current workspace
-  $ sapi "summarise my unread emails"            Send a task to Sai
-  $ sapi "what have you done recently?"          Ask about past activity
-  $ sapi -f report.pdf "review this"             Attach a file
-  $ sapi -f before.png -f after.png "what changed?"  Attach multiple files
-  $ sapi -v 0 "take a screenshot"               Quiet mode (suppress narrations)
-  $ sapi -v 2 "close apps and check gmail"       Show script progress lines and debug info
-  $ sapi -v 3 "do a task"                        Show raw SSE event stream (debug)
+  $ sapi -m summarise my unread emails           Send a task to Sai (messages use -m/--message)
+  $ sapi -m what have you done recently?         Ask about past activity
+  $ sapi -m login                                Send a one-word message, even one matching a command name
+  $ sapi -f report.pdf -m review this            Attach a file
+  $ sapi -f before.png -f after.png -m what changed?  Attach multiple files
+  $ sapi -v 0 -m take a screenshot               Quiet mode (suppress narrations)
+  $ sapi -v 2 -m close apps and check gmail      Show script progress lines and debug info
+  $ sapi -v 3 -m do a task                       Show raw SSE event stream (debug)
   $ sapi config set verbose 2                    Set default verbosity level to 2
   $ sapi abort                                   Abort the currently running task
   $ sapi sessions                                List recent conversations
@@ -61,7 +62,7 @@ Examples:
   $ sapi restart machine                         Restart the cloud machine
 
   $ sapi key generate --name dev                 Generate an API key
-  $ SAPI_API_KEY=sapi_... sapi "do a task"       Use an API key directly
+  $ SAPI_API_KEY=sapi_... sapi -m do a task      Use an API key directly
 
 Environment:
   SAPI_API_KEY    Long-lived API key; bypasses Firebase session entirely
@@ -110,7 +111,20 @@ program
       return
     }
 
-    const sessionTimeoutMs = opts.timeout ? parseDuration(opts.timeout) ?? undefined : undefined
+    // --timeout defaults to '72h'; fall back to 72h (with a warning) on bad input
+    // so sessionTimeoutMs is always a concrete number.
+    const DEFAULT_SESSION_MS = 72 * 3_600_000
+    let sessionTimeoutMs = DEFAULT_SESSION_MS
+    if (opts.timeout) {
+      const parsed = parseDuration(opts.timeout)
+      if (parsed === null) {
+        console.error(
+          `Invalid timeout format "${opts.timeout}". Use a number followed by s, m, h, or d (e.g. 24h, 7d). Defaulting to 72h.`,
+        )
+      } else {
+        sessionTimeoutMs = parsed
+      }
+    }
 
     try {
       const result = await performGoogleOAuth()
@@ -280,7 +294,9 @@ configCmd
     } else if (key === 'timeout') {
       const ms = parseDuration(value)
       if (ms === null) {
-        console.error(`Invalid timeout format "${value}". Use a number followed by s, m, h, or d (e.g. 30s, 5m, 2h).`)
+        console.error(
+          `Invalid timeout format "${value}". Use a number followed by s, m, h, or d (e.g. 30s, 5m, 2h).`,
+        )
         process.exit(1)
       }
       saveConfig({ timeoutMs: ms })
@@ -549,7 +565,9 @@ program
   .description('Restart the Sai agent or cloud machine (target: agent | machine)')
   .action(async (target: string) => {
     if (target !== 'agent' && target !== 'machine') {
-      console.error(`error: unknown restart target '${target}'\nUse: sapi restart agent  or  sapi restart machine`)
+      console.error(
+        `error: unknown restart target '${target}'\nUse: sapi restart agent  or  sapi restart machine`,
+      )
       process.exit(1)
     }
 
@@ -598,9 +616,22 @@ program
     '--timeout <duration>',
     'Inactivity timeout: exit if no new output is received for this long (e.g. 2m, 10m, 1h). Default: 5m.',
   )
-  .argument('[message]', 'Message to send to Sai')
-  .action(async (message: string | undefined) => {
-    const opts = program.opts<{ file: string[]; verbose: string | undefined; timeout: string | undefined }>()
+  .option(
+    '-m, --message <text...>',
+    'Message to send to Sai. The explicit, unambiguous form — use it to send a single word that matches a command name (e.g. -m "login"), or a multi-word message without quoting.',
+  )
+  .option('-i, --input <text...>', 'Alias for --message.')
+  // Stray positional tokens are captured only so we can show a helpful "use -m"
+  // error — sapi no longer accepts a message as a positional argument.
+  .argument('[ignored...]', 'Deprecated: pass your message with --message/-m instead')
+  .action(async (positionalArgs: string[]) => {
+    const opts = program.opts<{
+      file: string[]
+      verbose: string | undefined
+      timeout: string | undefined
+      message: string[] | undefined
+      input: string[] | undefined
+    }>()
     const cfgVerbose = loadConfig().verbose ?? 1
     const verbosity = (
       opts.verbose !== undefined
@@ -610,30 +641,42 @@ program
 
     const cfgTimeoutMs = loadConfig().timeoutMs ?? RESPONSE_TIMEOUT_MS
     if (opts.timeout && parseDuration(opts.timeout) === null) {
-      console.error(`Invalid timeout format "${opts.timeout}". Use a number followed by s, m, h, or d (e.g. 30s, 5m, 2h).`)
+      console.error(
+        `Invalid timeout format "${opts.timeout}". Use a number followed by s, m, h, or d (e.g. 30s, 5m, 2h).`,
+      )
       process.exit(1)
     }
     const timeoutMs = opts.timeout ? (parseDuration(opts.timeout) ?? cfgTimeoutMs) : cfgTimeoutMs
 
-    if (!message) {
+    // Messages are sent ONLY via the -m/--message flag (or its -i/--input alias).
+    // The flag accepts multiple words without quoting and lets you send a word
+    // that collides with a command name (e.g. `sapi -m login` sends "login"
+    // rather than running the login command).
+    const messageText =
+      opts.message && opts.message.length > 0
+        ? opts.message.join(' ')
+        : opts.input && opts.input.length > 0
+          ? opts.input.join(' ')
+          : undefined
+
+    if (!messageText) {
+      // A bare positional message (quoted or not) is no longer supported — the
+      // shell strips quotes and splits words before sapi runs, so it can't be
+      // distinguished from a command. Point the user at -m.
+      if (positionalArgs && positionalArgs.length > 0) {
+        const attempted = positionalArgs.join(' ')
+        const known = program.commands.map((c) => c.name()).join(', ')
+        console.error(
+          `error: sapi doesn't take a message as a positional argument — use the --message/-m flag:\n` +
+            `  sapi -m ${attempted}\n\n` +
+            `(Quoting, e.g. \`sapi "${attempted}"\`, isn't supported either: the shell strips the quotes before sapi runs.)\n` +
+            `Available commands: ${known}. Run \`sapi --help\` for details.`,
+        )
+        process.exit(1)
+      }
+      // Nothing at all → show help.
       program.help()
       return
-    }
-
-    // Multiple bare-word tokens (e.g. `sapi open Chrome`) are treated as an
-    // unknown command invocation — the user likely forgot to quote their message.
-    // A single token (with or without spaces after shell expansion) is always
-    // forwarded as a message, so `sapi hi` works the same as `sapi "hi"`.
-    const positional = collectPositionalArgs(process.argv.slice(2))
-    if (positional.length > 1) {
-      const attempted = positional.join(' ')
-      const known = program.commands.map((c) => c.name()).join(', ')
-      console.error(
-        `error: unknown command '${attempted}'\n` +
-          `Available commands: ${known}\n` +
-          `Run \`sapi --help\` for details. To send a multi-word message, quote it: sapi "open Chrome"`,
-      )
-      process.exit(1)
     }
 
     // 1. Auth check
@@ -705,7 +748,7 @@ program
     }
 
     // 4. Concierge classification — instant heuristic, no network call
-    const classification = classifyMessage(message)
+    const classification = classifyMessage(messageText)
     if (verbosity >= 2) {
       process.stderr.write(`[concierge] classified as: ${classification}\n`)
     }
@@ -714,7 +757,7 @@ program
       process.stderr.write('Checking context...\n')
       let answer: string | null = null
       try {
-        answer = await queryContext(authToken, session.machineId, message)
+        answer = await queryContext(authToken, session.machineId, messageText)
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err))
         process.exit(1)
@@ -728,15 +771,6 @@ program
       if (verbosity >= 2) {
         process.stderr.write('[concierge] reclassified as: task (forwarded by context handler)\n')
       }
-    }
-
-    // Single-word messages (no space) can't be distinguished from a mistyped command
-    // name at the shell level. Warn the user but still forward the message.
-    if (!message.includes(' ')) {
-      const known = program.commands.map((c) => c.name()).join(', ')
-      process.stderr.write(
-        `Note: '${message}' is not a recognized sapi command (available: ${known}) — treating as a message to Sai.\n`,
-      )
     }
 
     // 5. Task: stream response from Sai via SSE
@@ -763,7 +797,7 @@ program
       await streamMessage(
         authToken,
         session.machineId,
-        message,
+        messageText,
         timeoutMs,
         attachments.length > 0
           ? attachments.map((a) => ({
