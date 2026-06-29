@@ -265,14 +265,14 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
   // ─── Auth guard ─────────────────────────────────────────────────────────────
 
   it('not authenticated: exits 1 with "Not authenticated" on stderr', async () => {
-    const result = await spawnCli(['say hello'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'say hello'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('Not authenticated')
   })
 
   it('session expired: exits 1 with "Session expired" on stderr', async () => {
     writeCreds({ sessionTimeoutMs: -1_000 })
-    const result = await spawnCli(['say hello'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'say hello'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('Session expired')
   })
@@ -285,7 +285,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       body: { machines: [] },
     }))
 
-    const result = await spawnCli(['say hello'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'say hello'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('No machines found')
   })
@@ -305,7 +305,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       ),
     }))
 
-    const result = await spawnCli(['hello Sai'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'hello Sai'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('Using: My MacBook')
     expect(result.stdout).toContain('Done!')
@@ -324,7 +324,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       },
     }))
 
-    const result = await spawnCli(['do a task'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'do a task'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('sapi machine')
   })
@@ -378,7 +378,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       ),
     }))
 
-    const result = await spawnCli(['check my email'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'check my email'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('Found 3 emails.')
     expect(result.stdout).toContain('All done.')
@@ -401,7 +401,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       ),
     }))
 
-    const result = await spawnCli(['list my action items'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'list my action items'], { apiUrl: server.url, homeDir })
 
     expect(result.exitCode).toBe(0)
 
@@ -425,11 +425,12 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       sse: true,
       body: makeSseBody({
         type: 'error',
-        errorText: 'Timed out waiting for Sai to respond. The task may still be running — check the desktop app.',
+        errorText:
+          'Timed out waiting for Sai to respond. The task may still be running — check the desktop app.',
       }),
     }))
 
-    const result = await spawnCli(['do something slow'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'do something slow'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('Timed out waiting for Sai')
   })
@@ -485,7 +486,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       }
     })
 
-    const result = await spawnCli(['-f', file1, '-f', file2, 'process these files'], {
+    const result = await spawnCli(['-f', file1, '-f', file2, '-m', 'process these files'], {
       apiUrl: server.url,
       homeDir,
     })
@@ -507,20 +508,31 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
     expect(result.stdout).toContain('machine')
   })
 
-  it('multiple unquoted words: exits 1 as unknown command and lists valid commands', async () => {
+  it('positional message (bare multi-word): exits 1 and points to --message', async () => {
     writeCreds()
     writeSession('machine-1')
     // spawnCli(['open', 'Chrome']) passes two separate argv tokens — same as: sapi open Chrome
-    // The user probably meant `sapi "open Chrome"`; we tell them so.
     const result = await spawnCli(['open', 'Chrome'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
-    expect(result.stderr).toContain("unknown command 'open Chrome'")
-    // Must list valid commands so users know what to type
+    // No longer accepted positionally — must guide the user to -m.
+    expect(result.stderr).toContain('--message')
+    expect(result.stderr).toContain('sapi -m open Chrome')
+    // Still lists valid commands so users know what's available
     expect(result.stderr).toContain('login')
     expect(result.stderr).toContain('machine')
   })
 
-  it('single-word message: warns user on stderr, forwards original message to Sai unchanged', async () => {
+  it('positional message (single bare word): exits 1 and points to --message', async () => {
+    writeCreds()
+    writeSession('machine-1')
+    // `sapi hi` — a single word is not a command and is no longer a positional message.
+    const result = await spawnCli(['hi'], { apiUrl: server.url, homeDir })
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('sapi -m hi')
+    expect(result.stderr).toContain('--message')
+  })
+
+  it('--message: sends a multi-word message without quoting', async () => {
     writeCreds()
     writeSession('machine-1')
     let capturedBody = ''
@@ -530,22 +542,43 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
         sse: true,
         body: makeSseBody(
           { type: 'text-start', id: 't1' },
-          { type: 'text-delta', id: 't1', delta: 'Hi!' },
+          { type: 'text-delta', id: 't1', delta: 'Done!' },
           { type: 'text-end', id: 't1' },
           { type: 'finish', finishReason: 'stop' },
         ),
       }
     })
 
-    // Both `sapi hi` and `sapi "hi"` arrive as the same single argv token.
-    const result = await spawnCli(['hi'], { apiUrl: server.url, homeDir })
+    // -m is variadic: the separate tokens are joined into one message.
+    const result = await spawnCli(['-m', 'open', 'the', 'app'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain('Hi!')
-
-    // Warning shown to the user, not baked into the message sent to Sai.
-    expect(result.stderr).toContain("'hi' is not a recognized sapi command")
+    expect(result.stdout).toContain('Done!')
     const body = JSON.parse(capturedBody) as { message: string }
-    expect(body.message).toBe('hi')
+    expect(body.message).toBe('open the app')
+  })
+
+  it('--message: a single word that matches a command name is sent as a message', async () => {
+    writeCreds()
+    writeSession('machine-1')
+    let capturedBody = ''
+    server.on('POST', '/v1/agents/message', (req) => {
+      capturedBody = req.body
+      return {
+        sse: true,
+        body: makeSseBody(
+          { type: 'text-start', id: 't1' },
+          { type: 'text-delta', id: 't1', delta: 'ok' },
+          { type: 'text-end', id: 't1' },
+          { type: 'finish', finishReason: 'stop' },
+        ),
+      }
+    })
+
+    // `sapi -m login` must send "login" as a message, NOT run the login command.
+    const result = await spawnCli(['-m', 'login'], { apiUrl: server.url, homeDir })
+    expect(result.exitCode).toBe(0)
+    const body = JSON.parse(capturedBody) as { message: string }
+    expect(body.message).toBe('login')
   })
 
   // ─── Verbosity tiers ─────────────────────────────────────────────────────────
@@ -559,7 +592,12 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
         { type: 'reasoning-start', id: 'n1' },
         { type: 'reasoning-delta', id: 'n1', delta: "I'll open the app." },
         { type: 'reasoning-end', id: 'n1' },
-        { type: 'tool-input-start', toolCallId: 'tc1', toolName: 'execute', toolMetadata: { retrying: false } },
+        {
+          type: 'tool-input-start',
+          toolCallId: 'tc1',
+          toolName: 'execute',
+          toolMetadata: { retrying: false },
+        },
         { type: 'tool-input-available', toolCallId: 'tc1', toolName: 'execute', input: null },
         { type: 'data-progress', data: { text: 'Launching app...', tool: 'execute' } },
         { type: 'text-start', id: 't1' },
@@ -569,7 +607,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       ),
     }))
 
-    const result = await spawnCli(['open the app'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['-m', 'open the app'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(0)
     // Final response on stdout
     expect(result.stdout).toContain('Done.')
@@ -589,7 +627,12 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
         { type: 'reasoning-start', id: 'n1' },
         { type: 'reasoning-delta', id: 'n1', delta: "I'll open the app." },
         { type: 'reasoning-end', id: 'n1' },
-        { type: 'tool-input-start', toolCallId: 'tc1', toolName: 'execute', toolMetadata: { retrying: false } },
+        {
+          type: 'tool-input-start',
+          toolCallId: 'tc1',
+          toolName: 'execute',
+          toolMetadata: { retrying: false },
+        },
         { type: 'tool-input-available', toolCallId: 'tc1', toolName: 'execute', input: null },
         { type: 'data-progress', data: { text: 'Launching app...', tool: 'execute' } },
         { type: 'text-start', id: 't1' },
@@ -599,7 +642,10 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       ),
     }))
 
-    const result = await spawnCli(['--verbose=0', 'open the app'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['--verbose=0', '-m', 'open the app'], {
+      apiUrl: server.url,
+      homeDir,
+    })
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('Done.')
     expect(result.stderr).not.toContain('Launching app')
@@ -615,7 +661,12 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
         { type: 'reasoning-start', id: 'n1' },
         { type: 'reasoning-delta', id: 'n1', delta: "I'll open the app." },
         { type: 'reasoning-end', id: 'n1' },
-        { type: 'tool-input-start', toolCallId: 'tc1', toolName: 'execute', toolMetadata: { retrying: false } },
+        {
+          type: 'tool-input-start',
+          toolCallId: 'tc1',
+          toolName: 'execute',
+          toolMetadata: { retrying: false },
+        },
         { type: 'tool-input-available', toolCallId: 'tc1', toolName: 'execute', input: null },
         { type: 'data-progress', data: { text: 'Launching app...', tool: 'execute' } },
         { type: 'text-start', id: 't1' },
@@ -625,7 +676,10 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       ),
     }))
 
-    const result = await spawnCli(['--verbose=1', 'open the app'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['--verbose=1', '-m', 'open the app'], {
+      apiUrl: server.url,
+      homeDir,
+    })
     expect(result.exitCode).toBe(0)
     // Narration shows with [sai] tag
     expect(result.stderr).toContain("[sai] I'll open the app.")
@@ -645,7 +699,12 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
         { type: 'reasoning-start', id: 'n1' },
         { type: 'reasoning-delta', id: 'n1', delta: "I'll check your emails." },
         { type: 'reasoning-end', id: 'n1' },
-        { type: 'tool-input-start', toolCallId: 'tc1', toolName: 'execute', toolMetadata: { retrying: false } },
+        {
+          type: 'tool-input-start',
+          toolCallId: 'tc1',
+          toolName: 'execute',
+          toolMetadata: { retrying: false },
+        },
         { type: 'tool-input-available', toolCallId: 'tc1', toolName: 'execute', input: null },
         { type: 'data-progress', data: { text: 'Opening Gmail...', tool: 'execute' } },
         { type: 'data-progress', data: { text: 'Found 5 emails.', tool: 'execute' } },
@@ -656,7 +715,10 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       ),
     }))
 
-    const result = await spawnCli(['--verbose=2', 'check emails'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['--verbose=2', '-m', 'check emails'], {
+      apiUrl: server.url,
+      homeDir,
+    })
     expect(result.exitCode).toBe(0)
     expect(result.stderr).toContain("[sai] I'll check your emails.")
     // Progress lines tagged with tool name
@@ -673,9 +735,18 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
     server.on('POST', '/v1/agents/message', () => ({
       sse: true,
       body: makeSseBody(
-        { type: 'tool-input-start', toolCallId: 'tc1', toolName: 'execute', toolMetadata: { retrying: false } },
+        {
+          type: 'tool-input-start',
+          toolCallId: 'tc1',
+          toolName: 'execute',
+          toolMetadata: { retrying: false },
+        },
         { type: 'tool-input-available', toolCallId: 'tc1', toolName: 'execute', input: null },
-        { type: 'tool-output-error', toolCallId: 'tc1', errorText: 'AppleScript execution failed: not permitted' },
+        {
+          type: 'tool-output-error',
+          toolCallId: 'tc1',
+          errorText: 'AppleScript execution failed: not permitted',
+        },
         { type: 'text-start', id: 't1' },
         { type: 'text-delta', id: 't1', delta: "I couldn't complete that step." },
         { type: 'text-end', id: 't1' },
@@ -684,13 +755,16 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
     }))
 
     // Default — error always surfaces; no standalone header shown at any level
-    const withoutFlag = await spawnCli(['do a task'], { apiUrl: server.url, homeDir })
+    const withoutFlag = await spawnCli(['-m', 'do a task'], { apiUrl: server.url, homeDir })
     expect(withoutFlag.exitCode).toBe(0)
     expect(withoutFlag.stderr).toContain('[execute] ✗ AppleScript execution failed: not permitted')
     expect(withoutFlag.stderr).not.toMatch(/\[execute\]\s*\n/) // no bare header
 
     // Same at --verbose=2 — tool error still shown, still no bare header
-    const withVerbose = await spawnCli(['--verbose=2', 'do a task'], { apiUrl: server.url, homeDir })
+    const withVerbose = await spawnCli(['--verbose=2', '-m', 'do a task'], {
+      apiUrl: server.url,
+      homeDir,
+    })
     expect(withVerbose.exitCode).toBe(0)
     expect(withVerbose.stderr).toContain('[execute] ✗ AppleScript execution failed: not permitted')
     expect(withVerbose.stderr).not.toMatch(/\[execute\]\s*\n/)
@@ -702,9 +776,19 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
     server.on('POST', '/v1/agents/message', () => ({
       sse: true,
       body: makeSseBody(
-        { type: 'tool-input-start', toolCallId: 'tc1', toolName: 'execute', toolMetadata: { retrying: false } },
+        {
+          type: 'tool-input-start',
+          toolCallId: 'tc1',
+          toolName: 'execute',
+          toolMetadata: { retrying: false },
+        },
         { type: 'tool-input-available', toolCallId: 'tc1', toolName: 'execute', input: null },
-        { type: 'tool-input-start', toolCallId: 'tc2', toolName: 'execute', toolMetadata: { retrying: true } },
+        {
+          type: 'tool-input-start',
+          toolCallId: 'tc2',
+          toolName: 'execute',
+          toolMetadata: { retrying: true },
+        },
         { type: 'tool-input-available', toolCallId: 'tc2', toolName: 'execute', input: null },
         { type: 'text-start', id: 't1' },
         { type: 'text-delta', id: 't1', delta: 'Done.' },
@@ -713,7 +797,10 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       ),
     }))
 
-    const result = await spawnCli(['--verbose=3', 'do a task'], { apiUrl: server.url, homeDir })
+    const result = await spawnCli(['--verbose=3', '-m', 'do a task'], {
+      apiUrl: server.url,
+      homeDir,
+    })
     expect(result.exitCode).toBe(0)
     // No bare [execute] header at any level
     expect(result.stderr).not.toMatch(/\[execute\]\s*\n/)
