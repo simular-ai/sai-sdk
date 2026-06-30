@@ -1,5 +1,5 @@
 {
-  "name": "@simular/sapi-cli",
+  "name": "@simular-ai/sapi-cli",
   "version": "0.1.0",
   "description": "Sapi CLI — command-line interface for Simular.",
   "license": "MIT",

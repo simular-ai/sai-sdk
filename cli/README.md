@@ -1,4 +1,4 @@
-# @simular/sapi-cli
+# @simular-ai/sapi-cli
 
 Command-line interface for [Sai](https://sai.simular.ai), your Simular AI agent.
 
@@ -16,13 +16,13 @@ sapi -m summarise my unread emails and list any action items
 Run it on demand with `npx`:
 
 ```bash
-npx @simular/sapi-cli --help
+npx @simular-ai/sapi-cli --help
 ```
 
 Or install globally to get the `sapi` command:
 
 ```bash
-npm install -g @simular/sapi-cli
+npm install -g @simular-ai/sapi-cli
 sapi --version
 ```
 
