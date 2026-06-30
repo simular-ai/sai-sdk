@@ -1,16 +1,30 @@
 {
   "name": "@simular/sapi-cli",
   "version": "0.1.0",
-  "private": true,
+  "description": "Sapi CLI — command-line interface for Simular.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simular-ai/simular-pro-unified-ui.git",
+    "directory": "packages/sapi-cli"
+  },
   "type": "module",
   "bin": {
     "sapi": "./dist/cli.cjs"
+  },
+  "files": [
+    "dist/cli.cjs",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "commander": "^12.1.0"
