@@ -26,7 +26,7 @@ npm install -g @simular-ai/sapi-cli
 sapi --version
 ```
 
-Requires Node.js 18 or newer.
+Requires Node.js 22.12 or newer.
 
 ## Quick start
 

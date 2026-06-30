@@ -9,6 +9,9 @@
     "directory": "packages/sapi-cli"
   },
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "bin": {
     "sapi": "./dist/cli.cjs"
   },
@@ -28,7 +31,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "commander": "^12.1.0"
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
