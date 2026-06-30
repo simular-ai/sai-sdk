@@ -12,12 +12,15 @@ vi.mock('child_process', async (importOriginal) => {
 })
 
 /** Hits the local OAuth callback server using Node's http module (not globalThis.fetch,
- *  which may be mocked by the test for the exchange/firebase calls). */
-function hitCallbackServer(url: string): Promise<void> {
+ *  which may be mocked by the test for the exchange/firebase calls). Resolves with
+ *  the status code and HTML body shown in the browser tab. */
+function hitCallbackServer(url: string): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     httpGet(url, (res) => {
-      res.resume() // drain — we only care that the server received the request
-      res.on('end', resolve)
+      let body = ''
+      res.setEncoding('utf8')
+      res.on('data', (chunk) => (body += chunk))
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
     }).on('error', reject)
   })
 }
@@ -46,13 +49,14 @@ async function startOAuth() {
   const redirectUri = authUrl.searchParams.get('redirect_uri')!
   const state = authUrl.searchParams.get('state')!
 
-  // Simulate Google redirecting to our loopback server with code/error
+  // Simulate Google redirecting to our loopback server with code/error.
+  // Returns the status + HTML body the browser tab receives.
   async function triggerCallback(params: { code?: string; error?: string; state?: string }) {
     const cb = new URL(redirectUri)
     cb.searchParams.set('state', params.state ?? state)
     if (params.code) cb.searchParams.set('code', params.code)
     if (params.error) cb.searchParams.set('error', params.error)
-    await hitCallbackServer(cb.toString())
+    return hitCallbackServer(cb.toString())
   }
 
   return { oauthPromise, triggerCallback, redirectUri, state }
@@ -189,6 +193,67 @@ describe('performGoogleOAuth', () => {
     const assertion = expect(oauthPromise).rejects.toThrow('Firebase sign-in failed (400)')
     await triggerCallback({ code: 'valid-code' })
     await assertion
+  })
+
+  it('shows the success page in the browser only after the whole flow succeeds', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id_token: 'google-id-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            idToken: 'fb',
+            refreshToken: 'r',
+            expiresIn: '3600',
+            email: 'x@x.com',
+            localId: 'u1',
+          }),
+          { status: 200 },
+        ),
+      )
+
+    const { oauthPromise, triggerCallback } = await startOAuth()
+    const page = await triggerCallback({ code: 'good-code' })
+    await oauthPromise
+
+    expect(page.status).toBe(200)
+    expect(page.body).toContain('Sign-in complete')
+  })
+
+  it('shows the failure page (not success) when the code exchange fails downstream', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ error: 'invalid_grant', error_description: 'Code was already redeemed.' }),
+        { status: 400 },
+      ),
+    )
+
+    const { oauthPromise, triggerCallback } = await startOAuth()
+    oauthPromise.catch(() => {}) // prevent unhandled rejection
+    const page = await triggerCallback({ code: 'bad-code' })
+
+    expect(page.status).toBe(400)
+    expect(page.body).toContain('Sign-in failed')
+    expect(page.body).not.toContain('Sign-in complete')
+  })
+
+  it('shows the failure page (not success) when Firebase sign-in fails downstream', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id_token: 'google-id-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: 'INVALID_ID_TOKEN' } }), { status: 400 }),
+      )
+
+    const { oauthPromise, triggerCallback } = await startOAuth()
+    oauthPromise.catch(() => {}) // prevent unhandled rejection
+    const page = await triggerCallback({ code: 'valid-code' })
+
+    expect(page.status).toBe(400)
+    expect(page.body).toContain('Sign-in failed')
+    expect(page.body).not.toContain('Sign-in complete')
   })
 })
 

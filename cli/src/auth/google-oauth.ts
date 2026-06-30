@@ -1,4 +1,4 @@
-import { createServer } from 'http'
+import { createServer, type ServerResponse } from 'http'
 import { execFile } from 'child_process'
 import { randomBytes } from 'crypto'
 import { URL } from 'url'
@@ -36,6 +36,16 @@ export function browserOpenCommand(url: string, platform: NodeJS.Platform): [str
   return ['xdg-open', [url]]
 }
 
+/** Final page shown in the browser once the whole flow resolves. */
+type CallbackOutcome = { ok: true } | { ok: false; message?: string }
+
+function resultPage(outcome: CallbackOutcome): string {
+  const body = outcome.ok
+    ? '<h2>Sign-in complete</h2><p>You can close this tab and return to the terminal.</p>'
+    : `<h2>Sign-in failed</h2><p>${outcome.message ?? 'Something went wrong.'} Return to the terminal for details, then run <code>sai login</code> again.</p>`
+  return `<html><body style="font-family:sans-serif;padding:2rem">${body}</body></html>`
+}
+
 function openBrowser(url: string): void {
   const [cmd, cmdArgs] = browserOpenCommand(url, process.platform)
   execFile(cmd, cmdArgs, (err) => {
@@ -47,11 +57,20 @@ function openBrowser(url: string): void {
  * Starts an HTTP server on a random port (port 0) and returns the port and a
  * promise that resolves with the OAuth authorization code. Google redirects
  * directly to this loopback server (Desktop OAuth client — no relay needed).
+ *
+ * On the success path the browser response is held open (`finish`) until the
+ * caller has finished the *entire* flow — code exchange + Firebase sign-in —
+ * so the tab reflects the real outcome rather than declaring success the moment
+ * an authorization code arrives (which can still fail downstream).
  */
 function startCallbackServer(
   redirectPath: string,
   expectedState: string,
-): Promise<{ port: number; codePromise: Promise<string> }> {
+): Promise<{
+  port: number
+  codePromise: Promise<string>
+  finish: (outcome: CallbackOutcome) => void
+}> {
   return new Promise((resolveSetup, rejectSetup) => {
     let resolveCode: (code: string) => void
     let rejectCode: (err: Error) => void
@@ -59,6 +78,24 @@ function startCallbackServer(
       resolveCode = res
       rejectCode = rej
     })
+
+    // The pending browser response for the success path, held until the caller
+    // resolves the rest of the flow and calls finish().
+    let pendingRes: ServerResponse | null = null
+
+    function writePage(res: ServerResponse, status: number, outcome: CallbackOutcome): void {
+      res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(resultPage(outcome))
+    }
+
+    function finish(outcome: CallbackOutcome): void {
+      if (pendingRes) {
+        writePage(pendingRes, outcome.ok ? 200 : 400, outcome)
+        pendingRes = null
+      }
+      clearTimeout(timer)
+      server.close()
+    }
 
     const server = createServer((req, res) => {
       const url = new URL(req.url ?? '/', `http://127.0.0.1`)
@@ -74,36 +111,22 @@ function startCallbackServer(
 
       // Verify CSRF state — guards against cross-origin or replayed callbacks.
       if (state !== expectedState) {
-        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
-        res.end(
-          '<html><body style="font-family:sans-serif;padding:2rem">' +
-            '<h2>Sign-in failed</h2><p>Security check failed. Run <code>sai login</code> again.</p>' +
-            '</body></html>',
-        )
+        writePage(res, 400, { ok: false, message: 'Security check failed.' })
         clearTimeout(timer)
         server.close()
         rejectCode!(new Error('OAuth state mismatch. Run `sai login` again.'))
         return
       }
 
-      clearTimeout(timer)
-      server.close()
-
       if (code) {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-        res.end(
-          '<html><body style="font-family:sans-serif;padding:2rem">' +
-            '<h2>Sign-in complete</h2><p>You can close this tab and return to the terminal.</p>' +
-            '</body></html>',
-        )
+        // Don't declare success yet — hold the response until the caller has
+        // exchanged the code and signed in. The timer is cleared in finish().
+        pendingRes = res
         resolveCode!(code)
       } else {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-        res.end(
-          '<html><body style="font-family:sans-serif;padding:2rem">' +
-            '<h2>Sign-in cancelled</h2><p>You can close this tab and return to the terminal to try again.</p>' +
-            '</body></html>',
-        )
+        writePage(res, 400, { ok: false, message: 'Sign-in was cancelled.' })
+        clearTimeout(timer)
+        server.close()
         rejectCode!(new Error(`OAuth error: ${error ?? 'unknown'}`))
       }
     })
@@ -129,7 +152,7 @@ function startCallbackServer(
         rejectSetup(new Error('Could not determine callback port'))
         return
       }
-      resolveSetup({ port: addr.port, codePromise })
+      resolveSetup({ port: addr.port, codePromise, finish })
     })
 
     server.on('error', (err) => {
@@ -142,7 +165,7 @@ function startCallbackServer(
 export async function performGoogleOAuth(): Promise<OAuthResult> {
   const redirectPath = '/callback'
   const state = randomBytes(16).toString('base64url')
-  const { port, codePromise } = await startCallbackServer(redirectPath, state)
+  const { port, codePromise, finish } = await startCallbackServer(redirectPath, state)
 
   // Desktop OAuth client: redirect_uri is the local loopback server, not a hosted page.
   // Must match a registered redirect_uri in the Google Desktop OAuth client.
@@ -165,67 +188,77 @@ export async function performGoogleOAuth(): Promise<OAuthResult> {
   // Wait for Google to redirect to our local server
   const code = await codePromise
 
-  // Exchange code directly with Google's token endpoint — Desktop clients use
-  // PKCE only, no client_secret required.
-  const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      code_verifier: codeVerifier,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-    }).toString(),
-  })
+  // The browser tab is still waiting on the held callback response. Only resolve
+  // it once the whole flow finishes, so a failure here shows "Sign-in failed"
+  // in the tab rather than a premature "Sign-in complete".
+  try {
+    // Exchange code directly with Google's token endpoint — Desktop clients use
+    // PKCE only, no client_secret required.
+    const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        code_verifier: codeVerifier,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }).toString(),
+    })
 
-  if (!tokenRes.ok) {
-    const body = (await tokenRes.json().catch(() => ({}))) as {
-      error?: string
-      error_description?: string
+    if (!tokenRes.ok) {
+      const body = (await tokenRes.json().catch(() => ({}))) as {
+        error?: string
+        error_description?: string
+      }
+      throw new Error(
+        `Code exchange failed (${tokenRes.status}): ${body.error_description ?? body.error ?? tokenRes.statusText}`,
+      )
     }
-    throw new Error(
-      `Code exchange failed (${tokenRes.status}): ${body.error_description ?? body.error ?? tokenRes.statusText}`,
-    )
-  }
 
-  const { id_token: googleIdToken } = (await tokenRes.json()) as { id_token: string }
+    const { id_token: googleIdToken } = (await tokenRes.json()) as { id_token: string }
 
-  // Exchange Google id_token for Firebase ID token via Identity Toolkit
-  const firebaseRes = await fetch(`${FIREBASE_SIGNIN_WITH_IDP_URL}?key=${FIREBASE_WEB_API_KEY}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      requestUri: redirectUri,
-      postBody: `id_token=${googleIdToken}&providerId=google.com`,
-      returnSecureToken: true,
-      returnIdpCredential: true,
-    }),
-  })
+    // Exchange Google id_token for Firebase ID token via Identity Toolkit
+    const firebaseRes = await fetch(`${FIREBASE_SIGNIN_WITH_IDP_URL}?key=${FIREBASE_WEB_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestUri: redirectUri,
+        postBody: `id_token=${googleIdToken}&providerId=google.com`,
+        returnSecureToken: true,
+        returnIdpCredential: true,
+      }),
+    })
 
-  if (!firebaseRes.ok) {
-    const body = (await firebaseRes.json().catch(() => ({}))) as {
-      error?: { message?: string }
+    if (!firebaseRes.ok) {
+      const body = (await firebaseRes.json().catch(() => ({}))) as {
+        error?: { message?: string }
+      }
+      throw new Error(
+        `Firebase sign-in failed (${firebaseRes.status}): ${body.error?.message ?? firebaseRes.statusText}`,
+      )
     }
-    throw new Error(
-      `Firebase sign-in failed (${firebaseRes.status}): ${body.error?.message ?? firebaseRes.statusText}`,
-    )
-  }
 
-  const firebaseData = (await firebaseRes.json()) as {
-    idToken: string
-    refreshToken: string
-    expiresIn: string
-    email: string
-    localId: string
-  }
+    const firebaseData = (await firebaseRes.json()) as {
+      idToken: string
+      refreshToken: string
+      expiresIn: string
+      email: string
+      localId: string
+    }
 
-  return {
-    firebaseIdToken: firebaseData.idToken,
-    refreshToken: firebaseData.refreshToken,
-    idTokenExpiresIn: parseInt(firebaseData.expiresIn, 10),
-    email: firebaseData.email,
-    userId: firebaseData.localId,
+    finish({ ok: true })
+
+    return {
+      firebaseIdToken: firebaseData.idToken,
+      refreshToken: firebaseData.refreshToken,
+      idTokenExpiresIn: parseInt(firebaseData.expiresIn, 10),
+      email: firebaseData.email,
+      userId: firebaseData.localId,
+    }
+  } catch (err) {
+    finish({ ok: false, message: err instanceof Error ? err.message : undefined })
+    throw err
   }
 }
