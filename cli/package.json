@@ -26,6 +26,7 @@
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "node build.mjs",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prepublishOnly": "npm run build"
