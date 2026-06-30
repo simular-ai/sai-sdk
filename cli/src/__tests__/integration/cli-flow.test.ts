@@ -23,7 +23,6 @@ import { fileURLToPath } from 'url'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const TSX_BIN = resolve(__dirname, '../../../../../node_modules/.bin/tsx')
 const CLI_PATH = resolve(__dirname, '../../cli.ts')
 
 // Captured by the vi.mock factory via closure so each test's SAPI_DIR resolves
@@ -51,10 +50,15 @@ interface SpawnOptions {
 
 function spawnCli(args: string[], opts: SpawnOptions): Promise<SpawnResult> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(TSX_BIN, [CLI_PATH, ...args], {
+    // Run the TS CLI via `node --import tsx` instead of the node_modules/.bin/tsx
+    // shim: the extensionless shim is not directly spawnable on Windows.
+    const proc = spawn(process.execPath, ['--import', 'tsx', CLI_PATH, ...args], {
       env: {
         ...process.env,
+        // os.homedir() reads HOME on POSIX and USERPROFILE on Windows — set both
+        // so the child's ~/.sapi resolves to the test's temp dir on every platform.
         HOME: opts.homeDir,
+        USERPROFILE: opts.homeDir,
         SAPI_API_URL: opts.apiUrl,
       },
     })

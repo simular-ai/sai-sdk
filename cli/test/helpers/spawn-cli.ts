@@ -3,7 +3,6 @@ import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const TSX_BIN = resolve(__dirname, '../../../../node_modules/.bin/tsx')
 const CLI_PATH = resolve(__dirname, '../../src/cli.ts')
 
 export interface SpawnResult {
@@ -29,10 +28,15 @@ export interface SpawnOptions {
  */
 export function spawnCli(args: string[], opts: SpawnOptions): Promise<SpawnResult> {
   return new Promise((resolve: (r: SpawnResult) => void, reject) => {
-    const proc = spawn(TSX_BIN, [CLI_PATH, ...args], {
+    // Run the TS CLI via `node --import tsx` instead of the node_modules/.bin/tsx
+    // shim: the extensionless shim is not directly spawnable on Windows.
+    const proc = spawn(process.execPath, ['--import', 'tsx', CLI_PATH, ...args], {
       env: {
         ...process.env,
+        // os.homedir() reads HOME on POSIX and USERPROFILE on Windows — set both
+        // so the child's ~/.sapi resolves to the test's temp dir on every platform.
         HOME: opts.homeDir,
+        USERPROFILE: opts.homeDir,
         SAPI_API_URL: opts.apiUrl,
       },
     })

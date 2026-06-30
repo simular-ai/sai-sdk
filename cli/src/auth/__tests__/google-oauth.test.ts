@@ -28,7 +28,9 @@ async function startOAuth() {
   const execFileMock = vi.mocked(cp.execFile)
   let capturedAuthUrl = ''
   execFileMock.mockImplementation(((_cmd: string, args: readonly string[]) => {
-    capturedAuthUrl = args[0]
+    // openBrowser passes the URL as the final arg on every platform
+    // (macOS: ['<url>'], Linux: ['<url>'], Windows: ['/c','start','','<url>']).
+    capturedAuthUrl = args[args.length - 1]
   }) as typeof cp.execFile)
 
   const { performGoogleOAuth } = await import('../google-oauth.js')

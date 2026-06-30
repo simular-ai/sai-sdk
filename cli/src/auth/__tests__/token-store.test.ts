@@ -62,7 +62,9 @@ describe('token-store', () => {
     expect(stored.refreshToken).toBeUndefined()
   })
 
-  it('saveCredentials sets file permissions to 0o600', () => {
+  // Windows has no POSIX permission bits — chmod(0o600) only toggles the
+  // read-only flag and the mode reads back as 0o666, so this is POSIX-only.
+  it.skipIf(process.platform === 'win32')('saveCredentials sets file permissions to 0o600', () => {
     mod.saveCredentials(BASE_PARAMS)
     const credPath = join(HOME_DIR, '.sapi', 'credentials.json')
     const mode = statSync(credPath).mode & 0o777
