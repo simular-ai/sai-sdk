@@ -1,4 +1,5 @@
 import { CLOUD_API_URL } from '../config.js'
+import { apiFetch } from '../http.js'
 
 interface ContextMessage {
   role: string
@@ -26,7 +27,7 @@ export async function queryContext(
   question: string,
 ): Promise<string | null> {
   // 1. Fetch recent conversation history
-  const contextRes = await fetch(
+  const contextRes = await apiFetch(
     `${CLOUD_API_URL}/v1/agents/context?machineId=${encodeURIComponent(machineId)}&limit=30`,
     { headers: { Authorization: `Bearer ${authToken}` } },
   )
@@ -65,7 +66,7 @@ CONVERSATION HISTORY:
 ${historyText}`
 
   // 3. Ask Claude Haiku via the cloud-api OpenRouter proxy (OpenAI-compatible format)
-  const llmRes = await fetch(`${CLOUD_API_URL}/v1/openrouter/chat/completions`, {
+  const llmRes = await apiFetch(`${CLOUD_API_URL}/v1/openrouter/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'fs'
 import { basename } from 'path'
 import { CLOUD_API_URL } from '../config.js'
+import { apiFetch } from '../http.js'
 
 export interface UploadedFile {
   path: string
@@ -44,7 +45,7 @@ export async function uploadFile(authToken: string, filePath: string): Promise<U
     )
   }
 
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/upload`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/upload`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/octet-stream',

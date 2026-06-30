@@ -32,6 +32,7 @@ import { classifyMessage } from './concierge/index.js'
 import { queryContext } from './context/query.js'
 import { uploadFile } from './upload/simulang.js'
 import { CLOUD_API_URL, RESPONSE_TIMEOUT_MS } from './config.js'
+import { apiFetch } from './http.js'
 import { parseDuration, formatDuration } from './cli-utils.js'
 
 const program = new Command()
@@ -350,7 +351,7 @@ keyCmd
     }
 
     try {
-      const res = await fetch(`${CLOUD_API_URL}/v1/account/keys`, {
+      const res = await apiFetch(`${CLOUD_API_URL}/v1/account/keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ name: opts.name }),
@@ -383,7 +384,7 @@ keyCmd
     }
 
     try {
-      const res = await fetch(`${CLOUD_API_URL}/v1/account/keys/${encodeURIComponent(keyId)}`, {
+      const res = await apiFetch(`${CLOUD_API_URL}/v1/account/keys/${encodeURIComponent(keyId)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` },
       })
@@ -425,7 +426,7 @@ keyCmd
     }
 
     try {
-      const res = await fetch(`${CLOUD_API_URL}/v1/account/keys`, {
+      const res = await apiFetch(`${CLOUD_API_URL}/v1/account/keys`, {
         headers: { Authorization: `Bearer ${authToken}` },
       })
       if (!res.ok) {

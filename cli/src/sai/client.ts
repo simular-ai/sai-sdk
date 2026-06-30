@@ -1,4 +1,5 @@
 import { CLOUD_API_URL } from '../config.js'
+import { apiFetch } from '../http.js'
 
 export interface SessionInfo {
   machineId: string
@@ -23,7 +24,7 @@ export interface ResponseMessage {
 export async function verifyAuth(
   authToken: string,
 ): Promise<{ userId: string; authType: 'firebase' | 'apiKey' | undefined }> {
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/auth`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/auth`, {
     headers: { Authorization: `Bearer ${authToken}` },
     signal: AbortSignal.timeout(10_000),
   })
@@ -43,7 +44,7 @@ export async function abortCurrentTask(
   authToken: string,
   machineId: string,
 ): Promise<{ ok: boolean; aborted: boolean; reason?: string }> {
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/abort`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/abort`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
     body: JSON.stringify({ machineId }),
@@ -57,7 +58,7 @@ export async function abortCurrentTask(
 }
 
 export async function resolveSession(authToken: string): Promise<SessionInfo> {
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/session`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/session`, {
     headers: { Authorization: `Bearer ${authToken}` },
   })
 
@@ -76,7 +77,7 @@ export async function resolveSession(authToken: string): Promise<SessionInfo> {
 }
 
 export async function listMachines(authToken: string): Promise<MachineInfo[]> {
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/machines`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/machines`, {
     headers: { Authorization: `Bearer ${authToken}` },
   })
 
@@ -150,7 +151,7 @@ export async function listSessions(
   authToken: string,
   machineId: string,
 ): Promise<SessionSummary[]> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${CLOUD_API_URL}/v1/agents/sessions?machineId=${encodeURIComponent(machineId)}`,
     { headers: { Authorization: `Bearer ${authToken}` } },
   )
@@ -170,7 +171,7 @@ export async function resumeSession(
   machineId: string,
   sessionId: string,
 ): Promise<void> {
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/session`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/session`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
     body: JSON.stringify({ machineId, sessionId }),
@@ -189,7 +190,7 @@ export async function restartTarget(
   machineId: string,
   target: 'agent' | 'machine',
 ): Promise<void> {
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/restart`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/restart`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
     body: JSON.stringify({ machineId, target }),
@@ -203,7 +204,7 @@ export async function restartTarget(
 }
 
 export async function startNewSession(authToken: string, machineId: string): Promise<string> {
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/new-session`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/new-session`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -227,7 +228,7 @@ export async function sendApproval(
   approvalId: string,
   response: 'yes' | 'no' | 'always',
 ): Promise<void> {
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/approve`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/approve`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -282,7 +283,7 @@ export async function streamMessage(
     return `Timed out after ${label} with no response from Sai. The task may still be running — check the desktop app. Use --timeout to extend (e.g. --timeout 10m).`
   }
 
-  const res = await fetch(`${CLOUD_API_URL}/v1/agents/message`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/message`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
