@@ -66,7 +66,7 @@ Examples:
 
 Environment:
   SAPI_API_KEY    Long-lived API key; bypasses Firebase session entirely
-  SAPI_API_URL    Override cloud-api base URL (default: staging endpoint)
+  SAPI_API_URL    Override cloud-api base URL (default: https://api.sai.simular.ai)
 
 Files:
   ~/.sapi/credentials.json   Firebase ID token, expiry, and email

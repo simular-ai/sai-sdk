@@ -14,7 +14,8 @@
   },
   "files": [
     "dist/cli.cjs",
-    "LICENSE"
+    "LICENSE",
+    "README.md"
   ],
   "publishConfig": {
     "access": "public"
