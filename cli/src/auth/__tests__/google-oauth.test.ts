@@ -31,7 +31,9 @@ async function startOAuth() {
   execFileMock.mockImplementation(((_cmd: string, args: readonly string[]) => {
     // openBrowser passes the URL as the final arg on every platform
     // (macOS: ['<url>'], Linux: ['<url>'], Windows: ['/c','start','','<url>']).
-    capturedAuthUrl = args[args.length - 1]
+    // On Windows the URL is cmd-escaped (& -> ^&); cmd un-escapes it before the
+    // browser sees it, so undo that here to recover the real URL under test.
+    capturedAuthUrl = String(args[args.length - 1]).replace(/\^&/g, '&')
   }) as typeof cp.execFile)
 
   const { performGoogleOAuth } = await import('../google-oauth.js')
