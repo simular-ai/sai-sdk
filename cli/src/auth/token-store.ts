@@ -96,6 +96,17 @@ function deleteRefreshToken(_userId: string): void {
       /* ignore */
     }
   }
+  // Do NOT delete the machine key here: `.mk` also decrypts the API key (`.ak`),
+  // which deliberately survives logout. Deleting it would leave the API key
+  // permanently undecryptable. `.mk` is cleaned up by deleteMachineKeyIfUnused()
+  // once nothing depends on it anymore.
+}
+
+// The machine key (`.mk`) is the shared AES key for every encrypted-at-rest
+// value (`.rt` refresh token, `.ak` API key). Only remove it once neither
+// remains, so clearing one credential never orphans the other.
+function deleteMachineKeyIfUnused(): void {
+  if (existsSync(REFRESH_TOKEN_PATH) || existsSync(API_KEY_PATH)) return
   if (existsSync(MACHINE_KEY_PATH)) {
     try {
       unlinkSync(MACHINE_KEY_PATH)
@@ -156,6 +167,9 @@ export function clearCredentials(): void {
   deleteRefreshToken('')
   if (existsSync(CREDENTIALS_PATH)) unlinkSync(CREDENTIALS_PATH)
   if (existsSync(SESSION_PATH)) unlinkSync(SESSION_PATH)
+  // Retains `.mk` when an API key is still present so it stays decryptable;
+  // removes it only if no API key remains either.
+  deleteMachineKeyIfUnused()
 }
 
 // ─── API key storage ───────────────────────────────────────────────────────────
@@ -196,6 +210,8 @@ export function clearApiKey(): void {
       }
     }
   }
+  // Once the API key is gone too, the machine key has nothing left to protect.
+  deleteMachineKeyIfUnused()
 }
 
 // ─── Config storage ────────────────────────────────────────────────────────────

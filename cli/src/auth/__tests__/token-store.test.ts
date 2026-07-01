@@ -102,13 +102,35 @@ describe('token-store', () => {
     expect(mod.loadSession()).toBeNull()
   })
 
-  it('clearCredentials removes .mk and .rt even when credentials.json is missing', () => {
+  it('clearCredentials removes .rt (and .mk) even when credentials.json is missing', () => {
     // Simulate partial login state: secure token files exist but no credentials.json
     mod.saveCredentials(BASE_PARAMS) // creates .mk + .rt
     unlinkSync(join(HOME_DIR, '.sapi', 'credentials.json')) // remove credentials.json
-    mod.clearCredentials() // must still clean up .mk and .rt
-    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(false)
+    mod.clearCredentials() // must still clean up .rt, and .mk since no API key remains
     expect(existsSync(join(HOME_DIR, '.sapi', '.rt'))).toBe(false)
+    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(false)
+  })
+
+  it('clearCredentials retains .mk while an API key exists so it stays decryptable', () => {
+    // Regression for the logout bug: logout used to delete .mk (shared with the
+    // API key), leaving the surviving .ak permanently undecryptable.
+    mod.saveCredentials(BASE_PARAMS)
+    mod.saveApiKey('sapi_survives_logout')
+    mod.clearCredentials()
+    // .rt is gone, but .mk survives because the API key still depends on it
+    expect(existsSync(join(HOME_DIR, '.sapi', '.rt'))).toBe(false)
+    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(true)
+    // ...and the API key still decrypts after logout
+    expect(mod.loadApiKey()).toBe('sapi_survives_logout')
+  })
+
+  it('.mk is removed only once both the refresh token and API key are cleared', () => {
+    mod.saveCredentials(BASE_PARAMS)
+    mod.saveApiKey('sapi_temp')
+    mod.clearCredentials() // .mk retained (API key still present)
+    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(true)
+    mod.clearApiKey() // now nothing depends on .mk
+    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(false)
   })
 
   // ─── saveApiKey / loadApiKey / clearApiKey ───────────────────────────────────
