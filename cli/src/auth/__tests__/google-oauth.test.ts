@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { get as httpGet } from 'http'
 import * as cp from 'child_process'
+import { browserOpenCommand } from '../google-oauth.js'
 
 // Mock child_process so openBrowser() doesn't actually launch a browser.
 // The mock captures the auth URL so tests can extract the redirect_uri and
@@ -186,5 +187,31 @@ describe('performGoogleOAuth', () => {
     const assertion = expect(oauthPromise).rejects.toThrow('Firebase sign-in failed (400)')
     await triggerCallback({ code: 'valid-code' })
     await assertion
+  })
+})
+
+describe('browserOpenCommand', () => {
+  // A realistic OAuth URL: multiple `&`-separated params, response_type second.
+  const url =
+    'https://accounts.google.com/o/oauth2/v2/auth?client_id=abc&response_type=code&scope=openid%20email&state=xyz'
+
+  it('escapes & as ^& on Windows so cmd does not truncate the URL at the first &', () => {
+    const [cmd, args] = browserOpenCommand(url, 'win32')
+    expect(cmd).toBe('cmd')
+    // ['/c', 'start', '<title>', '<url>']
+    expect(args.slice(0, 3)).toEqual(['/c', 'start', ''])
+    const passedUrl = args[3]
+    // Every & must be part of a ^& sequence — i.e. none left unescaped for cmd.
+    expect(passedUrl.match(/&/g)).toHaveLength(3)
+    expect(passedUrl.match(/\^&/g)).toHaveLength(3)
+    // Params after the first & (which cmd would otherwise drop) survive.
+    expect(passedUrl).toContain('response_type=code')
+    expect(passedUrl).toContain('scope=openid%20email')
+    expect(passedUrl).toContain('state=xyz')
+  })
+
+  it('passes the URL unmodified on macOS and Linux', () => {
+    expect(browserOpenCommand(url, 'darwin')).toEqual(['open', [url]])
+    expect(browserOpenCommand(url, 'linux')).toEqual(['xdg-open', [url]])
   })
 })

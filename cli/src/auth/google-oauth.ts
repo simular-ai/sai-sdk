@@ -19,14 +19,26 @@ export interface OAuthResult {
   userId: string
 }
 
+/**
+ * Builds the [command, args] used to open a URL in the default browser.
+ * Exported for testing.
+ *
+ * On Windows the browser is launched via `cmd /c start`, and cmd treats `&`
+ * as a command separator — an un-escaped OAuth URL gets truncated at the first
+ * `&` (dropping response_type, scope, …), so Google rejects it with
+ * "Required parameter is missing: response_type". Escape `&` as `^&` so cmd
+ * passes the whole URL through. The empty '' is the window title that `start`
+ * expects as its first (quoted) argument.
+ */
+export function browserOpenCommand(url: string, platform: NodeJS.Platform): [string, string[]] {
+  if (platform === 'darwin') return ['open', [url]]
+  if (platform === 'win32') return ['cmd', ['/c', 'start', '', url.replace(/&/g, '^&')]]
+  return ['xdg-open', [url]]
+}
+
 function openBrowser(url: string): void {
-  const args: [string, string[]] =
-    process.platform === 'darwin'
-      ? ['open', [url]]
-      : process.platform === 'win32'
-        ? ['cmd', ['/c', 'start', '', url]]
-        : ['xdg-open', [url]]
-  execFile(args[0], args[1], (err) => {
+  const [cmd, cmdArgs] = browserOpenCommand(url, process.platform)
+  execFile(cmd, cmdArgs, (err) => {
     if (err) console.error('Could not open browser automatically:', err.message)
   })
 }
