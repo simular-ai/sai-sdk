@@ -8,14 +8,16 @@ import {
   REFRESH_EXTENSION_MS,
 } from '../config.js'
 
-const SAPI_DIR = join(homedir(), '.sapi')
-const CREDENTIALS_PATH = join(SAPI_DIR, 'credentials.json')
-const SESSION_PATH = join(SAPI_DIR, 'session.json')
-const CONFIG_PATH = join(SAPI_DIR, 'config.json')
-const MACHINE_KEY_PATH = join(SAPI_DIR, '.mk')
-const REFRESH_TOKEN_PATH = join(SAPI_DIR, '.rt')
-const API_KEY_PATH = join(SAPI_DIR, '.ak')
-const API_KEY_ID_PATH = join(SAPI_DIR, '.akid')
+// CLI state lives under the shared ~/.simular dir (the desktop app already uses
+// ~/.simular and ~/.simulang) rather than a separate top-level ~/.sapi folder.
+const CLI_DIR = join(homedir(), '.simular', 'cli')
+const CREDENTIALS_PATH = join(CLI_DIR, 'credentials.json')
+const SESSION_PATH = join(CLI_DIR, 'session.json')
+const CONFIG_PATH = join(CLI_DIR, 'config.json')
+const MACHINE_KEY_PATH = join(CLI_DIR, '.mk')
+const REFRESH_TOKEN_PATH = join(CLI_DIR, '.rt')
+const API_KEY_PATH = join(CLI_DIR, '.ak')
+const API_KEY_ID_PATH = join(CLI_DIR, '.akid')
 export interface Credentials {
   idToken: string
   refreshToken: string
@@ -32,17 +34,17 @@ export interface SessionInfo {
   machineId: string
 }
 
-function ensureSapiDir(): void {
-  if (!existsSync(SAPI_DIR)) {
-    mkdirSync(SAPI_DIR, { recursive: true, mode: 0o700 })
+function ensureCliDir(): void {
+  if (!existsSync(CLI_DIR)) {
+    mkdirSync(CLI_DIR, { recursive: true, mode: 0o700 })
   }
 }
 
 // ─── Refresh token storage ─────────────────────────────────────────────────
 //
 // The refresh token is never written to credentials.json. It is AES-256-GCM
-// encrypted with a per-install machine key stored at ~/.sapi/.mk (0o600).
-// The ciphertext lives at ~/.sapi/.rt (0o600). Both files are separate from
+// encrypted with a per-install machine key stored at ~/.simular/cli/.mk (0o600).
+// The ciphertext lives at ~/.simular/cli/.rt (0o600). Both files are separate from
 // credentials.json so the token is never in the clear on disk.
 
 function getMachineKey(): Buffer {
@@ -77,7 +79,7 @@ function decryptToken(stored: string, key: Buffer): string | null {
 }
 
 function storeRefreshToken(_userId: string, token: string): void {
-  ensureSapiDir()
+  ensureCliDir()
   const key = getMachineKey()
   writeFileSync(REFRESH_TOKEN_PATH, encryptToken(token, key), { encoding: 'utf-8', mode: 0o600 })
 }
@@ -126,7 +128,7 @@ export function saveCredentials(params: {
   userId: string
   sessionTimeoutMs?: number
 }): Credentials {
-  ensureSapiDir()
+  ensureCliDir()
   const sessionTimeoutMs = params.sessionTimeoutMs ?? DEFAULT_SESSION_TIMEOUT_MS
   const creds: Credentials = {
     idToken: params.firebaseIdToken,
@@ -179,7 +181,7 @@ export function clearCredentials(): void {
 // entirely — useful for CI and devices where writing to disk is undesirable.
 
 export function saveApiKey(apiKey: string, keyId?: string): void {
-  ensureSapiDir()
+  ensureCliDir()
   const key = getMachineKey()
   writeFileSync(API_KEY_PATH, encryptToken(apiKey, key), { encoding: 'utf-8', mode: 0o600 })
   if (keyId) {
@@ -232,7 +234,7 @@ export function loadConfig(): SapiConfig {
 }
 
 export function saveConfig(updates: Partial<SapiConfig>): SapiConfig {
-  ensureSapiDir()
+  ensureCliDir()
   const current = loadConfig()
   const merged = { ...current, ...updates }
   writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), { encoding: 'utf-8', mode: 0o600 })
@@ -250,7 +252,7 @@ export function resetConfig(): void {
 }
 
 export function saveSession(session: SessionInfo): void {
-  ensureSapiDir()
+  ensureCliDir()
   // Only persist machineId — the server always resolves the active sessionId
   // from user_machines, so caching it locally would be stale after any session reset.
   writeFileSync(SESSION_PATH, JSON.stringify({ machineId: session.machineId }, null, 2), {

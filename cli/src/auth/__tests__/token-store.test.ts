@@ -41,7 +41,7 @@ describe('token-store', () => {
   it('saveCredentials writes a valid credentials.json', () => {
     const creds = mod.saveCredentials(BASE_PARAMS)
 
-    const credPath = join(HOME_DIR, '.sapi', 'credentials.json')
+    const credPath = join(HOME_DIR, '.simular', 'cli', 'credentials.json')
     expect(existsSync(credPath)).toBe(true)
 
     const stored = JSON.parse(readFileSync(credPath, 'utf-8'))
@@ -57,7 +57,7 @@ describe('token-store', () => {
 
   it('saveCredentials does not write refreshToken to credentials.json', () => {
     mod.saveCredentials(BASE_PARAMS)
-    const credPath = join(HOME_DIR, '.sapi', 'credentials.json')
+    const credPath = join(HOME_DIR, '.simular', 'cli', 'credentials.json')
     const stored = JSON.parse(readFileSync(credPath, 'utf-8'))
     expect(stored.refreshToken).toBeUndefined()
   })
@@ -66,7 +66,7 @@ describe('token-store', () => {
   // read-only flag and the mode reads back as 0o666, so this is POSIX-only.
   it.skipIf(process.platform === 'win32')('saveCredentials sets file permissions to 0o600', () => {
     mod.saveCredentials(BASE_PARAMS)
-    const credPath = join(HOME_DIR, '.sapi', 'credentials.json')
+    const credPath = join(HOME_DIR, '.simular', 'cli', 'credentials.json')
     const mode = statSync(credPath).mode & 0o777
     expect(mode).toBe(0o600)
   })
@@ -88,7 +88,7 @@ describe('token-store', () => {
 
   it('loadCredentials returns null when .rt is missing', () => {
     mod.saveCredentials(BASE_PARAMS) // creates credentials.json + .mk + .rt
-    unlinkSync(join(HOME_DIR, '.sapi', '.rt')) // simulate .rt being deleted
+    unlinkSync(join(HOME_DIR, '.simular', 'cli', '.rt')) // simulate .rt being deleted
     expect(mod.loadCredentials()).toBeNull()
   })
 
@@ -105,10 +105,10 @@ describe('token-store', () => {
   it('clearCredentials removes .rt (and .mk) even when credentials.json is missing', () => {
     // Simulate partial login state: secure token files exist but no credentials.json
     mod.saveCredentials(BASE_PARAMS) // creates .mk + .rt
-    unlinkSync(join(HOME_DIR, '.sapi', 'credentials.json')) // remove credentials.json
+    unlinkSync(join(HOME_DIR, '.simular', 'cli', 'credentials.json')) // remove credentials.json
     mod.clearCredentials() // must still clean up .rt, and .mk since no API key remains
-    expect(existsSync(join(HOME_DIR, '.sapi', '.rt'))).toBe(false)
-    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(false)
+    expect(existsSync(join(HOME_DIR, '.simular', 'cli', '.rt'))).toBe(false)
+    expect(existsSync(join(HOME_DIR, '.simular', 'cli', '.mk'))).toBe(false)
   })
 
   it('clearCredentials retains .mk while an API key exists so it stays decryptable', () => {
@@ -118,8 +118,8 @@ describe('token-store', () => {
     mod.saveApiKey('sapi_survives_logout')
     mod.clearCredentials()
     // .rt is gone, but .mk survives because the API key still depends on it
-    expect(existsSync(join(HOME_DIR, '.sapi', '.rt'))).toBe(false)
-    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(true)
+    expect(existsSync(join(HOME_DIR, '.simular', 'cli', '.rt'))).toBe(false)
+    expect(existsSync(join(HOME_DIR, '.simular', 'cli', '.mk'))).toBe(true)
     // ...and the API key still decrypts after logout
     expect(mod.loadApiKey()).toBe('sapi_survives_logout')
   })
@@ -128,9 +128,9 @@ describe('token-store', () => {
     mod.saveCredentials(BASE_PARAMS)
     mod.saveApiKey('sapi_temp')
     mod.clearCredentials() // .mk retained (API key still present)
-    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(true)
+    expect(existsSync(join(HOME_DIR, '.simular', 'cli', '.mk'))).toBe(true)
     mod.clearApiKey() // now nothing depends on .mk
-    expect(existsSync(join(HOME_DIR, '.sapi', '.mk'))).toBe(false)
+    expect(existsSync(join(HOME_DIR, '.simular', 'cli', '.mk'))).toBe(false)
   })
 
   // ─── saveApiKey / loadApiKey / clearApiKey ───────────────────────────────────

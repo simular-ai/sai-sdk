@@ -2,7 +2,7 @@
  * Integration / scenario tests for the sapi CLI.
  *
  * Each test spawns `tsx src/cli.ts` as a real subprocess with:
- *   - A temp HOME directory (isolated ~/.sapi state)
+ *   - A temp HOME directory (isolated ~/.simular/cli state)
  *   - SAPI_API_URL pointing to a lightweight in-process mock HTTP server
  *
  * This validates the full CLI flow without requiring a live cloud-api or Firebase
@@ -56,7 +56,7 @@ function spawnCli(args: string[], opts: SpawnOptions): Promise<SpawnResult> {
       env: {
         ...process.env,
         // os.homedir() reads HOME on POSIX and USERPROFILE on Windows — set both
-        // so the child's ~/.sapi resolves to the test's temp dir on every platform.
+        // so the child's ~/.simular/cli resolves to the test's temp dir on every platform.
         HOME: opts.homeDir,
         USERPROFILE: opts.homeDir,
         SAPI_API_URL: opts.apiUrl,
@@ -244,7 +244,7 @@ function writeSession(machineId: string): void {
 }
 
 function readSession(homeDir: string): { machineId: string } {
-  return JSON.parse(readFileSync(join(homeDir, '.sapi', 'session.json'), 'utf-8'))
+  return JSON.parse(readFileSync(join(homeDir, '.simular', 'cli', 'session.json'), 'utf-8'))
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

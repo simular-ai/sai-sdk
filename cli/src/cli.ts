@@ -69,16 +69,16 @@ Environment:
   SAPI_API_URL    Override cloud-api base URL (default: https://api.sai.simular.ai)
 
 Files:
-  ~/.sapi/credentials.json   Firebase ID token, expiry, and email
-  ~/.sapi/session.json       Selected machine ID
-  ~/.sapi/.mk                AES-256-GCM machine key (generated once at login)
-  ~/.sapi/.rt                Encrypted refresh token
-  ~/.sapi/.ak                Encrypted API key (if generated)`,
+  ~/.simular/cli/credentials.json   Firebase ID token, expiry, and email
+  ~/.simular/cli/session.json       Selected machine ID
+  ~/.simular/cli/.mk                AES-256-GCM machine key (generated once at login)
+  ~/.simular/cli/.rt                Encrypted refresh token
+  ~/.simular/cli/.ak                Encrypted API key (if generated)`,
 )
 
 /**
  * Returns the auth token to use for API requests.
- * Priority: SAPI_API_KEY env var > ~/.sapi/.ak (encrypted) > Firebase ID token.
+ * Priority: SAPI_API_KEY env var > ~/.simular/cli/.ak (encrypted) > Firebase ID token.
  * When using an API key the Firebase session check is skipped — the API key is
  * long-lived and doesn't require periodic refresh.
  */
@@ -334,7 +334,7 @@ const keyCmd = program.command('key').description('Manage API keys for programma
 
 keyCmd
   .command('generate')
-  .description('Generate a long-lived API key (stored encrypted in ~/.sapi/.ak)')
+  .description('Generate a long-lived API key (stored encrypted in ~/.simular/cli/.ak)')
   .option('--name <label>', 'Human-readable label for this key')
   .action(async (opts: { name?: string }) => {
     // Key generation requires a Firebase ID token — API keys are explicitly rejected
@@ -361,7 +361,7 @@ keyCmd
       }
       const { key, keyId } = (await res.json()) as { key: string; keyId: string; name?: string }
       saveApiKey(key, keyId)
-      console.log(`\n✓ API key generated (id: ${keyId}) and saved to ~/.sapi/.ak`)
+      console.log(`\n✓ API key generated (id: ${keyId}) and saved to ~/.simular/cli/.ak`)
       console.log(`  Future sapi commands will use this key instead of your Firebase session.`)
       console.log(`  For CI or devices: export SAPI_API_KEY="${key}"`)
     } catch (err) {
