@@ -622,8 +622,8 @@ program
   )
   .option('-i, --input <text...>', 'Alias for --message.')
   // Stray positional tokens are captured only so we can show a helpful "use -m"
-  // error — sai no longer accepts a message as a positional argument.
-  .argument('[ignored...]', 'Deprecated: pass your message with --message/-m instead')
+  // error — sai doesn't accept a message as a positional argument.
+  .argument('[ignored...]', 'Not supported: send your message with --message/-m instead')
   .action(async (positionalArgs: string[]) => {
     const opts = program.opts<{
       file: string[]
@@ -660,7 +660,7 @@ program
           : undefined
 
     if (!messageText) {
-      // A bare positional message (quoted or not) is no longer supported — the
+      // A bare positional message (quoted or not) isn't supported — the
       // shell strips quotes and splits words before sai runs, so it can't be
       // distinguished from a command. Point the user at -m.
       if (positionalArgs && positionalArgs.length > 0) {

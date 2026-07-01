@@ -518,7 +518,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
     // spawnCli(['open', 'Chrome']) passes two separate argv tokens — same as: sai open Chrome
     const result = await spawnCli(['open', 'Chrome'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
-    // No longer accepted positionally — must guide the user to -m.
+    // Not accepted positionally — must guide the user to -m.
     expect(result.stderr).toContain('--message')
     expect(result.stderr).toContain('sai -m open Chrome')
     // Still lists valid commands so users know what's available
@@ -529,7 +529,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('positional message (single bare word): exits 1 and points to --message', async () => {
     writeCreds()
     writeSession('machine-1')
-    // `sai hi` — a single word is not a command and is no longer a positional message.
+    // `sai hi` — a single word is not a command and isn't a positional message.
     const result = await spawnCli(['hi'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('sai -m hi')
