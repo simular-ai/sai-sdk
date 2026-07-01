@@ -230,6 +230,12 @@ The CLI is built on the Sai HTTP API (the same REST surface under
 custom integrations — authenticate with an API key via the `Authorization:
 Bearer` header.
 
+## Dependencies
+
+`sai` ships as a single bundled file (`dist/cli.cjs`) and its only runtime
+dependency is [`commander`](https://www.npmjs.com/package/commander); HTTP calls
+use Node's built-in `fetch`. `npm audit` on an install of this package is clean.
+
 ## License
 
-[MIT](./LICENSE) © Simular AI
+[MIT](./LICENSE) © Simular LLC
