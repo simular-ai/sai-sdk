@@ -12,7 +12,7 @@ export interface SpawnResult {
 }
 
 export interface SpawnOptions {
-  /** Mock server base URL, set as SAPI_API_URL in the subprocess env */
+  /** Mock server base URL, set as SAI_API_URL in the subprocess env */
   apiUrl: string
   /** Pre-created temp HOME directory */
   homeDir: string
@@ -24,7 +24,7 @@ export interface SpawnOptions {
 
 /**
  * Spawns `tsx src/cli.ts [args]` as a subprocess with HOME set to homeDir and
- * SAPI_API_URL set to apiUrl. Captures stdout/stderr and waits for exit.
+ * SAI_API_URL set to apiUrl. Captures stdout/stderr and waits for exit.
  */
 export function spawnCli(args: string[], opts: SpawnOptions): Promise<SpawnResult> {
   return new Promise((resolve: (r: SpawnResult) => void, reject) => {
@@ -34,10 +34,10 @@ export function spawnCli(args: string[], opts: SpawnOptions): Promise<SpawnResul
       env: {
         ...process.env,
         // os.homedir() reads HOME on POSIX and USERPROFILE on Windows — set both
-        // so the child's ~/.sapi resolves to the test's temp dir on every platform.
+        // so the child's ~/.simular/cli resolves to the test's temp dir on every platform.
         HOME: opts.homeDir,
         USERPROFILE: opts.homeDir,
-        SAPI_API_URL: opts.apiUrl,
+        SAI_API_URL: opts.apiUrl,
       },
     })
 

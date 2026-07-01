@@ -1,0 +1,192 @@
+name: Publish sai-cli
+
+# CI + npm publish for the @simular-ai/sai-cli package (packages/sai-cli).
+#
+# Checks (lint / typecheck / build / test / smoke) run on every PR that touches
+# the package, and on manual dispatch. Publishing to npmjs.org happens only when
+# a tag matching `sai-cli-v*` is pushed — a package-scoped prefix so the app's
+# own release tags (agent-v*, etc.) never trigger an npm publish.
+#
+# Cutting a release:
+#   1. Bump "version" in packages/sai-cli/package.json (and keep .version() in
+#      src/cli.ts in sync — see the verify step below).
+#   2. Merge to main.
+#   3. git tag sai-cli-v<X.Y.Z> && git push origin sai-cli-v<X.Y.Z>
+#      (use sai-cli-v<X.Y.Z>-rc.N for a prerelease → publishes under dist-tag "next")
+#
+# Auth: currently a classic NPM_TOKEN secret (automation token for an account
+# with publish rights to the @simular org). To migrate to npm trusted publishing
+# (OIDC) once a first version exists:
+#   1. On npmjs.org, configure this repo + workflow as a trusted publisher for
+#      the package.
+#   2. Delete the `NODE_AUTH_TOKEN` env line from the Publish step below.
+#   3. Delete the NPM_TOKEN GitHub secret.
+#   The `id-token: write` permission is already set, so OIDC will just work and
+#   anyone able to push a tag can release — no shared token required.
+
+on:
+  pull_request:
+    paths:
+      - 'packages/sai-cli/**'
+      - '.github/workflows/publish-sai-cli.yml'
+  push:
+    tags:
+      - 'sai-cli-v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Don't persist the repo-scoped GITHUB_TOKEN in .git/config — it would
+          # otherwise be used by npm's git clones of the private @simular-ai deps
+          # (which it can't access), overriding the App token configured below.
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      # The single monorepo lockfile resolves every workspace, including app's
+      # private git+ssh @simular-ai deps (guardrails, windows-ui-automation).
+      # Authenticate those clones with a GitHub App token, same as build.yml.
+      - name: Generate GitHub App token (private @simular-ai git deps)
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.SIMULAR_CI_APP_ID }}
+          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # --ignore-scripts skips the app workspace's native-module rebuild
+      # (better-sqlite3, @parcel/watcher). sai-cli only needs pure-JS / prebuilt
+      # deps (esbuild, commander, tsx, vitest), so this is both safe and fast.
+      - name: Install dependencies
+        env:
+          # Isolated gitconfig so the token rewrite doesn't persist on the runner.
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
+          npm ci --ignore-scripts
+
+      # Lint the package and fail on any warnings (the lint script runs
+      # `eslint . --max-warnings 0`), so lint/formatting warnings can't slip
+      # into a release.
+      - name: Lint
+        run: npm run lint -w @simular-ai/sai-cli
+
+      - name: Typecheck
+        run: npm run typecheck -w @simular-ai/sai-cli
+
+      - name: Build
+        run: npm run build -w @simular-ai/sai-cli
+
+      - name: Test
+        run: npm run test -w @simular-ai/sai-cli
+
+      - name: Smoke test (--version)
+        run: node packages/sai-cli/dist/cli.cjs --version
+
+      - name: Smoke test (--help)
+        run: node packages/sai-cli/dist/cli.cjs --help
+
+  publish:
+    name: Publish to npm
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/sai-cli-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # create the GitHub Release for this tag
+      id-token: write # required for npm trusted publishing (OIDC) after migration
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # See build job: keep npm's private-dep clones on the App token, not
+          # the repo-scoped GITHUB_TOKEN.
+          persist-credentials: false
+
+      # registry-url makes setup-node write ~/.npmrc with
+      # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}, so `npm publish`
+      # picks up the NPM_TOKEN secret automatically.
+      - name: Setup Node
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Generate GitHub App token (private @simular-ai git deps)
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.SIMULAR_CI_APP_ID }}
+          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Install dependencies
+        env:
+          # Isolated gitconfig so the token rewrite doesn't persist on the runner.
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
+          npm ci --ignore-scripts
+
+      - name: Verify tag matches package version & determine dist-tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          TAG_VERSION="${TAG_NAME#sai-cli-v}"
+          PKG_VERSION="$(node -p "require('./packages/sai-cli/package.json').version")"
+
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match packages/sai-cli/package.json version ($PKG_VERSION). Bump the package version to match the tag." >&2
+            exit 1
+          fi
+
+          if echo "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
+          elif echo "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-.+'; then
+            echo "dist-tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Tag '$TAG_NAME' is not a release tag (expected sai-cli-vX.Y.Z or sai-cli-vX.Y.Z-prerelease)." >&2
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build -w @simular-ai/sai-cli
+
+      # prepublishOnly in the package rebuilds the bundle again as a safety net.
+      - name: Publish to npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm publish -w @simular-ai/sai-cli \
+            --access public \
+            --tag "${{ steps.release.outputs.dist-tag }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+          PRERELEASE_FLAG: ${{ steps.release.outputs.dist-tag == 'next' && '--prerelease' || '' }}
+        run: |
+          gh release create "$TAG_NAME" \
+            --title "$TAG_NAME" \
+            --generate-notes \
+            $PRERELEASE_FLAG

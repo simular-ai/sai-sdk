@@ -1,17 +1,17 @@
 /**
- * Integration / scenario tests for the sapi CLI.
+ * Integration / scenario tests for the sai CLI.
  *
  * Each test spawns `tsx src/cli.ts` as a real subprocess with:
  *   - A temp HOME directory (isolated ~/.simular/cli state)
- *   - SAPI_API_URL pointing to a lightweight in-process mock HTTP server
+ *   - SAI_API_URL pointing to a lightweight in-process mock HTTP server
  *
  * This validates the full CLI flow without requiring a live cloud-api or Firebase
  * instance. To test against a real local cloud-api instead, set:
- *   SAPI_API_URL=http://localhost:8080 npm test -- --project=sapi-cli
+ *   SAI_API_URL=http://localhost:8080 npm test -- --project=sai-cli
  *
  * Token auto-refresh (near-expiry idToken) is covered by unit tests in
  * auth/__tests__/token-store.test.ts; the securetoken endpoint is hardcoded to
- * googleapis.com and cannot be redirected via SAPI_API_URL.
+ * googleapis.com and cannot be redirected via SAI_API_URL.
  */
 
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'fs'
@@ -25,7 +25,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CLI_PATH = resolve(__dirname, '../../cli.ts')
 
-// Captured by the vi.mock factory via closure so each test's SAPI_DIR resolves
+// Captured by the vi.mock factory via closure so each test's CLI_DIR resolves
 // to the temp homeDir created in beforeEach (same pattern as token-store unit tests).
 let HOMEDIR_FOR_CREDS = ''
 vi.mock('os', async (importOriginal) => {
@@ -59,7 +59,7 @@ function spawnCli(args: string[], opts: SpawnOptions): Promise<SpawnResult> {
         // so the child's ~/.simular/cli resolves to the test's temp dir on every platform.
         HOME: opts.homeDir,
         USERPROFILE: opts.homeDir,
-        SAPI_API_URL: opts.apiUrl,
+        SAI_API_URL: opts.apiUrl,
       },
     })
 
@@ -223,7 +223,7 @@ function makeSseBody(...events: object[]): string {
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-// writeCreds and writeSession call the real token-store functions (whose SAPI_DIR
+// writeCreds and writeSession call the real token-store functions (whose CLI_DIR
 // is set to homeDir via the vi.mock('os') + vi.resetModules() pattern in beforeEach).
 // This ensures the encrypted .mk/.rt files are created alongside credentials.json
 // so loadCredentials() in the spawned subprocess can find the refresh token.
@@ -249,13 +249,13 @@ function readSession(homeDir: string): { machineId: string } {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('sapi CLI integration', { timeout: 20_000 }, () => {
+describe('sai CLI integration', { timeout: 20_000 }, () => {
   let server: MockServer
   let homeDir: string
 
   beforeEach(async () => {
     server = await startMockServer()
-    homeDir = mkdtempSync(join(tmpdir(), 'sapi-int-'))
+    homeDir = mkdtempSync(join(tmpdir(), 'sai-int-'))
     HOMEDIR_FOR_CREDS = homeDir
     vi.resetModules()
     tokenStore = await import('../../auth/token-store.js')
@@ -317,7 +317,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
     expect(readSession(homeDir).machineId).toBe('m1')
   })
 
-  it('multiple machines with no session: exits and asks user to run sapi machine', async () => {
+  it('multiple machines with no session: exits and asks user to run sai machine', async () => {
     writeCreds()
     server.on('GET', '/v1/agents/machines', () => ({
       body: {
@@ -330,10 +330,10 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
 
     const result = await spawnCli(['-m', 'do a task'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
-    expect(result.stderr).toContain('sapi machine')
+    expect(result.stderr).toContain('sai machine')
   })
 
-  it('sapi machine: auto-selects single machine and saves session.json', async () => {
+  it('sai machine: auto-selects single machine and saves session.json', async () => {
     writeCreds()
     server.on('GET', '/v1/agents/machines', () => ({
       body: { machines: [{ machineId: 'mac-abc', name: 'My Mac', updatedAt: Date.now() }] },
@@ -345,7 +345,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
     expect(readSession(homeDir).machineId).toBe('mac-abc')
   })
 
-  it('sapi machine: prompts when multiple machines exist', async () => {
+  it('sai machine: prompts when multiple machines exist', async () => {
     writeCreds()
     server.on('GET', '/v1/agents/machines', () => ({
       body: {
@@ -439,7 +439,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
     expect(result.stderr).toContain('Timed out waiting for Sai')
   })
 
-  it('sapi new: calls /new-session and prints confirmation', async () => {
+  it('sai new: calls /new-session and prints confirmation', async () => {
     writeCreds()
     writeSession('machine-1')
     server.on('POST', '/v1/agents/new-session', () => ({
@@ -506,7 +506,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
   it('no arguments: prints help and exits 0', async () => {
     const result = await spawnCli([], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain('sapi')
+    expect(result.stdout).toContain('sai')
     // Help should list top-level commands
     expect(result.stdout).toContain('login')
     expect(result.stdout).toContain('machine')
@@ -515,12 +515,12 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
   it('positional message (bare multi-word): exits 1 and points to --message', async () => {
     writeCreds()
     writeSession('machine-1')
-    // spawnCli(['open', 'Chrome']) passes two separate argv tokens — same as: sapi open Chrome
+    // spawnCli(['open', 'Chrome']) passes two separate argv tokens — same as: sai open Chrome
     const result = await spawnCli(['open', 'Chrome'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
     // No longer accepted positionally — must guide the user to -m.
     expect(result.stderr).toContain('--message')
-    expect(result.stderr).toContain('sapi -m open Chrome')
+    expect(result.stderr).toContain('sai -m open Chrome')
     // Still lists valid commands so users know what's available
     expect(result.stderr).toContain('login')
     expect(result.stderr).toContain('machine')
@@ -529,10 +529,10 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
   it('positional message (single bare word): exits 1 and points to --message', async () => {
     writeCreds()
     writeSession('machine-1')
-    // `sapi hi` — a single word is not a command and is no longer a positional message.
+    // `sai hi` — a single word is not a command and is no longer a positional message.
     const result = await spawnCli(['hi'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(1)
-    expect(result.stderr).toContain('sapi -m hi')
+    expect(result.stderr).toContain('sai -m hi')
     expect(result.stderr).toContain('--message')
   })
 
@@ -578,7 +578,7 @@ describe('sapi CLI integration', { timeout: 20_000 }, () => {
       }
     })
 
-    // `sapi -m login` must send "login" as a message, NOT run the login command.
+    // `sai -m login` must send "login" as a message, NOT run the login command.
     const result = await spawnCli(['-m', 'login'], { apiUrl: server.url, homeDir })
     expect(result.exitCode).toBe(0)
     const body = JSON.parse(capturedBody) as { message: string }

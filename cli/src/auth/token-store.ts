@@ -9,7 +9,7 @@ import {
 } from '../config.js'
 
 // CLI state lives under the shared ~/.simular dir (the desktop app already uses
-// ~/.simular and ~/.simulang) rather than a separate top-level ~/.sapi folder.
+// ~/.simular and ~/.simulang) rather than a separate top-level dotfolder.
 const CLI_DIR = join(homedir(), '.simular', 'cli')
 const CREDENTIALS_PATH = join(CLI_DIR, 'credentials.json')
 const SESSION_PATH = join(CLI_DIR, 'session.json')
@@ -165,7 +165,7 @@ export function loadCredentials(): Credentials | null {
 export function clearCredentials(): void {
   // Clears the Firebase session (credentials.json, refresh token, machine key,
   // session.json). Does NOT clear API keys — they are independent long-lived
-  // credentials that survive logout. Use `sapi key revoke` to remove a key.
+  // credentials that survive logout. Use `sai key revoke` to remove a key.
   deleteRefreshToken('')
   if (existsSync(CREDENTIALS_PATH)) unlinkSync(CREDENTIALS_PATH)
   if (existsSync(SESSION_PATH)) unlinkSync(SESSION_PATH)
@@ -177,7 +177,7 @@ export function clearCredentials(): void {
 // ─── API key storage ───────────────────────────────────────────────────────────
 //
 // API keys (sapi_<base64url>) are AES-256-GCM encrypted with the same machine
-// key used for the refresh token. The SAPI_API_KEY env var overrides file storage
+// key used for the refresh token. The SAI_API_KEY env var overrides file storage
 // entirely — useful for CI and devices where writing to disk is undesirable.
 
 export function saveApiKey(apiKey: string, keyId?: string): void {
@@ -195,7 +195,7 @@ export function loadApiKeyId(): string | null {
 }
 
 export function loadApiKey(): string | null {
-  const envKey = process.env.SAPI_API_KEY
+  const envKey = process.env.SAI_API_KEY
   if (envKey) return envKey
   if (!existsSync(API_KEY_PATH)) return null
   const key = getMachineKey()
@@ -218,22 +218,22 @@ export function clearApiKey(): void {
 
 // ─── Config storage ────────────────────────────────────────────────────────────
 
-export interface SapiConfig {
+export interface SaiConfig {
   verbose?: number
-  /** Inactivity timeout in ms for `sapi "<message>"`. Set via `sapi config set timeout`. */
+  /** Inactivity timeout in ms for `sai "<message>"`. Set via `sai config set timeout`. */
   timeoutMs?: number
 }
 
-export function loadConfig(): SapiConfig {
+export function loadConfig(): SaiConfig {
   if (!existsSync(CONFIG_PATH)) return {}
   try {
-    return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8')) as SapiConfig
+    return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8')) as SaiConfig
   } catch {
     return {}
   }
 }
 
-export function saveConfig(updates: Partial<SapiConfig>): SapiConfig {
+export function saveConfig(updates: Partial<SaiConfig>): SaiConfig {
   ensureCliDir()
   const current = loadConfig()
   const merged = { ...current, ...updates }
@@ -277,10 +277,10 @@ export function loadSession(): SessionInfo | null {
 export async function requireAuth(): Promise<Credentials> {
   const creds = loadCredentials()
   if (!creds) {
-    throw new Error('Not authenticated. Run `sapi login` to sign in.')
+    throw new Error('Not authenticated. Run `sai login` to sign in.')
   }
   if (Date.now() > creds.sessionExpiresAt) {
-    throw new Error('Session expired. Run `sapi login` to sign in again.')
+    throw new Error('Session expired. Run `sai login` to sign in again.')
   }
 
   // Firebase ID tokens expire after 1 hour — refresh when within 5 minutes of expiry
@@ -304,7 +304,7 @@ async function refreshIdToken(creds: Credentials): Promise<Credentials> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } }
     throw new Error(
-      `Token refresh failed: ${body.error?.message ?? res.statusText}. Run \`sapi login\` to sign in again.`,
+      `Token refresh failed: ${body.error?.message ?? res.statusText}. Run \`sai login\` to sign in again.`,
     )
   }
 

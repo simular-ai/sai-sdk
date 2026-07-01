@@ -65,12 +65,12 @@ function startCallbackServer(
         res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(
           '<html><body style="font-family:sans-serif;padding:2rem">' +
-            '<h2>Sign-in failed</h2><p>Security check failed. Run <code>sapi login</code> again.</p>' +
+            '<h2>Sign-in failed</h2><p>Security check failed. Run <code>sai login</code> again.</p>' +
             '</body></html>',
         )
         clearTimeout(timer)
         server.close()
-        rejectCode!(new Error('OAuth state mismatch. Run `sapi login` again.'))
+        rejectCode!(new Error('OAuth state mismatch. Run `sai login` again.'))
         return
       }
 
@@ -101,7 +101,7 @@ function startCallbackServer(
       server.close()
       rejectCode!(
         new Error(
-          'Sign-in timed out (no browser callback received within 5 minutes). Run `sapi login` to try again.',
+          'Sign-in timed out (no browser callback received within 5 minutes). Run `sai login` to try again.',
         ),
       )
     }, OAUTH_CALLBACK_TIMEOUT_MS)

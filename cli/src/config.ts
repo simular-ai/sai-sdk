@@ -10,15 +10,15 @@ export const GOOGLE_CLIENT_ID =
 export const GOOGLE_CLIENT_SECRET =
   process.env.GOOGLE_DESKTOP_CLIENT_SECRET ?? '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'
 
-// Cloud API base URL — defaults to production; override via SAPI_API_URL env var
+// Cloud API base URL — defaults to production; override via SAI_API_URL env var
 // (e.g. point at staging or a local cloud-api during development).
 export const CLOUD_API_URL =
-  process.env.SAPI_API_URL ?? 'https://simular-cloud-api-149671192594.us-central1.run.app'
+  process.env.SAI_API_URL ?? 'https://simular-cloud-api-149671192594.us-central1.run.app'
 
 // Hosted web app origin — used as the OAuth redirect_uri base.
 // Must match what is registered in the Google OAuth client.
-// Override via SAPI_APP_ORIGIN if pointing at a custom web build.
-export const APP_ORIGIN = process.env.SAPI_APP_ORIGIN ?? 'https://staging.sai.simular.cloud'
+// Override via SAI_APP_ORIGIN if pointing at a custom web build.
+export const APP_ORIGIN = process.env.SAI_APP_ORIGIN ?? 'https://staging.sai.simular.cloud'
 
 export const DEFAULT_SESSION_TIMEOUT_MS = 72 * 60 * 60 * 1000 // 72 hours
 // How much to extend the session when auto-refreshing the Firebase ID token

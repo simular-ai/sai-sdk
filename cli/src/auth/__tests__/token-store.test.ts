@@ -5,7 +5,7 @@ import { tmpdir } from 'os'
 
 // This variable is captured by the mock factory via closure.
 // Updated in beforeEach before vi.resetModules() forces the module to re-evaluate,
-// so each test gets a fresh isolated directory for SAPI_DIR.
+// so each test gets a fresh isolated directory for CLI_DIR.
 let HOME_DIR = ''
 
 vi.mock('os', async (importOriginal) => {
@@ -25,7 +25,7 @@ describe('token-store', () => {
   let mod: typeof import('../token-store.js')
 
   beforeEach(async () => {
-    HOME_DIR = mkdtempSync(join(tmpdir(), 'sapi-test-'))
+    HOME_DIR = mkdtempSync(join(tmpdir(), 'sai-test-'))
     vi.resetModules()
     mod = await import('../token-store.js')
   })
@@ -140,9 +140,9 @@ describe('token-store', () => {
     expect(mod.loadApiKey()).toBe('sapi_testkey123')
   })
 
-  it('loadApiKey returns SAPI_API_KEY env var when set, ignoring disk', () => {
+  it('loadApiKey returns SAI_API_KEY env var when set, ignoring disk', () => {
     mod.saveApiKey('sapi_on_disk')
-    vi.stubEnv('SAPI_API_KEY', 'sapi_from_env')
+    vi.stubEnv('SAI_API_KEY', 'sapi_from_env')
     expect(mod.loadApiKey()).toBe('sapi_from_env')
   })
 

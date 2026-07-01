@@ -1,19 +1,19 @@
 {
-  "name": "@simular-ai/sapi-cli",
+  "name": "@simular-ai/sai-cli",
   "version": "0.1.0",
-  "description": "Sapi CLI — command-line interface for Simular.",
+  "description": "Sai CLI — command-line interface for Simular.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/simular-ai/simular-pro-unified-ui.git",
-    "directory": "packages/sapi-cli"
+    "directory": "packages/sai-cli"
   },
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
   },
   "bin": {
-    "sapi": "./dist/cli.cjs"
+    "sai": "./dist/cli.cjs"
   },
   "files": [
     "dist/cli.cjs",

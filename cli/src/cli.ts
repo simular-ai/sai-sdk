@@ -36,37 +36,37 @@ import { parseDuration, formatDuration } from './cli-utils.js'
 
 const program = new Command()
 
-program.name('sapi').description('CLI for Sai — your Simular AI agent').version('0.1.0')
+program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.1.0')
 
 program.addHelpText(
   'after',
   `
 Examples:
-  $ sapi login                                   Sign in with Google (opens browser)
-  $ sapi whoami                                  Show current authenticated user
-  $ sapi machine                                 Choose a Sai workspace (run again to switch)
-  $ sapi new                                     Start a fresh conversation on the current workspace
-  $ sapi -m summarise my unread emails           Send a task to Sai (messages use -m/--message)
-  $ sapi -m what have you done recently?         Ask about past activity
-  $ sapi -m login                                Send a one-word message, even one matching a command name
-  $ sapi -f report.pdf -m review this            Attach a file
-  $ sapi -f before.png -f after.png -m what changed?  Attach multiple files
-  $ sapi -v 0 -m take a screenshot               Quiet mode (suppress narrations)
-  $ sapi -v 2 -m close apps and check gmail      Show script progress lines and debug info
-  $ sapi -v 3 -m do a task                       Show raw SSE event stream (debug)
-  $ sapi config set verbose 2                    Set default verbosity level to 2
-  $ sapi abort                                   Abort the currently running task
-  $ sapi sessions                                List recent conversations
-  $ sapi resume <sessionId>                      Resume a previous conversation
-  $ sapi restart agent                           Restart the Sai agent process
-  $ sapi restart machine                         Restart the cloud machine
+  $ sai login                                   Sign in with Google (opens browser)
+  $ sai whoami                                  Show current authenticated user
+  $ sai machine                                 Choose a Sai workspace (run again to switch)
+  $ sai new                                     Start a fresh conversation on the current workspace
+  $ sai -m summarise my unread emails           Send a task to Sai (messages use -m/--message)
+  $ sai -m what have you done recently?         Ask about past activity
+  $ sai -m login                                Send a one-word message, even one matching a command name
+  $ sai -f report.pdf -m review this            Attach a file
+  $ sai -f before.png -f after.png -m what changed?  Attach multiple files
+  $ sai -v 0 -m take a screenshot               Quiet mode (suppress narrations)
+  $ sai -v 2 -m close apps and check gmail      Show script progress lines and debug info
+  $ sai -v 3 -m do a task                       Show raw SSE event stream (debug)
+  $ sai config set verbose 2                    Set default verbosity level to 2
+  $ sai abort                                   Abort the currently running task
+  $ sai sessions                                List recent conversations
+  $ sai resume <sessionId>                      Resume a previous conversation
+  $ sai restart agent                           Restart the Sai agent process
+  $ sai restart machine                         Restart the cloud machine
 
-  $ sapi key generate --name dev                 Generate an API key
-  $ SAPI_API_KEY=sapi_... sapi -m do a task      Use an API key directly
+  $ sai key generate --name dev                 Generate an API key
+  $ SAI_API_KEY=sapi_... sai -m do a task      Use an API key directly
 
 Environment:
-  SAPI_API_KEY    Long-lived API key; bypasses Firebase session entirely
-  SAPI_API_URL    Override cloud-api base URL (default: https://api.sai.simular.ai)
+  SAI_API_KEY    Long-lived API key; bypasses Firebase session entirely
+  SAI_API_URL    Override cloud-api base URL (default: https://api.sai.simular.ai)
 
 Files:
   ~/.simular/cli/credentials.json   Firebase ID token, expiry, and email
@@ -78,7 +78,7 @@ Files:
 
 /**
  * Returns the auth token to use for API requests.
- * Priority: SAPI_API_KEY env var > ~/.simular/cli/.ak (encrypted) > Firebase ID token.
+ * Priority: SAI_API_KEY env var > ~/.simular/cli/.ak (encrypted) > Firebase ID token.
  * When using an API key the Firebase session check is skipped — the API key is
  * long-lived and doesn't require periodic refresh.
  */
@@ -106,7 +106,7 @@ program
       const remainingHuman =
         remainingMin >= 60 ? `${Math.round(remainingMin / 60)}h` : `${remainingMin}m`
       console.log(
-        `Already authenticated as ${existing.email} (session valid for ${remainingHuman} more). Run \`sapi logout\` first to switch accounts.`,
+        `Already authenticated as ${existing.email} (session valid for ${remainingHuman} more). Run \`sai logout\` first to switch accounts.`,
       )
       return
     }
@@ -131,8 +131,8 @@ program
       const creds = saveCredentials({ ...result, sessionTimeoutMs })
       const hours = Math.round(sessionTimeoutMs / 3_600_000)
       console.log(`\n✓ Authenticated as ${creds.email}`)
-      console.log(`  Session valid for ${hours}h. Run \`sapi login\` again to refresh early.`)
-      console.log(`\nNext: run \`sapi machine\` to choose a workspace.`)
+      console.log(`  Session valid for ${hours}h. Run \`sai login\` again to refresh early.`)
+      console.log(`\nNext: run \`sai machine\` to choose a workspace.`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`\nLogin failed: ${msg}`)
@@ -182,7 +182,7 @@ program
     const hasKey = loadApiKey()
     if (hasKey) {
       console.log(
-        `  Note: your API key was not cleared. It remains valid until revoked.\n  Run \`sapi key revoke <keyId>\` to remove it, or set SAPI_API_KEY="" to ignore it.`,
+        `  Note: your API key was not cleared. It remains valid until revoked.\n  Run \`sai key revoke <keyId>\` to remove it, or set SAI_API_KEY="" to ignore it.`,
       )
     }
   })
@@ -262,7 +262,7 @@ program
 
     const session = loadSession()
     if (!session) {
-      console.error('No workspace selected. Run `sapi machine` to choose one first.')
+      console.error('No workspace selected. Run `sai machine` to choose one first.')
       process.exit(1)
     }
 
@@ -277,7 +277,7 @@ program
 
 // ─── config ───────────────────────────────────────────────────────────────────
 
-const configCmd = program.command('config').description('View and set sapi preferences')
+const configCmd = program.command('config').description('View and set sai preferences')
 
 configCmd
   .command('set <key> <value>')
@@ -362,8 +362,8 @@ keyCmd
       const { key, keyId } = (await res.json()) as { key: string; keyId: string; name?: string }
       saveApiKey(key, keyId)
       console.log(`\n✓ API key generated (id: ${keyId}) and saved to ~/.simular/cli/.ak`)
-      console.log(`  Future sapi commands will use this key instead of your Firebase session.`)
-      console.log(`  For CI or devices: export SAPI_API_KEY="${key}"`)
+      console.log(`  Future sai commands will use this key instead of your Firebase session.`)
+      console.log(`  For CI or devices: export SAI_API_KEY="${key}"`)
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err))
       process.exit(1)
@@ -391,7 +391,7 @@ keyCmd
         const looksLikeName = !/^[A-Za-z0-9]{20}$/.test(keyId)
         console.error(
           looksLikeName
-            ? `Key "${keyId}" not found. Use the key ID, not the name — run \`sapi key list\` to find it.`
+            ? `Key "${keyId}" not found. Use the key ID, not the name — run \`sai key list\` to find it.`
             : `Key "${keyId}" not found.`,
         )
         process.exit(1)
@@ -436,7 +436,7 @@ keyCmd
         keys: { keyId: string; name: string | null; createdAt: number }[]
       }
       if (keys.length === 0) {
-        console.log('No API keys. Run `sapi key generate` to create one.')
+        console.log('No API keys. Run `sai key generate` to create one.')
         return
       }
       console.log('')
@@ -468,7 +468,7 @@ program
 
     const session = loadSession()
     if (!session) {
-      console.error('No workspace selected. Run `sapi machine` to choose one first.')
+      console.error('No workspace selected. Run `sai machine` to choose one first.')
       process.exit(1)
     }
 
@@ -501,7 +501,7 @@ program
 
     const session = loadSession()
     if (!session) {
-      console.error('No workspace selected. Run `sapi machine` to choose one first.')
+      console.error('No workspace selected. Run `sai machine` to choose one first.')
       process.exit(1)
     }
 
@@ -525,7 +525,7 @@ program
       console.log(`  ${s.sessionId}  ${s.title}  (${date})${marker}`)
     }
     console.log('')
-    console.log(`Run \`sapi resume <sessionId>\` to switch to a session.`)
+    console.log(`Run \`sai resume <sessionId>\` to switch to a session.`)
     console.log('')
   })
 
@@ -533,7 +533,7 @@ program
 
 program
   .command('resume <sessionId>')
-  .description('Resume a previous conversation by session ID (see `sapi sessions`)')
+  .description('Resume a previous conversation by session ID (see `sai sessions`)')
   .action(async (sessionId: string) => {
     let authToken: string
     try {
@@ -545,7 +545,7 @@ program
 
     const session = loadSession()
     if (!session) {
-      console.error('No workspace selected. Run `sapi machine` to choose one first.')
+      console.error('No workspace selected. Run `sai machine` to choose one first.')
       process.exit(1)
     }
 
@@ -566,7 +566,7 @@ program
   .action(async (target: string) => {
     if (target !== 'agent' && target !== 'machine') {
       console.error(
-        `error: unknown restart target '${target}'\nUse: sapi restart agent  or  sapi restart machine`,
+        `error: unknown restart target '${target}'\nUse: sai restart agent  or  sai restart machine`,
       )
       process.exit(1)
     }
@@ -581,7 +581,7 @@ program
 
     const session = loadSession()
     if (!session) {
-      console.error('No workspace selected. Run `sapi machine` to choose one first.')
+      console.error('No workspace selected. Run `sai machine` to choose one first.')
       process.exit(1)
     }
 
@@ -610,7 +610,7 @@ program
   )
   .option(
     '-v, --verbose <n>',
-    'Verbosity level: 0=quiet, 1=narrations, 2=+script progress lines+debug info, 3=+raw SSE (default: from `sapi config`, initially 1)',
+    'Verbosity level: 0=quiet, 1=narrations, 2=+script progress lines+debug info, 3=+raw SSE (default: from `sai config`, initially 1)',
   )
   .option(
     '--timeout <duration>',
@@ -622,7 +622,7 @@ program
   )
   .option('-i, --input <text...>', 'Alias for --message.')
   // Stray positional tokens are captured only so we can show a helpful "use -m"
-  // error — sapi no longer accepts a message as a positional argument.
+  // error — sai no longer accepts a message as a positional argument.
   .argument('[ignored...]', 'Deprecated: pass your message with --message/-m instead')
   .action(async (positionalArgs: string[]) => {
     const opts = program.opts<{
@@ -650,7 +650,7 @@ program
 
     // Messages are sent ONLY via the -m/--message flag (or its -i/--input alias).
     // The flag accepts multiple words without quoting and lets you send a word
-    // that collides with a command name (e.g. `sapi -m login` sends "login"
+    // that collides with a command name (e.g. `sai -m login` sends "login"
     // rather than running the login command).
     const messageText =
       opts.message && opts.message.length > 0
@@ -661,16 +661,16 @@ program
 
     if (!messageText) {
       // A bare positional message (quoted or not) is no longer supported — the
-      // shell strips quotes and splits words before sapi runs, so it can't be
+      // shell strips quotes and splits words before sai runs, so it can't be
       // distinguished from a command. Point the user at -m.
       if (positionalArgs && positionalArgs.length > 0) {
         const attempted = positionalArgs.join(' ')
         const known = program.commands.map((c) => c.name()).join(', ')
         console.error(
-          `error: sapi doesn't take a message as a positional argument — use the --message/-m flag:\n` +
-            `  sapi -m ${attempted}\n\n` +
-            `(Quoting, e.g. \`sapi "${attempted}"\`, isn't supported either: the shell strips the quotes before sapi runs.)\n` +
-            `Available commands: ${known}. Run \`sapi --help\` for details.`,
+          `error: sai doesn't take a message as a positional argument — use the --message/-m flag:\n` +
+            `  sai -m ${attempted}\n\n` +
+            `(Quoting, e.g. \`sai "${attempted}"\`, isn't supported either: the shell strips the quotes before sai runs.)\n` +
+            `Available commands: ${known}. Run \`sai --help\` for details.`,
         )
         process.exit(1)
       }
@@ -688,7 +688,7 @@ program
       process.exit(1)
     }
 
-    // 2. Resolve session — must have run `sapi machine` first
+    // 2. Resolve session — must have run `sai machine` first
     let session = loadSession()
     if (!session) {
       // Auto-select if only one machine exists, otherwise prompt
@@ -727,7 +727,7 @@ program
         chosen = machines[idx - 1]
         process.stdout.write(`✓ Selected: ${chosen.name ?? chosen.machineId}\n\n`)
       } else {
-        console.error('No workspace selected. Run `sapi machine` to choose one, then try again.')
+        console.error('No workspace selected. Run `sai machine` to choose one, then try again.')
         process.exit(1)
       }
       session = { machineId: chosen.machineId }

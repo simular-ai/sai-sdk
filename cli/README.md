@@ -1,14 +1,14 @@
-# @simular-ai/sapi-cli
+# @simular-ai/sai-cli
 
 Command-line interface for [Sai](https://sai.simular.ai), your Simular AI agent.
 
-`sapi` lets you drive your Sai agent from the terminal — send tasks, ask about
+`sai` lets you drive your Sai agent from the terminal — send tasks, ask about
 past conversations, attach Simulang workflows, and stream results live, without
 opening the desktop app. Each message continues the same conversation as the
 app, and long tasks keep running in the cloud even if you disconnect.
 
 ```bash
-sapi -m summarise my unread emails and list any action items
+sai -m summarise my unread emails and list any action items
 ```
 
 ## Install
@@ -16,14 +16,14 @@ sapi -m summarise my unread emails and list any action items
 Run it on demand with `npx`:
 
 ```bash
-npx @simular-ai/sapi-cli --help
+npx @simular-ai/sai-cli --help
 ```
 
-Or install globally to get the `sapi` command:
+Or install globally to get the `sai` command:
 
 ```bash
-npm install -g @simular-ai/sapi-cli
-sapi --version
+npm install -g @simular-ai/sai-cli
+sai --version
 ```
 
 Requires Node.js 22.12 or newer.
@@ -31,24 +31,24 @@ Requires Node.js 22.12 or newer.
 ## Quick start
 
 ```bash
-sapi login            # sign in with Google (opens your browser)
-sapi machine          # pick which Sai workspace to talk to
-sapi -m take a screenshot and describe what's on my screen
+sai login            # sign in with Google (opens your browser)
+sai machine          # pick which Sai workspace to talk to
+sai -m take a screenshot and describe what's on my screen
 ```
 
-Your session is stored under `~/.sapi/` and stays valid for 72 hours,
+Your session is stored under `~/.simular/cli/` and stays valid for 72 hours,
 auto-refreshing as you use it — so you only log in again once it expires.
 
 ## Authentication
 
-`sapi login` opens a browser for Google sign-in (use the account linked to your
+`sai login` opens a browser for Google sign-in (use the account linked to your
 Sai subscription); the terminal continues automatically once you finish.
 
 ```bash
-sapi login                  # default 72h session
-sapi login --timeout 30m    # custom length: m (minutes), h (hours), d (days)
-sapi whoami                 # show current user, uid, and auth method
-sapi logout                 # clear session credentials (API keys survive)
+sai login                  # default 72h session
+sai login --timeout 30m    # custom length: m (minutes), h (hours), d (days)
+sai whoami                 # show current user, uid, and auth method
+sai logout                 # clear session credentials (API keys survive)
 ```
 
 For unattended use (CI, devices), generate an [API key](#api-keys) once and skip
@@ -59,7 +59,7 @@ the browser flow entirely.
 A workspace (or "machine") is a Sai desktop registered to your account.
 
 ```bash
-sapi machine
+sai machine
 ```
 
 ```
@@ -80,19 +80,19 @@ so multi-word messages need no quotes, and each message continues the same
 conversation:
 
 ```bash
-sapi -m find all PDFs in Downloads from this week and move them to ~/Documents/Reports
-sapi -m go to my Gmail and tell me the subject lines of today's unread emails
-sapi -m what was the last task you ran for me?
+sai -m find all PDFs in Downloads from this week and move them to ~/Documents/Reports
+sai -m go to my Gmail and tell me the subject lines of today's unread emails
+sai -m what was the last task you ran for me?
 ```
 
 Quoting is **required** only when your message contains shell metacharacters
 (`|`, `>`, `&`, `;`, `$`).
 
-> **Messages always go through `-m`.** A bare positional message — `sapi open
-> Chrome`, or even `sapi "open Chrome"` — is rejected, because the shell strips
-> quotes before `sapi` sees them. The flag is also what lets you send a word
-> that matches a command name: `sapi -m login` sends the text "login" rather
-> than running the `login` command. Running `sapi` with no arguments prints help.
+> **Messages always go through `-m`.** A bare positional message — `sai open
+> Chrome`, or even `sai "open Chrome"` — is rejected, because the shell strips
+> quotes before `sai` sees them. The flag is also what lets you send a word
+> that matches a command name: `sai -m login` sends the text "login" rather
+> than running the `login` command. Running `sai` with no arguments prints help.
 
 History questions are answered directly; longer tasks stream progress live and
 return your shell to a prompt when complete.
@@ -123,29 +123,29 @@ workflow scripts (`.sim`), but any supported file type works. **Max 25 MB per
 file.**
 
 ```bash
-sapi -f ./my-workflow.sim -m run this
-sapi -f ./before.png -f ./after.png -m what changed between these?
+sai -f ./my-workflow.sim -m run this
+sai -f ./before.png -f ./after.png -m what changed between these?
 ```
 
 ## Sessions
 
 ```bash
-sapi new                  # start a fresh conversation
-sapi sessions             # list the 20 most-recent sessions
-sapi resume <sessionId>   # switch the active session (does not send a message)
+sai new                  # start a fresh conversation
+sai sessions             # list the 20 most-recent sessions
+sai resume <sessionId>   # switch the active session (does not send a message)
 ```
 
 ## Abort & restart
 
 ```bash
-sapi abort            # stop the current task (idempotent)
-sapi restart agent    # restart just the Sai agent process
-sapi restart machine  # full cloud machine restart (slower)
+sai abort            # stop the current task (idempotent)
+sai restart agent    # restart just the Sai agent process
+sai restart machine  # full cloud machine restart (slower)
 ```
 
 ## Verbosity
 
-Control how much `sapi` prints with `--verbose=<n>` (default 1):
+Control how much `sai` prints with `--verbose=<n>` (default 1):
 
 | Level | What you see |
 | --- | --- |
@@ -154,26 +154,26 @@ Control how much `sapi` prints with `--verbose=<n>` (default 1):
 | `2` | + script progress lines, routing, elapsed time |
 | `3` | + raw SSE event stream (debug) |
 
-Set a persistent default with `sapi config set verbose 2`.
+Set a persistent default with `sai config set verbose 2`.
 
 ## API keys
 
 API keys are long-lived credentials for programmatic use — CI pipelines,
 devices, or anywhere a browser OAuth flow is impractical. They work like GitHub
-tokens: generate once, use anywhere, and they survive `sapi logout`.
+tokens: generate once, use anywhere, and they survive `sai logout`.
 
 ```bash
-sapi key generate --name ci   # requires an active sapi login
-sapi key list                 # IDs + labels (no secrets)
-sapi key revoke <keyId>       # revoke server-side
+sai key generate --name ci   # requires an active sai login
+sai key list                 # IDs + labels (no secrets)
+sai key revoke <keyId>       # revoke server-side
 ```
 
-The key is stored encrypted at `~/.sapi/.ak` and used automatically. For CI,
+The key is stored encrypted at `~/.simular/cli/.ak` and used automatically. For CI,
 inject it via environment variable instead (takes priority over the stored key):
 
 ```bash
-export SAPI_API_KEY="sapi_..."
-sapi -m run the nightly report
+export SAI_API_KEY="sapi_..."
+sai -m run the nightly report
 ```
 
 Key generation requires a Firebase session — a key cannot mint new keys. Up to
@@ -182,25 +182,25 @@ Key generation requires a Firebase session — a key cannot mint new keys. Up to
 ## Configuration
 
 ```bash
-sapi config set verbose 2     # default verbosity (0–3)
-sapi config set timeout 10m   # default stream inactivity timeout
-sapi config show
-sapi config reset
+sai config set verbose 2     # default verbosity (0–3)
+sai config set timeout 10m   # default stream inactivity timeout
+sai config show
+sai config reset
 ```
 
 ## Environment variables
 
 | Variable | Purpose |
 | --- | --- |
-| `SAPI_API_KEY` | Long-lived API key; bypasses the Firebase session entirely |
-| `SAPI_API_URL` | Override the cloud-api base URL (default: `https://api.sai.simular.ai`) |
+| `SAI_API_KEY` | Long-lived API key; bypasses the Firebase session entirely |
+| `SAI_API_URL` | Override the cloud-api base URL (default: `https://api.sai.simular.ai`) |
 
-`SAPI_API_URL` is handy for pointing at a staging or local cloud-api during
+`SAI_API_URL` is handy for pointing at a staging or local cloud-api during
 development.
 
 ## Files
 
-`sapi` stores state under `~/.sapi/` (created with `0700` permissions):
+`sai` stores state under `~/.simular/cli/` (created with `0700` permissions):
 
 | File | Contents |
 | --- | --- |
