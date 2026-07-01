@@ -40,8 +40,15 @@ concurrency:
 
 jobs:
   build:
-    name: Build & test
-    runs-on: ubuntu-latest
+    # Run the full check suite on every OS we support so platform-specific
+    # regressions (e.g. Windows path handling in token-store) are caught in CI,
+    # not just on Ubuntu. fail-fast:false so one OS failing still reports the others.
+    name: Build & test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -74,6 +81,9 @@ jobs:
       # (better-sqlite3, @parcel/watcher). sai-cli only needs pure-JS / prebuilt
       # deps (esbuild, commander, tsx, vitest), so this is both safe and fast.
       - name: Install dependencies
+        # Force bash on all runners — Windows defaults to PowerShell, where this
+        # git-config heredoc and the ${{ runner.temp }} path wouldn't behave the same.
+        shell: bash
         env:
           # Isolated gitconfig so the token rewrite doesn't persist on the runner.
           GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
