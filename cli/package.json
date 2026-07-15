@@ -10,7 +10,8 @@
     "dev": "tsx src/cli.ts",
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gate:src": "true"
   },
   "dependencies": {
     "commander": "^12.1.0"
