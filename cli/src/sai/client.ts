@@ -99,7 +99,12 @@ export type SseEvent =
   | { type: 'reasoning-start'; id: string }
   | { type: 'reasoning-delta'; id: string; delta: string }
   | { type: 'reasoning-end'; id: string }
-  | { type: 'tool-input-start'; toolCallId: string; toolName: string; toolMetadata?: Record<string, unknown> }
+  | {
+      type: 'tool-input-start'
+      toolCallId: string
+      toolName: string
+      toolMetadata?: Record<string, unknown>
+    }
   | { type: 'tool-input-available'; toolCallId: string; toolName: string; input: unknown }
   | { type: 'tool-output-error'; toolCallId: string; errorText: string }
   | { type: 'data-progress'; data: { text: string; tool: string } }
@@ -141,7 +146,10 @@ export interface SessionSummary {
 }
 
 /** Lists recent chat sessions for a machine (most recent first, up to 20). */
-export async function listSessions(authToken: string, machineId: string): Promise<SessionSummary[]> {
+export async function listSessions(
+  authToken: string,
+  machineId: string,
+): Promise<SessionSummary[]> {
   const res = await fetch(
     `${CLOUD_API_URL}/v1/agents/sessions?machineId=${encodeURIComponent(machineId)}`,
     { headers: { Authorization: `Bearer ${authToken}` } },
@@ -190,9 +198,7 @@ export async function restartTarget(
 
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(
-      `Failed to restart ${target} (${res.status}): ${body.error ?? res.statusText}`,
-    )
+    throw new Error(`Failed to restart ${target} (${res.status}): ${body.error ?? res.statusText}`)
   }
 }
 
@@ -271,7 +277,8 @@ export async function streamMessage(
   }
   const timeoutMessage = (): string => {
     const mins = Math.round(timeoutMs / 60_000)
-    const label = mins >= 1 ? `${mins} minute${mins === 1 ? '' : 's'}` : `${Math.round(timeoutMs / 1000)}s`
+    const label =
+      mins >= 1 ? `${mins} minute${mins === 1 ? '' : 's'}` : `${Math.round(timeoutMs / 1000)}s`
     return `Timed out after ${label} with no response from Sai. The task may still be running — check the desktop app. Use --timeout to extend (e.g. --timeout 10m).`
   }
 

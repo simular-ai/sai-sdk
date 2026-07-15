@@ -189,7 +189,11 @@ export function loadApiKey(): string | null {
 export function clearApiKey(): void {
   for (const p of [API_KEY_PATH, API_KEY_ID_PATH]) {
     if (existsSync(p)) {
-      try { unlinkSync(p) } catch { /* ignore */ }
+      try {
+        unlinkSync(p)
+      } catch {
+        /* ignore */
+      }
     }
   }
 }

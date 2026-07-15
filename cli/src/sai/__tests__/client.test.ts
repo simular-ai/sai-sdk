@@ -143,9 +143,9 @@ describe('streamMessage', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'forbidden' }), { status: 403 }),
     )
-    await expect(streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, vi.fn())).rejects.toThrow(
-      '403',
-    )
+    await expect(
+      streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, vi.fn()),
+    ).rejects.toThrow('403')
   })
 
   it('throws "Connection closed unexpectedly" when stream ends without a terminal event', async () => {
@@ -153,9 +153,9 @@ describe('streamMessage', () => {
       // Stream contains only a status event — no finish/error
       makeSseResponse({ type: 'data-status', data: { text: 'Working...' } }),
     )
-    await expect(streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, vi.fn())).rejects.toThrow(
-      'Connection closed unexpectedly',
-    )
+    await expect(
+      streamMessage(FAKE_CREDS.idToken, 'm1', 'hi', 30_000, undefined, vi.fn()),
+    ).rejects.toThrow('Connection closed unexpectedly')
   })
 
   it('includes attachments in the request body when provided', async () => {
