@@ -38,7 +38,7 @@ import { parseDuration, formatDuration } from './cli-utils.js'
 // keep subcommand options from being consumed by same-named root options
 const program = new Command().enablePositionalOptions()
 
-program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.1.0')
+program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.1.1')
 
 program.addHelpText(
   'after',
