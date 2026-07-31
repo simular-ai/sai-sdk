@@ -35,7 +35,8 @@ import { CLOUD_API_URL, RESPONSE_TIMEOUT_MS } from './config.js'
 import { apiFetch } from './http.js'
 import { parseDuration, formatDuration } from './cli-utils.js'
 
-const program = new Command()
+// keep subcommand options from being consumed by same-named root options
+const program = new Command().enablePositionalOptions()
 
 program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.1.0')
 
