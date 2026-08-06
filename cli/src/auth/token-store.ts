@@ -195,11 +195,19 @@ export function loadApiKeyId(): string | null {
 }
 
 export function loadApiKey(): string | null {
-  const envKey = process.env.SAI_API_KEY
-  if (envKey) return envKey
+  // An explicitly-empty SAI_API_KEY means "ignore the stored key" (what `sai
+  // logout` advises, and the only way out of a revoked disk key). Check for
+  // presence, not truthiness — an empty string would otherwise fall through.
+  if ('SAI_API_KEY' in process.env) return process.env.SAI_API_KEY || null
   if (!existsSync(API_KEY_PATH)) return null
   const key = getMachineKey()
   return decryptToken(readFileSync(API_KEY_PATH, 'utf-8').trim(), key)
+}
+
+/** Where `loadApiKey` takes its answer from — used to explain a 401. */
+export function apiKeySource(): 'env' | 'file' | 'none' {
+  if ('SAI_API_KEY' in process.env) return process.env.SAI_API_KEY ? 'env' : 'none'
+  return existsSync(API_KEY_PATH) ? 'file' : 'none'
 }
 
 export function clearApiKey(): void {

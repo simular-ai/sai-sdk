@@ -21,7 +21,6 @@ import {
   abortCurrentTask,
   listMachines,
   listSessions,
-  resumeSession,
   restartTarget,
   startNewSession,
   streamMessage,
@@ -38,7 +37,7 @@ import { parseDuration, formatDuration } from './cli-utils.js'
 // keep subcommand options from being consumed by same-named root options
 const program = new Command().enablePositionalOptions()
 
-program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.1.1')
+program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.1.2')
 
 program.addHelpText(
   'after',
@@ -47,7 +46,6 @@ Examples:
   $ sai login                                   Sign in with Google (opens browser)
   $ sai whoami                                  Show current authenticated user
   $ sai machine                                 Choose a Sai workspace (run again to switch)
-  $ sai new                                     Start a fresh conversation on the current workspace
   $ sai -m summarise my unread emails           Send a task to Sai (messages use -m/--message)
   $ sai -m what have you done recently?         Ask about past activity
   $ sai -m login                                Send a one-word message, even one matching a command name
@@ -59,7 +57,7 @@ Examples:
   $ sai config set verbose 2                    Set default verbosity level to 2
   $ sai abort                                   Abort the currently running task
   $ sai sessions                                List recent conversations
-  $ sai resume <sessionId>                      Resume a previous conversation
+  $ sai new                                     Start a fresh conversation on the current workspace
   $ sai restart agent                           Restart the Sai agent process
   $ sai restart machine                         Restart the cloud machine
 
@@ -67,8 +65,11 @@ Examples:
   $ SAI_API_KEY=sapi_... sai -m do a task      Use an API key directly
 
 Environment:
-  SAI_API_KEY    Long-lived API key; bypasses Firebase session entirely
-  SAI_API_URL    Override cloud-api base URL (default: https://api.sai.simular.ai)
+  SAI_API_KEY      Long-lived API key; bypasses Firebase session entirely
+                   Set to "" to ignore a stored key for one command
+  SAI_API_URL      Override cloud-api base URL (default: https://api.sai.simular.ai)
+  SAI_VERSION_TAG  Staging only — pin requests to a tagged staging deployment
+                   (x-sai-version). Not needed against production.
 
 Files:
   ~/.simular/cli/credentials.json   Firebase ID token, expiry, and email
@@ -523,41 +524,12 @@ program
     console.log('')
     for (const s of sessions) {
       const date = new Date(s.updatedAt).toLocaleString()
-      const marker = s.active ? '  ✓ (active)' : ''
+      const marker = s.active ? '  ✓ (this CLI)' : ''
       console.log(`  ${s.sessionId}  ${s.title}  (${date})${marker}`)
     }
     console.log('')
-    console.log(`Run \`sai resume <sessionId>\` to switch to a session.`)
+    console.log('Ask Sai about an older conversation and it will look it up.')
     console.log('')
-  })
-
-// ─── resume ───────────────────────────────────────────────────────────────────
-
-program
-  .command('resume <sessionId>')
-  .description('Resume a previous conversation by session ID (see `sai sessions`)')
-  .action(async (sessionId: string) => {
-    let authToken: string
-    try {
-      authToken = await resolveAuthToken()
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err))
-      process.exit(1)
-    }
-
-    const session = loadSession()
-    if (!session) {
-      console.error('No workspace selected. Run `sai machine` to choose one first.')
-      process.exit(1)
-    }
-
-    try {
-      await resumeSession(authToken, session.machineId, sessionId)
-      console.log(`✓ Resumed session ${sessionId}`)
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err))
-      process.exit(1)
-    }
   })
 
 // ─── restart ──────────────────────────────────────────────────────────────────
@@ -602,6 +574,18 @@ program
   })
 
 // ─── Default: send a message ─────────────────────────────────────────────────
+
+// Commands that were removed rather than deprecated. They land here as stray
+// positionals (Commander has no command to match), where the generic "use -m"
+// error would misdirect — `sai -m resume abc123` would send the text as a task.
+// Keyed by the retired verb, giving the reason and the replacement instead.
+const RETIRED_COMMAND_HELP: Record<string, string> = {
+  resume:
+    'sai resume was removed — the CLI now has its own conversation, separate from the desktop app,\n' +
+    'so there is no other session to switch to.\n\n' +
+    'To revisit an older conversation, just ask — e.g. `sai -m "what did we decide about the invoice script?"` —\n' +
+    'and Sai will search your past conversations. To start fresh, run `sai new`.',
+}
 
 program
   .option(
@@ -666,6 +650,14 @@ program
       // shell strips quotes and splits words before sai runs, so it can't be
       // distinguished from a command. Point the user at -m.
       if (positionalArgs && positionalArgs.length > 0) {
+        // A retired command (e.g. `sai resume <id>`) reaches here as a stray
+        // positional. Give its own reason + replacement rather than the generic
+        // "use -m" message, which would wrongly suggest re-sending it as a task.
+        const retiredHelp = RETIRED_COMMAND_HELP[positionalArgs[0].toLowerCase()]
+        if (retiredHelp) {
+          console.error(retiredHelp)
+          process.exit(1)
+        }
         const attempted = positionalArgs.join(' ')
         const known = program.commands.map((c) => c.name()).join(', ')
         console.error(

@@ -536,6 +536,18 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
     expect(result.stderr).toContain('--message')
   })
 
+  it('retired `sai resume`: exits 1 with the dedicated-session explanation, not the -m hint', async () => {
+    writeCreds()
+    writeSession('machine-1')
+    const result = await spawnCli(['resume', 'abc123'], { apiUrl: server.url, homeDir })
+    expect(result.exitCode).toBe(1)
+    // Explains the removal and points at the replacement...
+    expect(result.stderr).toContain('sai resume was removed')
+    expect(result.stderr).toContain('sai new')
+    // ...and does NOT misdirect the user into re-sending it as a task.
+    expect(result.stderr).not.toContain('sai -m resume')
+  })
+
   it('--message: sends a multi-word message without quoting', async () => {
     writeCreds()
     writeSession('machine-1')

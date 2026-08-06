@@ -51,13 +51,29 @@ export function toNetworkError(url: string, err: unknown): Error {
 }
 
 /**
+ * Routes cloud-api requests to a tagged deployment (SAI_VERSION_TAG). An unknown
+ * tag falls back to the default instance at the routing layer, so any value is
+ * safe. Applied only in apiFetch so it never reaches the Google/Firebase token
+ * exchanges, which use `fetch` directly.
+ */
+function versionTagHeader(): Record<string, string> {
+  const tag = process.env.SAI_VERSION_TAG?.trim()
+  return tag ? { 'x-sai-version': tag } : {}
+}
+
+/**
  * fetch wrapper that converts connection-level failures into actionable errors.
  * Successful responses (including non-2xx) pass straight through — callers still
  * handle HTTP status codes themselves.
  */
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const tag = versionTagHeader()
+  const withTag =
+    Object.keys(tag).length > 0
+      ? { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), ...tag } }
+      : init
   try {
-    return await fetch(url, init)
+    return await fetch(url, withTag)
   } catch (err) {
     throw toNetworkError(url, err)
   }

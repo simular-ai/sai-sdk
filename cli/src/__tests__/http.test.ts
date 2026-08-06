@@ -66,3 +66,38 @@ describe('apiFetch', () => {
     await expect(apiFetch('https://api.sai.simular.ai/x')).rejects.toThrow(/TLS certificate/)
   })
 })
+
+describe('apiFetch version tag', () => {
+  function headersOf(spy: ReturnType<typeof vi.spyOn>): Record<string, string> {
+    return (spy.mock.calls[0][1] as RequestInit | undefined)?.headers as Record<string, string>
+  }
+
+  it('sends no x-sai-version when SAI_VERSION_TAG is unset', async () => {
+    vi.stubEnv('SAI_VERSION_TAG', '')
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}'))
+    await apiFetch('https://api.example.com/x', { headers: { Authorization: 'Bearer t' } })
+    expect(headersOf(spy)).not.toHaveProperty('x-sai-version')
+  })
+
+  it('routes to a tagged deployment when SAI_VERSION_TAG is set', async () => {
+    vi.stubEnv('SAI_VERSION_TAG', 'fix-1668-cross-tenant-session-1669')
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}'))
+    await apiFetch('https://api.example.com/x')
+    expect(headersOf(spy)['x-sai-version']).toBe('fix-1668-cross-tenant-session-1669')
+  })
+
+  it('keeps the caller\u2019s own headers — the tag is additive, not a replacement', async () => {
+    vi.stubEnv('SAI_VERSION_TAG', 'my-tag')
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}'))
+    await apiFetch('https://api.example.com/x', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer t', 'Content-Type': 'application/json' },
+    })
+    expect(headersOf(spy)).toMatchObject({
+      Authorization: 'Bearer t',
+      'Content-Type': 'application/json',
+      'x-sai-version': 'my-tag',
+    })
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe('POST')
+  })
+})

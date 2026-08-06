@@ -146,6 +146,28 @@ describe('token-store', () => {
     expect(mod.loadApiKey()).toBe('sapi_from_env')
   })
 
+  // `sai logout` tells users to set SAI_API_KEY="" to ignore a stored key. An
+  // empty string is falsy, so a truthiness check silently fell through to the
+  // very key being bypassed — leaving a revoked one with no way out.
+  it('an explicitly-empty SAI_API_KEY ignores the stored key rather than falling through', () => {
+    mod.saveApiKey('sapi_revoked_on_disk')
+    vi.stubEnv('SAI_API_KEY', '')
+    expect(mod.loadApiKey()).toBeNull()
+  })
+
+  it('apiKeySource distinguishes env, file, and none so a 401 can be explained', () => {
+    expect(mod.apiKeySource()).toBe('none')
+
+    mod.saveApiKey('sapi_on_disk')
+    expect(mod.apiKeySource()).toBe('file')
+
+    vi.stubEnv('SAI_API_KEY', 'sapi_from_env')
+    expect(mod.apiKeySource()).toBe('env')
+
+    vi.stubEnv('SAI_API_KEY', '')
+    expect(mod.apiKeySource()).toBe('none')
+  })
+
   it('clearApiKey deletes .ak so subsequent loadApiKey returns null', () => {
     mod.saveApiKey('sapi_to_delete')
     expect(mod.loadApiKey()).toBe('sapi_to_delete')

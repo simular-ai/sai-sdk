@@ -1,5 +1,32 @@
 import { CLOUD_API_URL } from '../config.js'
 import { apiFetch } from '../http.js'
+import { apiKeySource } from '../auth/token-store.js'
+
+/**
+ * Extra guidance appended to a 401 when the key came from ~/.simular/cli/.ak.
+ * That key outranks the Firebase session, so a revoked one locks out every
+ * command with nothing on screen naming the file. A key from the environment is
+ * already in front of the caller, so it's left alone.
+ */
+function authHint(status: number): string {
+  if (status !== 401 || apiKeySource() !== 'file') return ''
+  return (
+    '\n  This used the API key stored at ~/.simular/cli/.ak, which takes priority over your' +
+    '\n  signed-in session. If it has been revoked, run `sai key list` / `sai key revoke <keyId>`,' +
+    '\n  or set SAI_API_KEY="" to ignore it for one command.'
+  )
+}
+
+/**
+ * The Error to throw for a failed cloud-api response: `<prefix> (<status>): <detail>`,
+ * plus the stored-key hint on a 401. `detail` prefers the JSON `error` field and
+ * falls back to the status text, so a non-JSON body still reads sensibly.
+ */
+async function apiError(res: Response, prefix: string): Promise<Error> {
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  const detail = body.error ?? res.statusText
+  return new Error(`${prefix} (${res.status}): ${detail}${authHint(res.status)}`)
+}
 
 export interface SessionInfo {
   machineId: string
@@ -29,8 +56,7 @@ export async function verifyAuth(
     signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Auth verification failed (${res.status}): ${body.error ?? res.statusText}`)
+    throw await apiError(res, `Auth verification failed`)
   }
   return (await res.json()) as { userId: string; authType: 'firebase' | 'apiKey' | undefined }
 }
@@ -51,8 +77,7 @@ export async function abortCurrentTask(
     signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Failed to abort task (${res.status}): ${body.error ?? res.statusText}`)
+    throw await apiError(res, `Failed to abort task`)
   }
   return (await res.json()) as { ok: boolean; aborted: boolean; reason?: string }
 }
@@ -63,14 +88,15 @@ export async function resolveSession(authToken: string): Promise<SessionInfo> {
   })
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    const detail = body.error ?? res.statusText
+    // 404 here means "no machine registered", not a missing route — worth its own
+    // actionable message, so it reads the body itself rather than via apiError.
     if (res.status === 404) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
       throw new Error(
-        `No machine found for your account. Open the Sai desktop app first, then try again. (${detail})`,
+        `No machine found for your account. Open the Sai desktop app first, then try again. (${body.error ?? res.statusText})`,
       )
     }
-    throw new Error(`Failed to resolve session (${res.status}): ${detail}`)
+    throw await apiError(res, 'Failed to resolve session')
   }
 
   return (await res.json()) as SessionInfo
@@ -82,8 +108,7 @@ export async function listMachines(authToken: string): Promise<MachineInfo[]> {
   })
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Failed to fetch machines (${res.status}): ${body.error ?? res.statusText}`)
+    throw await apiError(res, `Failed to fetch machines`)
   }
 
   const { machines } = (await res.json()) as { machines: MachineInfo[] }
@@ -131,14 +156,6 @@ export interface MessageAttachment {
   downloadUrl: string
 }
 
-/**
- * Resolves a pending approval request from the CLI.
- * The SSE stream for the original message remains open; the agent continues once resolved.
- */
-/**
- * Start a fresh conversation on the given machine.
- * Updates activeChatSessionId on the server side — no local state change required.
- */
 export interface SessionSummary {
   sessionId: string
   title: string
@@ -157,31 +174,11 @@ export async function listSessions(
   )
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Failed to list sessions (${res.status}): ${body.error ?? res.statusText}`)
+    throw await apiError(res, `Failed to list sessions`)
   }
 
   const { sessions } = (await res.json()) as { sessions: SessionSummary[] }
   return sessions
-}
-
-/** Switches the active session on a machine (resume an existing conversation). */
-export async function resumeSession(
-  authToken: string,
-  machineId: string,
-  sessionId: string,
-): Promise<void> {
-  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/session`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-    body: JSON.stringify({ machineId, sessionId }),
-    signal: AbortSignal.timeout(10_000),
-  })
-
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Failed to resume session (${res.status}): ${body.error ?? res.statusText}`)
-  }
 }
 
 /** Restarts the Sai agent process or the cloud machine. */
@@ -198,8 +195,7 @@ export async function restartTarget(
   })
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Failed to restart ${target} (${res.status}): ${body.error ?? res.statusText}`)
+    throw await apiError(res, `Failed to restart ${target}`)
   }
 }
 
@@ -215,8 +211,7 @@ export async function startNewSession(authToken: string, machineId: string): Pro
   })
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Failed to start new session (${res.status}): ${body.error ?? res.statusText}`)
+    throw await apiError(res, `Failed to start new session`)
   }
 
   const { sessionId } = (await res.json()) as { sessionId: string }
@@ -238,8 +233,7 @@ export async function sendApproval(
     signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Failed to send approval (${res.status}): ${body.error ?? res.statusText}`)
+    throw await apiError(res, `Failed to send approval`)
   }
 }
 
@@ -297,8 +291,7 @@ export async function streamMessage(
   })
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Request failed (${res.status}): ${body.error ?? res.statusText}`)
+    throw await apiError(res, `Request failed`)
   }
 
   if (!res.body) {
