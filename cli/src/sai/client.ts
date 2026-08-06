@@ -153,7 +153,7 @@ export interface MessageAttachment {
   name: string
   mime: string
   size: number
-  downloadUrl: string
+  fileId: string
 }
 
 export interface SessionSummary {

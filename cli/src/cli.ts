@@ -799,7 +799,7 @@ program
               name: a.name,
               mime: a.mime,
               size: a.size,
-              downloadUrl: a.downloadUrl,
+              fileId: a.fileId,
             }))
           : undefined,
         async (event: SseEvent) => {

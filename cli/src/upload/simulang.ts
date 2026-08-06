@@ -8,7 +8,7 @@ export interface UploadedFile {
   name: string
   mime: string
   size: number
-  downloadUrl: string
+  fileId: string
 }
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024 // 25MB
