@@ -168,7 +168,7 @@ describe('streamMessage', () => {
       name: 'f.txt',
       mime: 'text/plain',
       size: 42,
-      downloadUrl: 'https://storage.example.com/f',
+      fileId: 'file-1',
     }
     await streamMessage(FAKE_CREDS.idToken, 'm1', 'run this', 30_000, [attachment], vi.fn())
 
