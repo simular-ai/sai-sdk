@@ -118,7 +118,7 @@ export async function listMachines(authToken: string): Promise<MachineInfo[]> {
 // AI SDK v6 UI Message Stream chunk types (subset used by the sai CLI).
 export type SseEvent =
   | { type: 'start'; messageId?: string }
-  | { type: 'data-status'; data: { text: string } }
+  | { type: 'data-status'; data: { text: string; sessionId?: string } }
   | { type: 'text-start'; id: string }
   | { type: 'text-delta'; id: string; delta: string }
   | { type: 'text-end'; id: string }
@@ -143,6 +143,15 @@ export type SseEvent =
         approvalType: string
         isLinkOnly: boolean
         allowAlways: boolean
+        // Present for an exec approval: the raw command (and working directory)
+        // the agent wants to run — the full card content, so the prompt shows
+        // exactly what's being approved (titles are generic labels).
+        command?: string
+        cwd?: string
+        // Present for an askChoice (`approvalType: 'choice'`) request: the
+        // options to pick from, and whether more than one may be chosen.
+        options?: Array<{ value: string; label: string }>
+        multiple?: boolean
       }
     }
   | { type: 'finish'; finishReason?: string }
@@ -179,6 +188,114 @@ export async function listSessions(
 
   const { sessions } = (await res.json()) as { sessions: SessionSummary[] }
   return sessions
+}
+
+export interface ConciergeMessage {
+  id: string
+  role: string
+  content: string
+  timestamp: number
+}
+
+export interface ConciergeMessagesPage {
+  /** The CLI's dedicated session, or null before its first message created one. */
+  sessionId: string | null
+  /**
+   * The server's clock when it ran the query. The cursor has to come from the
+   * server: `timestamp` is written server-side, so seeding it from the client's
+   * Date.now() silently drops every reply whenever the local clock runs fast.
+   */
+  serverNowMs: number
+  messages: ConciergeMessage[]
+}
+
+/** Poll the concierge side track for new replies since `sinceMs` (exclusive). */
+export async function fetchConciergeMessages(
+  authToken: string,
+  machineId: string,
+  sinceMs: number,
+  signal?: AbortSignal,
+): Promise<ConciergeMessagesPage> {
+  const params = new URLSearchParams({
+    machineId,
+    since: String(sinceMs),
+  })
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/concierge-messages?${params}`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+    signal: signal ?? AbortSignal.timeout(10_000),
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(
+      `Failed to fetch concierge messages (${res.status}): ${body.error ?? res.statusText}`,
+    )
+  }
+  return (await res.json()) as ConciergeMessagesPage
+}
+
+const CONCIERGE_POLL_INTERVAL_MS = 1_000
+
+/**
+ * Poll concierge_messages in parallel with the agent SSE stream. Calls
+ * `onConcierge` for each new role=concierge message. Returns a stop() that
+ * clears the interval and aborts any in-flight fetch — call it when the agent
+ * stream ends (before process.exit, or Windows can STATUS_STACK_BUFFER_OVERRUN).
+ */
+export function startConciergePoll(args: {
+  authToken: string
+  machineId: string
+  sinceMs: number
+  onConcierge: (content: string) => void
+}): () => void {
+  const { authToken, machineId, onConcierge } = args
+  let sinceMs = args.sinceMs
+  const seen = new Set<string>()
+  let stopped = false
+  let inFlight = false
+  const ac = new AbortController()
+
+  const tick = async (): Promise<void> => {
+    if (stopped || inFlight) return
+    inFlight = true
+    try {
+      const { messages, serverNowMs } = await fetchConciergeMessages(
+        authToken,
+        machineId,
+        sinceMs,
+        ac.signal,
+      )
+      if (stopped) return
+      for (const msg of messages) {
+        if (seen.has(msg.id)) continue
+        seen.add(msg.id)
+        if (msg.timestamp > sinceMs) sinceMs = msg.timestamp
+        if (msg.role === 'concierge' && msg.content.trim()) {
+          onConcierge(msg.content)
+        }
+      }
+      // Advance on the SERVER's clock once it has answered, so a skewed local
+      // clock can't park the cursor in the future (where nothing new ever
+      // matches) or in the past (where every poll re-reads the same window).
+      // `seen` still covers the overlap while the cursor catches up.
+      if (serverNowMs > sinceMs) sinceMs = serverNowMs
+    } catch {
+      // Best-effort side track — don't fail the agent stream on poll/abort errors.
+    } finally {
+      inFlight = false
+    }
+  }
+
+  void tick()
+  const handle = setInterval(() => {
+    void tick()
+  }, CONCIERGE_POLL_INTERVAL_MS)
+  handle.unref?.()
+
+  return () => {
+    stopped = true
+    clearInterval(handle)
+    ac.abort()
+  }
 }
 
 /** Restarts the Sai agent process or the cloud machine. */
@@ -222,6 +339,9 @@ export async function sendApproval(
   authToken: string,
   approvalId: string,
   response: 'yes' | 'no' | 'always',
+  // For an askChoice (`choice`) approval: the chosen option value(s), one inner
+  // array per question (single-question choices send a single inner array).
+  selections?: string[][],
 ): Promise<void> {
   const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/approve`, {
     method: 'POST',
@@ -229,7 +349,7 @@ export async function sendApproval(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${authToken}`,
     },
-    body: JSON.stringify({ approvalId, response }),
+    body: JSON.stringify({ approvalId, response, ...(selections && { selections }) }),
     signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) {

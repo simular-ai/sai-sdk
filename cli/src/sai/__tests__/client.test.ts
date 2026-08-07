@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { resolveSession, streamMessage } from '../client.js'
+import { resolveSession, streamMessage, sendApproval } from '../client.js'
 import type { SseEvent } from '../client.js'
 
 afterEach(() => vi.restoreAllMocks())
@@ -210,5 +210,43 @@ describe('streamMessage', () => {
     // Only the data events should fire, not the keepalive lines
     const types = onEvent.mock.calls.map((c) => (c[0] as SseEvent).type)
     expect(types).toEqual(['text-delta', 'finish'])
+  })
+})
+
+// ─── sendApproval ──────────────────────────────────────────────────────────────
+
+describe('sendApproval', () => {
+  it('POSTs to /v1/agents/approve with the response and no selections by default', async () => {
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, status: 'approved' }), { status: 200 }),
+      )
+    await sendApproval(FAKE_CREDS.idToken, 'a1', 'yes')
+    const [url, opts] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/v1/agents/approve')
+    expect(JSON.parse(opts.body as string)).toEqual({ approvalId: 'a1', response: 'yes' })
+  })
+
+  it('includes selections (a choice pick) when provided', async () => {
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, status: 'approved' }), { status: 200 }),
+      )
+    await sendApproval(FAKE_CREDS.idToken, 'c1', 'yes', [['plan_pro']])
+    const [, opts] = spy.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toEqual({
+      approvalId: 'c1',
+      response: 'yes',
+      selections: [['plan_pro']],
+    })
+  })
+
+  it('throws with the status code on failure', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'gone' }), { status: 409 }),
+    )
+    await expect(sendApproval(FAKE_CREDS.idToken, 'a1', 'yes')).rejects.toThrow('409')
   })
 })

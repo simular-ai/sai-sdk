@@ -25,19 +25,23 @@ import {
   startNewSession,
   streamMessage,
   sendApproval,
+  startConciergePoll,
 } from './sai/client.js'
 import type { MachineInfo, SessionSummary, SseEvent } from './sai/client.js'
-import { classifyMessage } from './concierge/index.js'
-import { queryContext } from './context/query.js'
 import { uploadFile } from './upload/simulang.js'
 import { CLOUD_API_URL, RESPONSE_TIMEOUT_MS } from './config.js'
 import { apiFetch } from './http.js'
-import { parseDuration, formatDuration } from './cli-utils.js'
+import {
+  parseDuration,
+  formatDuration,
+  parseChoiceSelection,
+  sanitizeTerminalText,
+} from './cli-utils.js'
 
 // keep subcommand options from being consumed by same-named root options
 const program = new Command().enablePositionalOptions()
 
-program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.1.2')
+program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.2.0')
 
 program.addHelpText(
   'after',
@@ -230,7 +234,7 @@ program
     } else {
       console.log('')
       machines.forEach((m, i) => {
-        const label = m.name ?? m.machineId
+        const label = sanitizeTerminalText(m.name ?? m.machineId)
         const age = m.updatedAt ? `  (last active ${formatAge(m.updatedAt)})` : ''
         const selected = m.machineId === currentMachineId ? '  ✓' : ''
         console.log(`  ${i + 1}. ${label}${age}${selected}`)
@@ -525,7 +529,10 @@ program
     for (const s of sessions) {
       const date = new Date(s.updatedAt).toLocaleString()
       const marker = s.active ? '  ✓ (this CLI)' : ''
-      console.log(`  ${s.sessionId}  ${s.title}  (${date})${marker}`)
+      // Titles are agent-generated, and a channel session's is derived from the
+      // inbound thread — i.e. from text a third party wrote. Sanitize like the
+      // approval cards (see handleApprovalEvent).
+      console.log(`  ${s.sessionId}  ${sanitizeTerminalText(s.title)}  (${date})${marker}`)
     }
     console.log('')
     console.log('Ask Sai about an older conversation and it will look it up.')
@@ -708,7 +715,7 @@ program
       } else if (process.stdin.isTTY) {
         process.stdout.write('\n')
         machines.forEach((m, i) => {
-          const label = m.name ?? m.machineId
+          const label = sanitizeTerminalText(m.name ?? m.machineId)
           const age = m.updatedAt ? `  (last active ${formatAge(m.updatedAt)})` : ''
           process.stdout.write(`  ${i + 1}. ${label}${age}\n`)
         })
@@ -741,33 +748,9 @@ program
       }
     }
 
-    // 4. Concierge classification — instant heuristic, no network call
-    const classification = classifyMessage(messageText)
-    if (verbosity >= 2) {
-      process.stderr.write(`[concierge] classified as: ${classification}\n`)
-    }
-
-    if (classification === 'context') {
-      process.stderr.write('Checking context...\n')
-      let answer: string | null = null
-      try {
-        answer = await queryContext(authToken, session.machineId, messageText)
-      } catch (err) {
-        console.error(err instanceof Error ? err.message : String(err))
-        process.exit(1)
-      }
-
-      if (answer !== null) {
-        console.log(answer)
-        return
-      }
-      // null = Haiku determined it's not actually a context question → fall through to task
-      if (verbosity >= 2) {
-        process.stderr.write('[concierge] reclassified as: task (forwarded by context handler)\n')
-      }
-    }
-
-    // 5. Task: stream response from Sai via SSE
+    // 4. Send to Sai. Agent output streams over SSE; the server concierge
+    //    reply (if any) arrives on the concierge_messages side track and is
+    //    polled in parallel below.
     process.stderr.write('Sending to Sai...\n')
     let lastError: string | undefined
     const startMs = Date.now()
@@ -786,6 +769,18 @@ program
         .catch(() => process.exit(130))
     }
     process.once('SIGINT', onSigint)
+
+    // Merge concierge side-track replies with the agent stream (poll while SSE open).
+    const stopConciergePoll = startConciergePoll({
+      authToken,
+      machineId: session.machineId,
+      sinceMs: startMs,
+      onConcierge: (content) => {
+        if (sigintFired) return
+        process.stderr.write(`\n${sanitizeTerminalText(content)}\n\n`)
+        lastWasVerbose = true
+      },
+    })
 
     try {
       await streamMessage(
@@ -806,7 +801,7 @@ program
           if (sigintFired) return
           switch (event.type) {
             case 'data-status':
-              process.stderr.write(`\n${event.data.text}\n\n`)
+              process.stderr.write(`\n${sanitizeTerminalText(event.data.text)}\n\n`)
               break
             case 'text-start':
               // Blank line separating preceding verbose output from the response block.
@@ -816,12 +811,12 @@ program
               }
               break
             case 'text-delta':
-              if (event.delta) process.stdout.write(event.delta)
+              if (event.delta) process.stdout.write(sanitizeTerminalText(event.delta))
               break
             case 'reasoning-delta':
               // Mid-turn narration between tool calls (verbosity 1+).
               if (verbosity >= 1 && event.delta.trim()) {
-                process.stderr.write(`[sai] ${event.delta.trim()}\n`)
+                process.stderr.write(`[sai] ${sanitizeTerminalText(event.delta.trim())}\n`)
                 lastWasVerbose = true
               }
               break
@@ -831,14 +826,16 @@ program
             case 'data-progress':
               // Script progress lines (verbosity 2+).
               if (verbosity >= 2) {
-                process.stderr.write(`[${event.data.tool}] ${event.data.text}\n`)
+                process.stderr.write(
+                  `[${event.data.tool}] ${sanitizeTerminalText(event.data.text)}\n`,
+                )
                 lastWasVerbose = true
               }
               break
             case 'tool-output-error': {
               // Always shown — tool failures are signal, not noise.
               const errToolName = toolCallIdToName.get(event.toolCallId) ?? 'tool'
-              process.stderr.write(`[${errToolName}] ✗ ${event.errorText}\n`)
+              process.stderr.write(`[${errToolName}] ✗ ${sanitizeTerminalText(event.errorText)}\n`)
               lastWasVerbose = true
               break
             }
@@ -861,14 +858,18 @@ program
       )
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err))
-      process.exit(1)
+      // Prefer exitCode over process.exit so finally can abort the concierge
+      // poll; process.exit mid-fetch crashes with 0xC0000409 on Windows.
+      process.exitCode = 1
+      return
     } finally {
+      stopConciergePoll()
       process.off('SIGINT', onSigint)
     }
 
     if (lastError) {
       console.error(lastError)
-      process.exit(1)
+      process.exitCode = 1
     }
   })
 
@@ -945,17 +946,34 @@ async function handleApprovalEvent(
   authToken: string,
   approval: Extract<SseEvent, { type: 'data-approval-request' }>['data'],
 ): Promise<void> {
+  // Card content (description, command, labels) is agent-composed — sanitize
+  // before printing so an embedded ANSI escape can't rewrite the prompt the
+  // user is approving against.
+  const title = sanitizeTerminalText(approval.title)
+  const description = approval.description ? sanitizeTerminalText(approval.description) : ''
+
   process.stderr.write('\n')
   if (approval.isLinkOnly) {
     // Requires browser/form interaction — can't be resolved from the terminal.
-    process.stderr.write(`⚠  Action needed in desktop app: ${approval.title}\n`)
-    if (approval.description) process.stderr.write(`   ${approval.description}\n`)
+    process.stderr.write(`⚠  Action needed in desktop app: ${title}\n`)
+    if (description) process.stderr.write(`   ${description}\n`)
     process.stderr.write(`   Open the Sai desktop app to continue.\n\n`)
     return
   }
 
-  process.stderr.write(`⚠  Permission request: ${approval.title}\n`)
-  if (approval.description) process.stderr.write(`   ${approval.description}\n`)
+  // Full card content: generic title, then the summary (description), then —
+  // for exec approvals — the exact command that will run. The user approves
+  // against the command itself, not a paraphrase.
+  process.stderr.write(`⚠  Permission request: ${title}\n`)
+  if (description) process.stderr.write(`   ${description}\n`)
+  if (approval.command) {
+    const commandBlock = sanitizeTerminalText(approval.command)
+      .split('\n')
+      .map((line, i) => (i === 0 ? `   $ ${line}` : `     ${line}`))
+      .join('\n')
+    process.stderr.write(`${commandBlock}\n`)
+    if (approval.cwd) process.stderr.write(`   (in ${sanitizeTerminalText(approval.cwd)})\n`)
+  }
 
   if (!process.stdin.isTTY) {
     // Non-interactive (e.g. piped/CI) — can't prompt; let the user handle it in the app.
@@ -963,24 +981,112 @@ async function handleApprovalEvent(
     return
   }
 
+  // Choice (askChoice) request: present the options and send the pick(s) as
+  // `selections`, rather than a bare yes/no (which would resolve the choice with
+  // no selection). Single-question choices only (that's all the server surfaces).
+  if (approval.approvalType === 'choice' && approval.options && approval.options.length > 0) {
+    await handleChoiceApproval(authToken, approval)
+    return
+  }
+
   const rl = createInterface({ input: process.stdin, output: process.stderr })
   const prompt = approval.allowAlways
     ? '   Allow? [once / deny / always] (once): '
     : '   Allow? [once / deny] (once): '
+  // Fail closed: only an explicit affirmative (or bare Enter, the advertised
+  // default) approves. Unrecognized input re-prompts — a typo must never
+  // approve a command.
   const answer = await new Promise<'yes' | 'no' | 'always'>((resolve) => {
-    rl.question(prompt, (raw) => {
-      rl.close()
-      const a = raw.trim().toLowerCase()
-      if (approval.allowAlways && a === 'always') resolve('always')
-      else if (a === 'deny' || a === 'no' || a === 'n' || a === 'd') resolve('no')
-      else resolve('yes') // default to once on Enter / any other input
-    })
+    const ask = (): void => {
+      rl.question(prompt, (raw) => {
+        const a = raw.trim().toLowerCase()
+        if (approval.allowAlways && a === 'always') {
+          rl.close()
+          resolve('always')
+        } else if (a === '' || a === 'once' || a === 'yes' || a === 'y' || a === 'allow') {
+          rl.close()
+          resolve('yes')
+        } else if (a === 'deny' || a === 'no' || a === 'n' || a === 'd') {
+          rl.close()
+          resolve('no')
+        } else {
+          process.stderr.write(
+            '   Please answer "once", "deny"' +
+              (approval.allowAlways ? ', or "always".\n' : ', or press Enter for once.\n'),
+          )
+          ask()
+        }
+      })
+    }
+    ask()
   })
 
   try {
     await sendApproval(authToken, approval.approvalId, answer)
     const label = answer === 'always' ? 'Always allowed' : answer === 'yes' ? 'Allowed' : 'Denied'
     process.stderr.write(`   ✓ ${label}.\n\n`)
+  } catch (err) {
+    process.stderr.write(
+      `   Failed to send response: ${err instanceof Error ? err.message : String(err)}\n\n`,
+    )
+  }
+}
+
+/**
+ * Present an askChoice request's options and resolve it with the user's pick(s).
+ * The chosen option VALUES are sent as `selections` (one inner array for the
+ * single question), matching the in-app choice card and the /approve contract.
+ */
+async function handleChoiceApproval(
+  authToken: string,
+  approval: Extract<SseEvent, { type: 'data-approval-request' }>['data'],
+): Promise<void> {
+  // Labels are agent-composed — sanitize before printing (see handleApprovalEvent).
+  const options = (approval.options ?? []).map((o) => ({
+    value: o.value,
+    label: sanitizeTerminalText(o.label),
+  }))
+  options.forEach((o, i) => process.stderr.write(`     ${i + 1}. ${o.label}\n`))
+
+  const rl = createInterface({ input: process.stdin, output: process.stderr })
+  const prompt = approval.multiple
+    ? '   Pick number(s), comma-separated, or "cancel": '
+    : '   Pick a number, or "cancel": '
+  // Invalid input re-prompts (mirrors the messaging channel's re-ask) — a typo
+  // must not cancel the agent's question. Only an explicit cancel/empty reply does.
+  const parsed = await new Promise<ReturnType<typeof parseChoiceSelection>>((resolve) => {
+    const ask = (): void => {
+      rl.question(prompt, (raw) => {
+        const result = parseChoiceSelection(raw, options, approval.multiple === true)
+        if (result.kind === 'invalid') {
+          process.stderr.write(`   Enter a number between 1 and ${options.length}, or "cancel".\n`)
+          ask()
+          return
+        }
+        rl.close()
+        resolve(result)
+      })
+    }
+    ask()
+  })
+
+  if (parsed.kind === 'cancel') {
+    try {
+      await sendApproval(authToken, approval.approvalId, 'no')
+      process.stderr.write(`   ✓ Cancelled.\n\n`)
+    } catch (err) {
+      process.stderr.write(
+        `   Failed to send response: ${err instanceof Error ? err.message : String(err)}\n\n`,
+      )
+    }
+    return
+  }
+  if (parsed.kind !== 'select') return
+
+  try {
+    // One inner array = the single question's picks.
+    await sendApproval(authToken, approval.approvalId, 'yes', [parsed.values])
+    process.stderr.write(`   ✓ Selected: ${parsed.labels.join(', ')}.\n\n`)
   } catch (err) {
     process.stderr.write(
       `   Failed to send response: ${err instanceof Error ? err.message : String(err)}\n\n`,

@@ -255,6 +255,12 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
 
   beforeEach(async () => {
     server = await startMockServer()
+    // Default empty concierge side track — the CLI polls this in parallel with
+    // /message. Without a handler the poll 404s (harmless) but can race
+    // process shutdown on Windows; return an empty feed instead.
+    server.on('GET', '/v1/agents/concierge-messages', () => ({
+      body: { sessionId: 'test-session', messages: [] },
+    }))
     homeDir = mkdtempSync(join(tmpdir(), 'sai-int-'))
     HOMEDIR_FOR_CREDS = homeDir
     vi.resetModules()
