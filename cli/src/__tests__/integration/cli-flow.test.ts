@@ -477,7 +477,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
           name: decodeURIComponent(req.headers['x-filename'] ?? ''),
           mime: 'text/plain',
           size: 5,
-          downloadUrl: 'https://storage.example.com/file',
+          fileId: 'file-123',
         },
       }
     })
