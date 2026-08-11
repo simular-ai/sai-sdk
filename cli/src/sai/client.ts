@@ -254,7 +254,23 @@ export async function fetchConciergeMessages(
   return (await res.json()) as ConciergeMessagesPage
 }
 
-const CONCIERGE_POLL_INTERVAL_MS = 1_000
+/**
+ * Poll cadence: fast while a reply is plausibly imminent, then slow.
+ *
+ * The concierge writes at most an ack or two, and it writes them within a second
+ * or so of the send — after that the feed is almost always empty for the rest of
+ * the task. A flat 1s tick cost three Firestore reads per second for the whole
+ * stream (~900 on a five-minute task) to deliver nothing, on an endpoint with no
+ * rate limit of its own. So: 1s for the window a reply actually lands in, 5s
+ * afterwards as a safety net for a late one (an offline agent, a slow classify).
+ *
+ * The real fix is the single server push feed in
+ * docs/plans/2026-08-11-cli-api-channel-split.md; this just stops the interim
+ * from being wasteful.
+ */
+const CONCIERGE_POLL_FAST_INTERVAL_MS = 1_000
+const CONCIERGE_POLL_SLOW_INTERVAL_MS = 5_000
+const CONCIERGE_POLL_FAST_WINDOW_MS = 15_000
 
 /** Requested explicitly so the poll can tell a full page (more may be waiting)
  *  from a short one — the server's default is otherwise invisible here. */
@@ -329,14 +345,27 @@ export function startConciergePoll(args: {
   }
 
   void tick()
-  const handle = setInterval(() => {
-    void tick()
-  }, CONCIERGE_POLL_INTERVAL_MS)
-  handle.unref?.()
+
+  // setTimeout chain rather than setInterval: the cadence changes once the fast
+  // window closes, and re-arming after each tick is what lets it.
+  const startedAt = Date.now()
+  let handle: ReturnType<typeof setTimeout> | undefined
+  const arm = (): void => {
+    if (stopped) return
+    const delay =
+      Date.now() - startedAt < CONCIERGE_POLL_FAST_WINDOW_MS
+        ? CONCIERGE_POLL_FAST_INTERVAL_MS
+        : CONCIERGE_POLL_SLOW_INTERVAL_MS
+    handle = setTimeout(() => {
+      void tick().finally(arm)
+    }, delay)
+    handle.unref?.()
+  }
+  arm()
 
   return () => {
     stopped = true
-    clearInterval(handle)
+    if (handle) clearTimeout(handle)
     ac.abort()
   }
 }
