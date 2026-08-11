@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { resolveSession, streamMessage, sendApproval } from '../client.js'
+import {
+  resolveSession,
+  streamMessage,
+  sendApproval,
+  fetchConciergeMessages,
+  startConciergePoll,
+} from '../client.js'
 import type { SseEvent } from '../client.js'
 
 afterEach(() => vi.restoreAllMocks())
@@ -248,5 +254,124 @@ describe('sendApproval', () => {
       new Response(JSON.stringify({ error: 'gone' }), { status: 409 }),
     )
     await expect(sendApproval(FAKE_CREDS.idToken, 'a1', 'yes')).rejects.toThrow('409')
+  })
+})
+
+// ─── concierge side track ─────────────────────────────────────────────────────
+
+function conciergePage(
+  messages: Array<{ id: string; role: string; content: string; timestamp: number }>,
+  serverNowMs: number,
+): Response {
+  return new Response(JSON.stringify({ sessionId: 's1', serverNowMs, messages }), { status: 200 })
+}
+
+/** Query params of the nth fetch call. */
+function queryOf(spy: ReturnType<typeof vi.spyOn>, n: number): URLSearchParams {
+  const [url] = spy.mock.calls[n] as [string, ...unknown[]]
+  return new URL(url).searchParams
+}
+
+describe('fetchConciergeMessages', () => {
+  it('applies its own 10s timeout even when the caller passes a signal', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(conciergePage([], 100))
+    const ac = new AbortController()
+
+    await fetchConciergeMessages(FAKE_CREDS.idToken, 'm1', 0, { signal: ac.signal })
+
+    // The combined signal is neither the caller's nor unset: a poll the server
+    // never answers has to abort on its own, or `inFlight` wedges forever.
+    const [, opts] = spy.mock.calls[0] as [string, RequestInit]
+    expect(opts.signal).toBeInstanceOf(AbortSignal)
+    expect(opts.signal).not.toBe(ac.signal)
+    // Aborting the caller's signal still aborts the combined one.
+    ac.abort()
+    expect(opts.signal!.aborted).toBe(true)
+  })
+
+  it('marks a client-clock cursor with seed=1 and forwards the limit', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(conciergePage([], 100))
+
+    await fetchConciergeMessages(FAKE_CREDS.idToken, 'm1', 42, { limit: 20, seed: true })
+
+    const params = queryOf(spy, 0)
+    expect(params.get('since')).toBe('42')
+    expect(params.get('limit')).toBe('20')
+    expect(params.get('seed')).toBe('1')
+  })
+})
+
+describe('startConciergePoll', () => {
+  /** Let an in-flight tick settle (fetch + the awaits around it). */
+  const settle = async (): Promise<void> => {
+    for (let i = 0; i < 8; i++) await Promise.resolve()
+  }
+  /** Run the poll for two ticks and return the fetch spy. */
+  async function pollTwice(
+    page: () => Response,
+    sinceMs = 1_000,
+    onConcierge = vi.fn(),
+  ): Promise<ReturnType<typeof vi.spyOn>> {
+    vi.useFakeTimers()
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => page())
+    const stop = startConciergePoll({
+      authToken: FAKE_CREDS.idToken,
+      machineId: 'm1',
+      sinceMs,
+      onConcierge,
+    })
+    await settle()
+    await vi.advanceTimersByTimeAsync(1_000)
+    await settle()
+    stop()
+    vi.useRealTimers()
+    return spy as ReturnType<typeof vi.spyOn>
+  }
+
+  it('seeds only the first poll, then polls on the server-derived cursor', async () => {
+    const spy = await pollTwice(() => conciergePage([], 5_000))
+
+    expect(queryOf(spy, 0).get('seed')).toBe('1')
+    expect(queryOf(spy, 0).get('since')).toBe('1000')
+    // Cursor adopted from the server's clock, and no longer a seed.
+    expect(queryOf(spy, 1).get('since')).toBe('5000')
+    expect(queryOf(spy, 1).get('seed')).toBeNull()
+  })
+
+  it('does not jump the cursor past a full (truncated) page', async () => {
+    // A full page means the server capped it. Advancing to server-now here
+    // would skip whatever was cut off, for good — `seen` only dedupes what
+    // actually came back.
+    const full = Array.from({ length: 20 }, (_, i) => ({
+      id: `m${i}`,
+      role: 'concierge',
+      content: `line ${i}`,
+      timestamp: 1_100 + i,
+    }))
+    const spy = await pollTwice(() => conciergePage(full, 9_000))
+
+    // The newest message returned (1119), not the server clock (9000).
+    expect(queryOf(spy, 1).get('since')).toBe('1119')
+  })
+
+  it('prints only concierge-role messages, once each', async () => {
+    const onConcierge = vi.fn()
+    await pollTwice(
+      () =>
+        conciergePage(
+          [
+            { id: 'a', role: 'concierge', content: 'heads up', timestamp: 1_100 },
+            { id: 'b', role: 'user', content: 'my message', timestamp: 1_101 },
+            { id: 'c', role: 'concierge', content: '   ', timestamp: 1_102 },
+          ],
+          2_000,
+        ),
+      1_000,
+      onConcierge,
+    )
+
+    // The second tick re-reads the same window; `seen` keeps it to one print.
+    expect(onConcierge).toHaveBeenCalledTimes(1)
+    expect(onConcierge).toHaveBeenCalledWith('heads up')
   })
 })

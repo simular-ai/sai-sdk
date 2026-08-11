@@ -148,8 +148,19 @@ export type SseEvent =
         // exactly what's being approved (titles are generic labels).
         command?: string
         cwd?: string
-        // Present for an askChoice (`approvalType: 'choice'`) request: the
-        // options to pick from, and whether more than one may be chosen.
+        // Present for an askChoice (`approvalType: 'choice'`) request: every
+        // question in the batch, each with its options, whether more than one
+        // may be picked, and whether a typed answer counts (`allowOther` — true
+        // for a question with no options at all, i.e. a plain free-text ask).
+        questions?: Array<{
+          message: string
+          options: Array<{ value: string; label: string }>
+          multiple: boolean
+          allowOther: boolean
+        }>
+        // The first question's options, repeated for servers predating
+        // `questions`. Absent for free-text and multi-question asks, which is
+        // why `questions` exists.
         options?: Array<{ value: string; label: string }>
         multiple?: boolean
       }
@@ -209,20 +220,30 @@ export interface ConciergeMessagesPage {
   messages: ConciergeMessage[]
 }
 
-/** Poll the concierge side track for new replies since `sinceMs` (exclusive). */
+/**
+ * Poll the concierge side track for new replies since `sinceMs` (exclusive).
+ * `seed` marks a cursor that came from the local clock rather than from a
+ * previous response, which lets the server bound how far skew can reach.
+ */
 export async function fetchConciergeMessages(
   authToken: string,
   machineId: string,
   sinceMs: number,
-  signal?: AbortSignal,
+  opts: { signal?: AbortSignal; limit?: number; seed?: boolean } = {},
 ): Promise<ConciergeMessagesPage> {
   const params = new URLSearchParams({
     machineId,
     since: String(sinceMs),
   })
+  if (opts.limit) params.set('limit', String(opts.limit))
+  if (opts.seed) params.set('seed', '1')
+  // Combined, not `??`: every caller passes a stop signal, so a bare fallback
+  // is dead code — the timeout never applies and a poll the proxy never answers
+  // hangs forever, wedging `inFlight` and killing the side track silently.
+  const timeout = AbortSignal.timeout(10_000)
   const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/concierge-messages?${params}`, {
     headers: { Authorization: `Bearer ${authToken}` },
-    signal: signal ?? AbortSignal.timeout(10_000),
+    signal: opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout,
   })
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
@@ -234,6 +255,10 @@ export async function fetchConciergeMessages(
 }
 
 const CONCIERGE_POLL_INTERVAL_MS = 1_000
+
+/** Requested explicitly so the poll can tell a full page (more may be waiting)
+ *  from a short one — the server's default is otherwise invisible here. */
+const CONCIERGE_POLL_LIMIT = 20
 
 /**
  * Poll concierge_messages in parallel with the agent SSE stream. Calls
@@ -252,6 +277,9 @@ export function startConciergePoll(args: {
   const seen = new Set<string>()
   let stopped = false
   let inFlight = false
+  // The starting cursor is the local clock's guess; every later one is the
+  // server's own. Told apart so the server bounds only the guess.
+  let cursorFromServer = false
   const ac = new AbortController()
 
   const tick = async (): Promise<void> => {
@@ -262,13 +290,20 @@ export function startConciergePoll(args: {
         authToken,
         machineId,
         sinceMs,
-        ac.signal,
+        {
+          signal: ac.signal,
+          limit: CONCIERGE_POLL_LIMIT,
+          seed: !cursorFromServer,
+        },
       )
       if (stopped) return
       for (const msg of messages) {
         if (seen.has(msg.id)) continue
         seen.add(msg.id)
-        if (msg.timestamp > sinceMs) sinceMs = msg.timestamp
+        if (msg.timestamp > sinceMs) {
+          sinceMs = msg.timestamp
+          cursorFromServer = true
+        }
         if (msg.role === 'concierge' && msg.content.trim()) {
           onConcierge(msg.content)
         }
@@ -277,7 +312,15 @@ export function startConciergePoll(args: {
       // clock can't park the cursor in the future (where nothing new ever
       // matches) or in the past (where every poll re-reads the same window).
       // `seen` still covers the overlap while the cursor catches up.
-      if (serverNowMs > sinceMs) sinceMs = serverNowMs
+      //
+      // Only on a SHORT page: a full one was truncated at `limit`, and jumping
+      // to server-now would skip whatever it cut off for good — `seen` dedupes
+      // what came back, it can't recover what didn't. The per-message advance
+      // above already moved the cursor, so the next tick picks up the remainder.
+      if (messages.length < CONCIERGE_POLL_LIMIT && serverNowMs > sinceMs) {
+        sinceMs = serverNowMs
+        cursorFromServer = true
+      }
     } catch {
       // Best-effort side track — don't fail the agent stream on poll/abort errors.
     } finally {

@@ -49,26 +49,34 @@ export type ChoiceSelectionResult =
 /**
  * Parse a user's reply to an askChoice prompt into a resolution. Pure — the
  * interactive prompt in cli.ts feeds `raw` here and acts on the result.
- * - "" / "cancel" / "no" / "n" → cancel
+ * - "" / "cancel" → cancel (plus "no" / "n", unless a typed answer is accepted,
+ *   where "no" is a legitimate answer to swallowing it as a cancel)
  * - comma-separated 1-based indices → select (deduped; only the first unless
  *   `multiple`); values/labels map back to the options in pick order
- * - input given but no in-range index → invalid
+ * - anything else: the text itself when `allowOther`, otherwise invalid
+ *
+ * Index before free text, matching the messaging parser: with options on
+ * screen, "2" is a pick. `allowOther` is the only way to answer a question with
+ * no options at all (`askUser` without `multipleChoice`).
  */
 export function parseChoiceSelection(
   raw: string,
   options: ReadonlyArray<ChoiceOption>,
   multiple: boolean,
+  allowOther = false,
 ): ChoiceSelectionResult {
-  const trimmed = raw.trim().toLowerCase()
-  if (trimmed === '' || trimmed === 'cancel' || trimmed === 'no' || trimmed === 'n') {
-    return { kind: 'cancel' }
-  }
+  const text = raw.trim()
+  const trimmed = text.toLowerCase()
+  if (trimmed === '' || trimmed === 'cancel') return { kind: 'cancel' }
+  if (!allowOther && (trimmed === 'no' || trimmed === 'n')) return { kind: 'cancel' }
   const picks = trimmed
     .split(',')
     .map((s) => parseInt(s.trim(), 10))
     .filter((n) => Number.isInteger(n) && n >= 1 && n <= options.length)
   const unique = [...new Set(multiple ? picks : picks.slice(0, 1))]
-  if (unique.length === 0) return { kind: 'invalid' }
+  if (unique.length === 0) {
+    return allowOther ? { kind: 'select', values: [text], labels: [text] } : { kind: 'invalid' }
+  }
   return {
     kind: 'select',
     values: unique.map((n) => options[n - 1].value),

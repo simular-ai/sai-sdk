@@ -79,6 +79,48 @@ describe('parseChoiceSelection', () => {
       labels: ['Free', 'Enterprise'],
     })
   })
+
+  // allowOther — a typed answer is the only way to resolve `askUser` without
+  // `multipleChoice`, whose question carries no options at all. /approve
+  // rejects an approved choice with no selections, so "invalid" there would
+  // strand the agent.
+  describe('allowOther (typed answers)', () => {
+    it('takes the raw text, original case preserved, when nothing matches an index', () => {
+      expect(parseChoiceSelection('Use the Staging DB', opts, false, true)).toEqual({
+        kind: 'select',
+        values: ['Use the Staging DB'],
+        labels: ['Use the Staging DB'],
+      })
+    })
+
+    it('answers a question with no options at all', () => {
+      expect(parseChoiceSelection('jamie@simular.ai', [], false, true)).toEqual({
+        kind: 'select',
+        values: ['jamie@simular.ai'],
+        labels: ['jamie@simular.ai'],
+      })
+    })
+
+    it('still prefers an in-range index over free text', () => {
+      expect(parseChoiceSelection('2', opts, false, true)).toEqual({
+        kind: 'select',
+        values: ['plan_pro'],
+        labels: ['Pro'],
+      })
+    })
+
+    it('keeps "no" as an answer rather than a cancel', () => {
+      expect(parseChoiceSelection('no', opts, false, true)).toEqual({
+        kind: 'select',
+        values: ['no'],
+        labels: ['no'],
+      })
+    })
+
+    it.each(['', '   ', 'cancel', 'CANCEL'])('still cancels on %j', (raw) => {
+      expect(parseChoiceSelection(raw, opts, false, true)).toEqual({ kind: 'cancel' })
+    })
+  })
 })
 
 // ─── sanitizeTerminalText ─────────────────────────────────────────────────────

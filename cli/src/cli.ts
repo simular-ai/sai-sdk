@@ -37,6 +37,7 @@ import {
   parseChoiceSelection,
   sanitizeTerminalText,
 } from './cli-utils.js'
+import type { ChoiceSelectionResult } from './cli-utils.js'
 
 // keep subcommand options from being consumed by same-named root options
 const program = new Command().enablePositionalOptions()
@@ -981,11 +982,13 @@ async function handleApprovalEvent(
     return
   }
 
-  // Choice (askChoice) request: present the options and send the pick(s) as
-  // `selections`, rather than a bare yes/no (which would resolve the choice with
-  // no selection). Single-question choices only (that's all the server surfaces).
-  if (approval.approvalType === 'choice' && approval.options && approval.options.length > 0) {
-    await handleChoiceApproval(authToken, approval)
+  // Choice (askChoice) request: present each question and send the answer(s) as
+  // `selections`. Never fall through to the yes/no prompt below — /approve
+  // rejects an approved choice that carries no selections, so a bare "yes"
+  // leaves the approval pending and the agent blocked until it expires.
+  const questions = choiceQuestions(approval)
+  if (questions) {
+    await handleChoiceApproval(authToken, approval, questions)
     return
   }
 
@@ -1032,32 +1035,82 @@ async function handleApprovalEvent(
   }
 }
 
+interface ChoiceQuestion {
+  message: string
+  options: Array<{ value: string; label: string }>
+  multiple: boolean
+  allowOther: boolean
+}
+
 /**
- * Present an askChoice request's options and resolve it with the user's pick(s).
- * The chosen option VALUES are sent as `selections` (one inner array for the
- * single question), matching the in-app choice card and the /approve contract.
+ * The questions an askChoice approval is asking, or undefined when this isn't
+ * one. Prefers the server's `questions` list and falls back to the legacy
+ * single-question `options`/`multiple` pair, so a new CLI against an older
+ * server still answers the shape that server can describe. A `choice` with
+ * neither is still returned — as one free-text question, the only answer that
+ * can resolve it — rather than dropped into a yes/no prompt /approve rejects.
  */
-async function handleChoiceApproval(
-  authToken: string,
+function choiceQuestions(
   approval: Extract<SseEvent, { type: 'data-approval-request' }>['data'],
-): Promise<void> {
-  // Labels are agent-composed — sanitize before printing (see handleApprovalEvent).
-  const options = (approval.options ?? []).map((o) => ({
+): ChoiceQuestion[] | undefined {
+  if (approval.approvalType !== 'choice') return undefined
+  if (approval.questions && approval.questions.length > 0) {
+    return approval.questions.map((q) => ({
+      message: q.message,
+      options: q.options ?? [],
+      multiple: q.multiple === true,
+      allowOther: q.allowOther === true || (q.options ?? []).length === 0,
+    }))
+  }
+  const options = approval.options ?? []
+  return [
+    {
+      message: approval.title,
+      options,
+      multiple: approval.multiple === true,
+      allowOther: options.length === 0,
+    },
+  ]
+}
+
+/** Prompt one question of an askChoice batch. Resolves to the picks, or cancel. */
+async function askChoiceQuestion(
+  question: ChoiceQuestion,
+  position: { index: number; total: number },
+): Promise<ChoiceSelectionResult> {
+  // Question text and labels are agent-composed — sanitize before printing
+  // (see handleApprovalEvent).
+  const options = question.options.map((o) => ({
     value: o.value,
     label: sanitizeTerminalText(o.label),
   }))
+  // The title above already carries a single question's text; only a batch
+  // needs each one spelled out (and numbered, so the user can see the shape).
+  if (position.total > 1) {
+    process.stderr.write(
+      `   Question ${position.index + 1}/${position.total}: ${sanitizeTerminalText(question.message)}\n`,
+    )
+  }
   options.forEach((o, i) => process.stderr.write(`     ${i + 1}. ${o.label}\n`))
 
   const rl = createInterface({ input: process.stdin, output: process.stderr })
-  const prompt = approval.multiple
-    ? '   Pick number(s), comma-separated, or "cancel": '
-    : '   Pick a number, or "cancel": '
+  // Nothing to pick from is a plain free-text ask; otherwise name the pick, and
+  // mention typing only where a typed answer is actually accepted.
+  const pick = question.multiple ? 'Pick number(s), comma-separated' : 'Pick a number'
+  const prompt =
+    options.length === 0
+      ? '   Your answer (or "cancel"): '
+      : question.allowOther
+        ? `   ${pick}, type your own answer, or "cancel": `
+        : `   ${pick}, or "cancel": `
   // Invalid input re-prompts (mirrors the messaging channel's re-ask) — a typo
-  // must not cancel the agent's question. Only an explicit cancel/empty reply does.
-  const parsed = await new Promise<ReturnType<typeof parseChoiceSelection>>((resolve) => {
+  // must not cancel the agent's question. Only an explicit cancel/empty reply
+  // does. Unreachable when the question takes a typed answer: anything that
+  // isn't an index is then the answer itself.
+  return new Promise<ChoiceSelectionResult>((resolve) => {
     const ask = (): void => {
       rl.question(prompt, (raw) => {
-        const result = parseChoiceSelection(raw, options, approval.multiple === true)
+        const result = parseChoiceSelection(raw, options, question.multiple, question.allowOther)
         if (result.kind === 'invalid') {
           process.stderr.write(`   Enter a number between 1 and ${options.length}, or "cancel".\n`)
           ask()
@@ -1069,24 +1122,43 @@ async function handleChoiceApproval(
     }
     ask()
   })
+}
 
-  if (parsed.kind === 'cancel') {
-    try {
-      await sendApproval(authToken, approval.approvalId, 'no')
-      process.stderr.write(`   ✓ Cancelled.\n\n`)
-    } catch (err) {
-      process.stderr.write(
-        `   Failed to send response: ${err instanceof Error ? err.message : String(err)}\n\n`,
-      )
+/**
+ * Present an askChoice request and resolve it with the user's answer(s).
+ * Sent as `selections` — one inner array per question, in order, as /approve
+ * requires — carrying option VALUES for a pick and the typed text for a
+ * free-text answer, matching the in-app choice card. Cancelling any question
+ * denies the whole request, the same as closing the card.
+ */
+async function handleChoiceApproval(
+  authToken: string,
+  approval: Extract<SseEvent, { type: 'data-approval-request' }>['data'],
+  questions: ChoiceQuestion[],
+): Promise<void> {
+  const selections: string[][] = []
+  const labels: string[] = []
+  for (const [index, question] of questions.entries()) {
+    const parsed = await askChoiceQuestion(question, { index, total: questions.length })
+    if (parsed.kind === 'cancel') {
+      try {
+        await sendApproval(authToken, approval.approvalId, 'no')
+        process.stderr.write(`   ✓ Cancelled.\n\n`)
+      } catch (err) {
+        process.stderr.write(
+          `   Failed to send response: ${err instanceof Error ? err.message : String(err)}\n\n`,
+        )
+      }
+      return
     }
-    return
+    if (parsed.kind !== 'select') return
+    selections.push(parsed.values)
+    labels.push(parsed.labels.join(', '))
   }
-  if (parsed.kind !== 'select') return
 
   try {
-    // One inner array = the single question's picks.
-    await sendApproval(authToken, approval.approvalId, 'yes', [parsed.values])
-    process.stderr.write(`   ✓ Selected: ${parsed.labels.join(', ')}.\n\n`)
+    await sendApproval(authToken, approval.approvalId, 'yes', selections)
+    process.stderr.write(`   ✓ Answered: ${labels.join(' | ')}.\n\n`)
   } catch (err) {
     process.stderr.write(
       `   Failed to send response: ${err instanceof Error ? err.message : String(err)}\n\n`,
