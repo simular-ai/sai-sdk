@@ -258,7 +258,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
     // Default empty concierge side track — the CLI polls this in parallel with
     // /message. Without a handler the poll 404s (harmless) but can race
     // process shutdown on Windows; return an empty feed instead.
-    server.on('GET', '/v1/agents/concierge-messages', () => ({
+    server.on('GET', '/v1/cli/concierge-messages', () => ({
       body: { sessionId: 'test-session', messages: [] },
     }))
     homeDir = mkdtempSync(join(tmpdir(), 'sai-int-'))
@@ -305,7 +305,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
     server.on('GET', '/v1/agents/machines', () => ({
       body: { machines: [{ machineId: 'm1', name: 'My MacBook', updatedAt: Date.now() }] },
     }))
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         { type: 'text-start', id: 't1' },
@@ -374,7 +374,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('happy path: streams chunks to stdout, exits 0', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         { type: 'data-status', data: { text: 'Working on it...' } },
@@ -397,7 +397,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('displays Sai response chunks on stdout and status updates on stderr', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         { type: 'data-status', data: { text: 'Opening Gmail...' } },
@@ -431,7 +431,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('Sai error event: prints error text on stderr, exits 1', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody({
         type: 'error',
@@ -483,7 +483,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
     })
 
     let capturedBody = ''
-    server.on('POST', '/v1/agents/message', (req) => {
+    server.on('POST', '/v1/cli/message', (req) => {
       capturedBody = req.body
       return {
         sse: true,
@@ -558,7 +558,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
     writeCreds()
     writeSession('machine-1')
     let capturedBody = ''
-    server.on('POST', '/v1/agents/message', (req) => {
+    server.on('POST', '/v1/cli/message', (req) => {
       capturedBody = req.body
       return {
         sse: true,
@@ -583,7 +583,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
     writeCreds()
     writeSession('machine-1')
     let capturedBody = ''
-    server.on('POST', '/v1/agents/message', (req) => {
+    server.on('POST', '/v1/cli/message', (req) => {
       capturedBody = req.body
       return {
         sse: true,
@@ -608,7 +608,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('default (no flag, level 1): narrations shown; tool_call and progress suppressed', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         { type: 'reasoning-start', id: 'n1' },
@@ -643,7 +643,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('--verbose=0: narrations and progress all suppressed', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         { type: 'reasoning-start', id: 'n1' },
@@ -677,7 +677,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('--verbose=1 (tier 1): narrations shown, tool_call and progress still suppressed', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         { type: 'reasoning-start', id: 'n1' },
@@ -715,7 +715,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('--verbose=2 (tier 2): narrations and progress lines shown, no bare tool header', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         { type: 'reasoning-start', id: 'n1' },
@@ -754,7 +754,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('tool_error: always shown on stderr regardless of verbosity level', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         {
@@ -795,7 +795,7 @@ describe('sai CLI integration', { timeout: 20_000 }, () => {
   it('tool_call event never produces output at any verbosity level', async () => {
     writeCreds()
     writeSession('machine-1')
-    server.on('POST', '/v1/agents/message', () => ({
+    server.on('POST', '/v1/cli/message', () => ({
       sse: true,
       body: makeSseBody(
         {

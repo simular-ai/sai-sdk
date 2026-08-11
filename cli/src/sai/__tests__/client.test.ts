@@ -79,7 +79,7 @@ describe('resolveSession', () => {
 // ─── streamMessage ───────────────────────────────────────────────────────────
 
 describe('streamMessage', () => {
-  it('calls POST /v1/agents/message with correct body and auth header', async () => {
+  it('calls POST /v1/cli/message with correct body and auth header', async () => {
     const spy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(makeSseResponse({ type: 'finish', finishReason: 'stop' }))
@@ -87,7 +87,7 @@ describe('streamMessage', () => {
     await streamMessage(FAKE_CREDS.idToken, 'machine-1', 'hello', 30_000, undefined, vi.fn())
 
     const [url, opts] = spy.mock.calls[0] as [string, RequestInit]
-    expect(url).toContain('/v1/agents/message')
+    expect(url).toContain('/v1/cli/message')
     expect(opts.method).toBe('POST')
     expect(JSON.parse(opts.body as string)).toMatchObject({
       machineId: 'machine-1',

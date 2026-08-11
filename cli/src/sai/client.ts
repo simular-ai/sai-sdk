@@ -241,7 +241,7 @@ export async function fetchConciergeMessages(
   // is dead code — the timeout never applies and a poll the proxy never answers
   // hangs forever, wedging `inFlight` and killing the side track silently.
   const timeout = AbortSignal.timeout(10_000)
-  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/concierge-messages?${params}`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/cli/concierge-messages?${params}`, {
     headers: { Authorization: `Bearer ${authToken}` },
     signal: opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout,
   })
@@ -440,7 +440,11 @@ export async function streamMessage(
     return `Timed out after ${label} with no response from Sai. The task may still be running — check the desktop app. Use --timeout to extend (e.g. --timeout 10m).`
   }
 
-  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/message`, {
+  // `/v1/cli`, not `/v1/agents`: this client is the CLI channel, which gets the
+  // concierge side track polled above. `/v1/agents/message` is the generic API
+  // lane (pure delivery, its own session) — sending there would silently drop
+  // the acks and split `sai`'s conversation off from its own history.
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/cli/message`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
