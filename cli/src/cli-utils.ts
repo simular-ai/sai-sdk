@@ -27,9 +27,17 @@ export function parseDuration(s: string): number | null {
 // Source-style). Server-derived text (approval cards, agent deltas, status
 // lines) is printed straight to the terminal; without stripping, a malicious
 // command string could rewrite the approval prompt or reverse displayed text.
+//
+// U+200C ZWNJ and U+200D ZWJ are deliberately NOT stripped (hence the explicit
+// \u200b\u200e\u200f rather than the \u200b-\u200f range): ZWJ builds emoji
+// sequences, so a reply containing a joined emoji would otherwise print as two
+// separate glyphs, and both joiners are required to render Persian, Hindi and
+// Bengali correctly. Neither can carry an escape sequence nor reorder displayed
+// text — that is what the bidi overrides do — so stripping them costs
+// legibility on every agent delta and buys nothing.
 const UNSAFE_TERMINAL_CHARS =
   // eslint-disable-next-line no-control-regex -- stripping control chars is the point
-  /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g
+  /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g
 
 /** Strip terminal control / bidi / zero-width characters from server-derived text. */
 export function sanitizeTerminalText(text: string): string {
