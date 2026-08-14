@@ -14,15 +14,17 @@ name: Publish sai-cli
 #   3. git tag sai-cli-v<X.Y.Z> && git push origin sai-cli-v<X.Y.Z>
 #      (use sai-cli-v<X.Y.Z>-rc.N for a prerelease → publishes under dist-tag "next")
 #
-# Auth: currently a classic NPM_TOKEN secret (automation token for an account
-# with publish rights to the @simular org). To migrate to npm trusted publishing
-# (OIDC) once a first version exists:
-#   1. On npmjs.org, configure this repo + workflow as a trusted publisher for
-#      the package.
-#   2. Delete the `NODE_AUTH_TOKEN` env line from the Publish step below.
-#   3. Delete the NPM_TOKEN GitHub secret.
-#   The `id-token: write` permission is already set, so OIDC will just work and
-#   anyone able to push a tag can release — no shared token required.
+# Auth: npm trusted publishing (OIDC), same approach as simulang-js's CI. The
+# publish job's `id-token: write` permission lets the npm CLI exchange a GitHub
+# Actions OIDC token for a short-lived publish token — no NPM_TOKEN secret, so
+# anyone able to push a tag can release. Requires the matching trusted-publisher
+# config on npmjs.org (package @simular-ai/sai-cli → Settings → Trusted
+# Publisher): org "simular-ai", repo "simular-pro-unified-ui", workflow filename
+# "publish-sai-cli.yml", no environment. All fields are exact-match; npm only
+# validates them at publish time.
+#
+# npm skips provenance attestations because this repo is private (a documented
+# npm limitation, not an error) — nothing to configure either way.
 
 on:
   pull_request:
@@ -120,7 +122,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write # create the GitHub Release for this tag
-      id-token: write # required for npm trusted publishing (OIDC) after migration
+      id-token: write # required for npm trusted publishing (OIDC) to npmjs.org
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -128,15 +130,16 @@ jobs:
           # the repo-scoped GITHUB_TOKEN.
           persist-credentials: false
 
-      # registry-url makes setup-node write ~/.npmrc with
-      # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}, so `npm publish`
-      # picks up the NPM_TOKEN secret automatically.
+      # Intentionally no `registry-url`: setup-node would otherwise write an
+      # ~/.npmrc with `_authToken=${NODE_AUTH_TOKEN}`, which shadows the OIDC
+      # trusted-publishing handshake and breaks `npm publish` (same reasoning
+      # as simulang-js's CI). The repo-level .npmrc already routes @simular-ai
+      # to registry.npmjs.org.
       - name: Setup Node
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version-file: '.nvmrc'
           cache: npm
-          registry-url: 'https://registry.npmjs.org/'
 
       - name: Generate GitHub App token (private @simular-ai git deps)
         id: app-token
@@ -181,9 +184,9 @@ jobs:
         run: npm run build -w @simular-ai/sai-cli
 
       # prepublishOnly in the package rebuilds the bundle again as a safety net.
+      # No auth token: the npm CLI detects the Actions OIDC environment and
+      # exchanges the id-token for a short-lived publish token on its own.
       - name: Publish to npmjs.org
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           npm publish -w @simular-ai/sai-cli \
