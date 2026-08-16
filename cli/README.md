@@ -108,11 +108,13 @@ automation). These appear inline:
 
 ```
 ⚠  Permission request: Command Approval Required
-   Allow? [once / deny / always] (once):
+   Allow? [once / task / deny] (once):
 ```
 
-Press Enter to accept the default (`once`); type `deny` to refuse. `always`
-appears only for shell commands not flagged high-risk.
+Press Enter to accept the default (`once`); type `deny` to refuse. `task` is the
+desktop card's "Trust for this task" — it stops the asking for the rest of this
+task and lapses when the task ends. Nothing you answer here is remembered
+beyond it.
 
 ### Aborting with Ctrl+C
 

@@ -993,19 +993,26 @@ async function handleApprovalEvent(
   }
 
   const rl = createInterface({ input: process.stdin, output: process.stderr })
-  const prompt = approval.allowAlways
-    ? '   Allow? [once / deny / always] (once): '
-    : '   Allow? [once / deny] (once): '
+  // The same fixed row every other surface offers — `task` is the in-app card's
+  // "Trust for this task", the only widening a card can still produce. It is not
+  // gated on anything the server sends: the row does not vary by what raised the
+  // card, and branching on that is what let each surface drift into its own
+  // vocabulary. There used to be an `always` option here, gated on an
+  // `allowAlways` flag; it wrote `approved_always`, which is now legacy
+  // read-only and persists nothing. See docs/adr/0014-a-card-decision-never-persists.md.
+  const prompt = '   Allow? [once / task / deny] (once): '
   // Fail closed: only an explicit affirmative (or bare Enter, the advertised
   // default) approves. Unrecognized input re-prompts — a typo must never
-  // approve a command.
-  const answer = await new Promise<'yes' | 'no' | 'always'>((resolve) => {
+  // approve a command, and must never widen one either.
+  const answer = await new Promise<'yes' | 'no' | 'task'>((resolve) => {
     const ask = (): void => {
       rl.question(prompt, (raw) => {
         const a = raw.trim().toLowerCase()
-        if (approval.allowAlways && a === 'always') {
+        // No single-letter alias for the widening one, unlike `y`/`n`: a stray
+        // keystroke should not be able to trust the rest of the task.
+        if (a === 'task' || a === 'trust') {
           rl.close()
-          resolve('always')
+          resolve('task')
         } else if (a === '' || a === 'once' || a === 'yes' || a === 'y' || a === 'allow') {
           rl.close()
           resolve('yes')
@@ -1014,8 +1021,8 @@ async function handleApprovalEvent(
           resolve('no')
         } else {
           process.stderr.write(
-            '   Please answer "once", "deny"' +
-              (approval.allowAlways ? ', or "always".\n' : ', or press Enter for once.\n'),
+            '   Please answer "once", "task" (trust for the rest of this task) or "deny",\n' +
+              '   or press Enter for once.\n',
           )
           ask()
         }
@@ -1026,7 +1033,8 @@ async function handleApprovalEvent(
 
   try {
     await sendApproval(authToken, approval.approvalId, answer)
-    const label = answer === 'always' ? 'Always allowed' : answer === 'yes' ? 'Allowed' : 'Denied'
+    const label =
+      answer === 'task' ? 'Trusted for this task' : answer === 'yes' ? 'Allowed' : 'Denied'
     process.stderr.write(`   ✓ ${label}.\n\n`)
   } catch (err) {
     process.stderr.write(

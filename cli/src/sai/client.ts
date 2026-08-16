@@ -142,7 +142,9 @@ export type SseEvent =
         description: string
         approvalType: string
         isLinkOnly: boolean
-        allowAlways: boolean
+        // No always-allow flag: the option it gated wrote `approved_always`,
+        // which is legacy read-only now (ADR 0014). "Trust for this task" needs
+        // no flag — it is offered on every card the terminal can answer.
         // Present for an exec approval: the raw command (and working directory)
         // the agent wants to run — the full card content, so the prompt shows
         // exactly what's being approved (titles are generic labels).
@@ -410,7 +412,10 @@ export async function startNewSession(authToken: string, machineId: string): Pro
 export async function sendApproval(
   authToken: string,
   approvalId: string,
-  response: 'yes' | 'no' | 'always',
+  // The two Grants a card can produce plus a deny: `yes` allows this one
+  // request, `task` trusts for the rest of the task. `always` is gone — see
+  // docs/adr/0014-a-card-decision-never-persists.md.
+  response: 'yes' | 'no' | 'task',
   // For an askChoice (`choice`) approval: the chosen option value(s), one inner
   // array per question (single-question choices send a single inner array).
   selections?: string[][],
