@@ -118,6 +118,7 @@ export async function listMachines(authToken: string): Promise<MachineInfo[]> {
 // AI SDK v6 UI Message Stream chunk types (subset used by the sai CLI).
 export type SseEvent =
   | { type: 'start'; messageId?: string }
+  | { type: 'data-session'; data: { sessionId: string } }
   | { type: 'data-status'; data: { text: string; sessionId?: string } }
   | { type: 'text-start'; id: string }
   | { type: 'text-delta'; id: string; delta: string }
