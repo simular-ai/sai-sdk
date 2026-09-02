@@ -2,8 +2,8 @@ name: Publish sai-cli
 
 # CI + npm publish for the @simular-ai/sai-cli package (packages/sai-cli).
 #
-# Checks (lint / typecheck / build / test / smoke) run on every PR that touches
-# the package, and on manual dispatch. Publishing to npmjs.org happens only when
+# Checks (lint / typecheck / build / test / smoke) run on every non-draft PR that
+# touches the package, and on manual dispatch. Publishing to npmjs.org happens only when
 # a tag matching `sai-cli-v*` is pushed — a package-scoped prefix so the app's
 # own release tags (agent-v*, etc.) never trigger an npm publish.
 #
@@ -27,7 +27,12 @@ name: Publish sai-cli
 # npm limitation, not an error) — nothing to configure either way.
 
 on:
+  # `types` is the default set plus the two draft transitions — see the draft
+  # guard on `build` below. `ready_for_review` is what starts the checks for a
+  # PR opened as a draft; `converted_to_draft` runs a no-op that cancels the
+  # in-flight checks through the concurrency group.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
       - 'packages/sai-cli/**'
       - '.github/workflows/publish-sai-cli.yml'
@@ -46,6 +51,11 @@ jobs:
     # regressions (e.g. Windows path handling in token-store) are caught in CI,
     # not just on Ubuntu. fail-fast:false so one OS failing still reports the others.
     name: Build & test (${{ matrix.os }})
+    # Draft PRs run nothing, same as build.yml: three OS legs on a tree the
+    # author is still rewriting is spend with no reader. `ready_for_review`
+    # (or the next push after marking it ready) starts them. Non-PR events read
+    # `draft` as null.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     strategy:
       fail-fast: false
       matrix:
