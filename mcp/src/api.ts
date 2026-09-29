@@ -1,0 +1,255 @@
+import type {
+  ApprovalRequest,
+  MachineRow,
+  SseEvent,
+  StartRequest,
+  StartResult,
+  UploadedFile,
+} from './types.js'
+
+/** A non-2xx cloud-api response. `body.error` is the server's message when it sent JSON. */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: Record<string, unknown>,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>
+
+/** `GET /v1/agents/events` response (§4). */
+export interface EventsResponse {
+  sessionId?: string
+  events: SseEvent[]
+  cursor: string
+  status: 'running' | 'needs_approval' | 'idle' | 'error'
+  text: string
+  /** The first pending approval's event data (carries approvalUrl, isLinkOnly). */
+  approval?: ApprovalRequest
+}
+
+export type ApproveResponse = 'yes' | 'no' | 'task'
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
+}
+
+/**
+ * Node's fetch rejects connection failures with an opaque `TypeError: fetch
+ * failed` and hides the reason on `.cause`; name the host and the cause so the
+ * model (and the human reading the transcript) can tell DNS from a bad key.
+ */
+function toNetworkError(url: string, err: unknown): Error {
+  if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+    return new Error(`Request to ${hostOf(url)} timed out.`)
+  }
+  const cause =
+    err instanceof Error
+      ? (err.cause as { code?: string; message?: string } | undefined)
+      : undefined
+  const detail = cause?.message ?? cause?.code ?? (err instanceof Error ? err.message : String(err))
+  return new Error(
+    `Could not reach the Sai API at ${hostOf(url)}: ${detail}. Check the network and SAI_API_URL.`,
+  )
+}
+
+async function readError(res: Response, prefix: string): Promise<ApiError> {
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  const detail = typeof body.error === 'string' ? body.error : res.statusText
+  const hint =
+    res.status === 401
+      ? ' SAI_API_KEY was rejected — it may be revoked or expired (Firebase ID tokens last one hour).'
+      : ''
+  return new ApiError(res.status, body, `${prefix} (${res.status}): ${detail}${hint}`)
+}
+
+/**
+ * Thin typed client over `/v1/agents/*`. Every method throws `ApiError` on a
+ * non-2xx status, so callers decide which statuses are outcomes (409 link_only)
+ * and which are failures. `fetchImpl` is injectable for tests.
+ */
+export class SaiApi {
+  constructor(
+    private readonly apiUrl: string,
+    private readonly apiKey: string,
+    private readonly fetchImpl: FetchLike = (url, init) => fetch(url, init),
+    private readonly versionTag?: string,
+  ) {}
+
+  private headers(extra: Record<string, string> = {}): Record<string, string> {
+    return {
+      Authorization: `Bearer ${this.apiKey}`,
+      ...(this.versionTag && { 'x-sai-version': this.versionTag }),
+      ...extra,
+    }
+  }
+
+  private async request(path: string, init: RequestInit & { prefix: string }): Promise<Response> {
+    const url = `${this.apiUrl}${path}`
+    const { prefix, ...rest } = init
+    let res: Response
+    try {
+      res = await this.fetchImpl(url, rest)
+    } catch (err) {
+      throw toNetworkError(url, err)
+    }
+    if (!res.ok) throw await readError(res, prefix)
+    return res
+  }
+
+  private async json<T>(path: string, init: RequestInit & { prefix: string }): Promise<T> {
+    const res = await this.request(path, init)
+    return (await res.json()) as T
+  }
+
+  /** `GET /auth` — verifies the credential and returns the caller's uid. */
+  auth(): Promise<{ ok: boolean; userId: string; authType?: 'firebase' | 'apiKey' }> {
+    return this.json('/v1/agents/auth', {
+      headers: this.headers(),
+      signal: AbortSignal.timeout(15_000),
+      prefix: 'Auth check failed',
+    })
+  }
+
+  async machines(): Promise<MachineRow[]> {
+    const { machines } = await this.json<{ machines: MachineRow[] }>('/v1/agents/machines', {
+      headers: this.headers(),
+      signal: AbortSignal.timeout(15_000),
+      prefix: 'Failed to list machines',
+    })
+    return machines
+  }
+
+  /** GET /models — the catalog a task may name, with per-plan `allowed`. */
+  async models(): Promise<{
+    models: Array<{
+      id: string
+      name: string
+      provider: string
+      tier: string
+      costTier: string
+      allowed: boolean
+    }>
+    default: string
+  }> {
+    const res = await this.request('/v1/agents/models', {
+      method: 'GET',
+      headers: this.headers(),
+      prefix: 'Failed to list models',
+    })
+    return (await res.json()) as Awaited<ReturnType<SaiApi['models']>>
+  }
+
+  /** `POST /new-session` on the `api` channel; returns the fresh sessionId. */
+  async newSession(machineId: string): Promise<string> {
+    const { sessionId } = await this.json<{ sessionId: string }>('/v1/agents/new-session', {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ machineId, channel: 'api' }),
+      signal: AbortSignal.timeout(15_000),
+      prefix: 'Failed to start a new session',
+    })
+    return sessionId
+  }
+
+  /**
+   * Today's path: `POST /message` with the SSE stream (`wait` defaults to
+   * true). Returns the open response; the caller parses the body.
+   */
+  async sendMessageStream(req: StartRequest, signal?: AbortSignal): Promise<Response> {
+    const res = await this.request('/v1/agents/message', {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
+      body: JSON.stringify({
+        machineId: req.machineId,
+        message: req.message,
+        ...(req.attachments && { attachments: req.attachments }),
+        ...(req.model && { model: req.model }),
+      }),
+      ...(signal && { signal }),
+      prefix: 'Failed to send the task',
+    })
+    if (!res.body) throw new Error('The Sai API returned no response body for the task stream.')
+    return res
+  }
+
+  /** A1: `POST /message` with `wait: false` → `202 { sessionId, machineId, queued }`. */
+  sendMessageNoWait(req: StartRequest): Promise<StartResult> {
+    return this.json('/v1/agents/message', {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        machineId: req.machineId,
+        message: req.message,
+        wait: false,
+        ...(req.attachments && { attachments: req.attachments }),
+        ...(req.model && { model: req.model }),
+      }),
+      signal: AbortSignal.timeout(30_000),
+      prefix: 'Failed to send the task',
+    })
+  }
+
+  /** A2: `GET /events?sessionId&since&wait` — long-polls up to `waitS` (0..60) seconds. */
+  events(sessionId: string, since: string | undefined, waitS: number): Promise<EventsResponse> {
+    const params = new URLSearchParams({ sessionId, wait: String(waitS) })
+    if (since) params.set('since', since)
+    return this.json(`/v1/agents/events?${params}`, {
+      headers: this.headers(),
+      // The server holds for `waitS`; give it headroom before giving up locally.
+      signal: AbortSignal.timeout((waitS + 15) * 1000),
+      prefix: 'Failed to fetch task events',
+    })
+  }
+
+  approve(
+    approvalId: string,
+    response: ApproveResponse,
+    selections?: string[][],
+  ): Promise<{ ok: boolean; status?: string; note?: string }> {
+    return this.json('/v1/agents/approve', {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ approvalId, response, ...(selections && { selections }) }),
+      signal: AbortSignal.timeout(15_000),
+      prefix: 'Failed to resolve the approval',
+    })
+  }
+
+  /** `POST /abort { sessionId }` — owner-checked on the session doc (cloud-api 36c5e4729). */
+  abort(sessionId: string): Promise<{ ok: boolean; aborted: boolean; reason?: string }> {
+    return this.json('/v1/agents/abort', {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ sessionId }),
+      signal: AbortSignal.timeout(15_000),
+      prefix: 'Failed to abort the task',
+    })
+  }
+
+  /**
+   * `POST /upload`: raw bytes in the body, the original name URL-encoded in
+   * `x-filename`. The server derives MIME from the extension and ignores
+   * Content-Type.
+   */
+  upload(name: string, bytes: Uint8Array): Promise<UploadedFile> {
+    return this.json('/v1/agents/upload', {
+      method: 'POST',
+      headers: this.headers({
+        'Content-Type': 'application/octet-stream',
+        'x-filename': encodeURIComponent(name),
+      }),
+      body: bytes as unknown as BodyInit,
+      signal: AbortSignal.timeout(120_000),
+      prefix: 'Upload failed',
+    })
+  }
+}
