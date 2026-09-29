@@ -1,0 +1,229 @@
+name: Publish sai-mcp
+
+# CI + npm publish for the @simular-ai/sai-mcp package (packages/sai-mcp).
+# A copy of publish-sai-mcp.yml; keep the two in step.
+#
+# Checks (lint / typecheck / build / test / smoke) run on every non-draft PR that
+# touches the package, and on manual dispatch. Publishing to npmjs.org happens only when
+# a tag matching `sai-mcp-v*` is pushed — a package-scoped prefix so the app's
+# own release tags (agent-v*, etc.) never trigger an npm publish.
+#
+# Cutting a release:
+#   1. Bump "version" in packages/sai-mcp/package.json and SERVER_VERSION in
+#      src/server.ts (the verify step below checks both).
+#   2. Merge to main.
+#   3. git tag sai-mcp-v<X.Y.Z> && git push origin sai-mcp-v<X.Y.Z>
+#      (use sai-mcp-v<X.Y.Z>-rc.N for a prerelease → publishes under dist-tag "next")
+#
+# Auth: npm trusted publishing (OIDC), same approach as simulang-js's CI. The
+# publish job's `id-token: write` permission lets the npm CLI exchange a GitHub
+# Actions OIDC token for a short-lived publish token — no NPM_TOKEN secret, so
+# anyone able to push a tag can release. Requires the matching trusted-publisher
+# config on npmjs.org (package @simular-ai/sai-mcp → Settings → Trusted
+# Publisher): org "simular-ai", repo "simular-pro-unified-ui", workflow filename
+# "publish-sai-mcp.yml", no environment. All fields are exact-match; npm only
+# validates them at publish time.
+#
+# npm skips provenance attestations because this repo is private (a documented
+# npm limitation, not an error) — nothing to configure either way.
+
+on:
+  # `types` is the default set plus the two draft transitions — see the draft
+  # guard on `build` below. `ready_for_review` is what starts the checks for a
+  # PR opened as a draft; `converted_to_draft` runs a no-op that cancels the
+  # in-flight checks through the concurrency group.
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'packages/sai-mcp/**'
+      - '.github/workflows/publish-sai-mcp.yml'
+  push:
+    tags:
+      - 'sai-mcp-v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Run the full check suite on every OS we support so platform-specific
+    # regressions (e.g. Windows path handling in token-store) are caught in CI,
+    # not just on Ubuntu. fail-fast:false so one OS failing still reports the others.
+    name: Build & test (${{ matrix.os }})
+    # Draft PRs run nothing, same as build.yml: three OS legs on a tree the
+    # author is still rewriting is spend with no reader. `ready_for_review`
+    # (or the next push after marking it ready) starts them. Non-PR events read
+    # `draft` as null.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Don't persist the repo-scoped GITHUB_TOKEN in .git/config — it would
+          # otherwise be used by npm's git clones of the private @simular-ai deps
+          # (which it can't access), overriding the App token configured below.
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      # The single monorepo lockfile resolves every workspace, including app's
+      # private git+ssh @simular-ai deps (guardrails, windows-ui-automation).
+      # Authenticate those clones with a GitHub App token, same as build.yml.
+      - name: Generate GitHub App token (private @simular-ai git deps)
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.SIMULAR_CI_APP_ID }}
+          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # --ignore-scripts skips the app workspace's native-module rebuild
+      # (better-sqlite3, @parcel/watcher). sai-mcp only needs pure-JS / prebuilt
+      # deps (esbuild, @modelcontextprotocol/sdk, zod, tsx, vitest), so this is both safe and fast.
+      - name: Install dependencies
+        # Force bash on all runners — Windows defaults to PowerShell, where this
+        # git-config heredoc and the ${{ runner.temp }} path wouldn't behave the same.
+        shell: bash
+        env:
+          # Isolated gitconfig so the token rewrite doesn't persist on the runner.
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
+          npm ci --ignore-scripts
+
+      # Lint the package and fail on any warnings (the lint script runs
+      # `eslint . --max-warnings 0`), so lint/formatting warnings can't slip
+      # into a release.
+      - name: Lint
+        run: npm run lint -w @simular-ai/sai-mcp
+
+      - name: Typecheck
+        run: npm run typecheck -w @simular-ai/sai-mcp
+
+      - name: Build
+        run: npm run build -w @simular-ai/sai-mcp
+
+      - name: Test
+        run: npm run test -w @simular-ai/sai-mcp
+
+      - name: Smoke test (--version)
+        run: node packages/sai-mcp/dist/server.js --version
+
+      # The packaged skill must be where init-claude looks for it, and land where
+      # Claude Code reads skills. Isolated HOME so the runner's own is untouched.
+      - name: Smoke test (init-claude)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SMOKE_HOME="$(mktemp -d)"
+          HOME="$SMOKE_HOME" USERPROFILE="$SMOKE_HOME" node packages/sai-mcp/dist/server.js init-claude
+          test -s "$SMOKE_HOME/.claude/skills/sai/SKILL.md"
+
+  publish:
+    name: Publish to npm
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/sai-mcp-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # create the GitHub Release for this tag
+      id-token: write # required for npm trusted publishing (OIDC) to npmjs.org
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # See build job: keep npm's private-dep clones on the App token, not
+          # the repo-scoped GITHUB_TOKEN.
+          persist-credentials: false
+
+      # Intentionally no `registry-url`: setup-node would otherwise write an
+      # ~/.npmrc with `_authToken=${NODE_AUTH_TOKEN}`, which shadows the OIDC
+      # trusted-publishing handshake and breaks `npm publish` (same reasoning
+      # as simulang-js's CI). The repo-level .npmrc already routes @simular-ai
+      # to registry.npmjs.org.
+      - name: Setup Node
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Generate GitHub App token (private @simular-ai git deps)
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.SIMULAR_CI_APP_ID }}
+          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Install dependencies
+        env:
+          # Isolated gitconfig so the token rewrite doesn't persist on the runner.
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
+          npm ci --ignore-scripts
+
+      - name: Verify tag matches package version & determine dist-tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          TAG_VERSION="${TAG_NAME#sai-mcp-v}"
+          PKG_VERSION="$(node -p "require('./packages/sai-mcp/package.json').version")"
+
+          SRV_VERSION="$(sed -nE "s/^export const SERVER_VERSION = '([^']+)'.*/\\1/p" packages/sai-mcp/src/server.ts)"
+          if [ "$SRV_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::SERVER_VERSION in packages/sai-mcp/src/server.ts ($SRV_VERSION) does not match package.json ($PKG_VERSION)." >&2
+            exit 1
+          fi
+
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match packages/sai-mcp/package.json version ($PKG_VERSION). Bump the package version to match the tag." >&2
+            exit 1
+          fi
+
+          if echo "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
+          elif echo "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-.+'; then
+            echo "dist-tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Tag '$TAG_NAME' is not a release tag (expected sai-mcp-vX.Y.Z or sai-mcp-vX.Y.Z-prerelease)." >&2
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build -w @simular-ai/sai-mcp
+
+      # prepublishOnly in the package rebuilds the bundle again as a safety net.
+      # No auth token: the npm CLI detects the Actions OIDC environment and
+      # exchanges the id-token for a short-lived publish token on its own.
+      - name: Publish to npmjs.org
+        run: |
+          set -euo pipefail
+          npm publish -w @simular-ai/sai-mcp \
+            --access public \
+            --tag "${{ steps.release.outputs.dist-tag }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+          PRERELEASE_FLAG: ${{ steps.release.outputs.dist-tag == 'next' && '--prerelease' || '' }}
+        run: |
+          gh release create "$TAG_NAME" \
+            --title "$TAG_NAME" \
+            --generate-notes \
+            $PRERELEASE_FLAG
