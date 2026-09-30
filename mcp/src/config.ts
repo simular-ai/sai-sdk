@@ -33,8 +33,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const apiKey = env.SAI_API_KEY?.trim()
   if (!apiKey) {
     throw new Error(
-      'SAI_API_KEY is not set. Create an API key at https://sai.simular.ai/settings/api-keys ' +
-        '(or pass a Firebase ID token) and export it as SAI_API_KEY.',
+      'SAI_API_KEY is not set. Create an API key at https://platform.simular.ai/api-keys ' +
+        'and export it as SAI_API_KEY.',
     )
   }
   const apiUrl = (env.SAI_API_URL?.trim() || DEFAULT_API_URL).replace(/\/+$/, '')
