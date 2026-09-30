@@ -1,6 +1,6 @@
 {
   "name": "@simular-ai/sai-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sai MCP server — drive your Sai computer-use agent from Claude Code, Codex, or Cursor.",
   "license": "MIT",
   "repository": {

@@ -11,7 +11,7 @@
  *                 collecting the SSE stream in-process. Off until they deploy.
  */
 
-export const DEFAULT_API_URL = 'https://simular-cloud-api-149671192594.us-central1.run.app'
+export const DEFAULT_API_URL = 'https://api.simular.ai'
 
 /** Approval links open the production web app regardless of SAI_API_URL (§5). */
 export const APPROVAL_URL_BASE = 'https://sai.simular.ai/approval'
