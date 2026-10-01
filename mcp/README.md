@@ -10,7 +10,7 @@ You need Node.js 22.12 or newer and a Sai API key (`sapi_…`). Sign in at
 [platform.simular.ai](https://platform.simular.ai) and create one under
 [API Keys](https://platform.simular.ai/api-keys). It is shown once.
 
-Docs: [docs.simular.ai/sai-api](https://docs.simular.ai/sai-api/introduction)
+Docs: [platform.simular.ai/documentation](https://platform.simular.ai/documentation)
 
 ## Install
 

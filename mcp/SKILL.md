@@ -84,4 +84,4 @@ Build JSON bodies with `jq -n` as above so user text with quotes never breaks th
 
 ## Reference
 
-Full API documentation: https://docs.simular.ai/sai-api/introduction. Endpoints used here: `POST /v1/agents/message`, `GET /v1/agents/events`, `POST /v1/agents/approve`, `POST /v1/agents/abort`, `GET /v1/agents/machines`, `GET /v1/agents/models`, `GET /v1/agents/account`.
+Full API documentation: https://platform.simular.ai/documentation. Endpoints used here: `POST /v1/agents/message`, `GET /v1/agents/events`, `POST /v1/agents/approve`, `POST /v1/agents/abort`, `GET /v1/agents/machines`, `GET /v1/agents/models`, `GET /v1/agents/account`.
