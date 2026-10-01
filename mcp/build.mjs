@@ -1,7 +1,26 @@
 import { build } from 'esbuild'
-import { chmodSync } from 'fs'
+import { chmodSync, readFileSync } from 'fs'
 
 const outfile = 'dist/server.js'
+const { version } = JSON.parse(readFileSync('package.json', 'utf8'))
+
+// The MCP Apps task view (src/app-view.ts): one self-contained page, the
+// browser script inlined, baked into the server bundle as a string.
+const ui = await build({
+  entryPoints: ['src/ui/task-view.ts'],
+  bundle: true,
+  platform: 'browser',
+  target: 'es2022',
+  format: 'iife',
+  minify: true,
+  write: false,
+  define: { __SAI_VERSION__: JSON.stringify(version) },
+})
+const script = ui.outputFiles[0].text.replace(/<\/script/gi, '<\\/script')
+const taskViewHtml = readFileSync('src/ui/task-view.html', 'utf8').replace(
+  '/*__SAI_TASK_VIEW_JS__*/',
+  () => script,
+)
 
 await build({
   entryPoints: ['src/server.ts'],
@@ -15,6 +34,7 @@ await build({
   // single self-contained file.
   external: [],
   sourcemap: true,
+  define: { __SAI_TASK_VIEW_HTML__: JSON.stringify(taskViewHtml) },
   banner: {
     // The MCP SDK's CJS-only transitive deps call `require` at runtime; an ESM
     // bundle has none, so provide one. The shebang must stay on line 1.

@@ -97,7 +97,8 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
     '"auto" lets Sai pick. Only call this when the user asks for a specific model or a task needs a stronger/faster one.',
   sai_task_start:
     'Send a task to Sai, an autonomous computer-use agent that operates a real Windows/macOS desktop (browser, apps, files) on the chosen machine. ' +
-    'Returns { session_id, machine_id, queued, push } immediately; the task keeps running on the machine. ' +
+    'Returns { session_id, machine_id, queued, push, watch_url? } immediately; the task keeps running on the machine. ' +
+    'watch_url is a local page where the user can watch the computer live and approve steps: always give it to the user as a clickable link (some apps can only show the screen there). ' +
     'Then call sai_task_wait with session_id until status is not "running" — UNLESS push is true, in which case do NOT call sai_task_wait: ' +
     'the result arrives as a channel notification and you should continue with other work. ' +
     'One conversation per machine persists on the "api" channel across calls (Sai remembers earlier tasks and their results); pass new_session: true to start clean. ' +
@@ -251,14 +252,18 @@ export class SaiTools {
     }
   }
 
-  async wait(args: {
-    session_id: string
-    timeout_s?: number
-    cursor?: string
-  }): Promise<WaitResult> {
+  async wait(
+    args: {
+      session_id: string
+      timeout_s?: number
+      cursor?: string
+    },
+    opts: { returnOnEvents?: boolean } = {},
+  ): Promise<WaitResult> {
     const result = await this.ctx.source.wait(args.session_id, {
       timeoutMs: clampTimeoutS(args.timeout_s) * 1000,
       ...(args.cursor !== undefined && { cursor: args.cursor }),
+      ...(opts.returnOnEvents && { returnOnEvents: true }),
     })
     return this.decorate(result)
   }

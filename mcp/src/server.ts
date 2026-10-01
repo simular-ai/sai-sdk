@@ -9,15 +9,19 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { CallToolResult, ServerNotification } from '@modelcontextprotocol/sdk/types.js'
+import { z } from 'zod'
 import { SaiApi } from './api.js'
 import { readConfig } from './config.js'
 import { EventsPoller, StreamCollector, type SessionSource } from './session-source.js'
 import { SaiTools, serverInstructions, toolDescriptions, toolSchemas } from './tools.js'
 import { watchSession, type ChannelNotification } from './watcher.js'
+import { registerTaskView, TASK_VIEW_TOOL_META, taskViewHtml, taskViewTools } from './app-view.js'
+import { LocalView } from './local-view.js'
+import { TaskLog } from './task-log.js'
 import { parseInitClaudeFlags, runInitClaude } from './init-claude.js'
 
 export const SERVER_NAME = 'sai'
-export const SERVER_VERSION = '0.1.0'
+export const SERVER_VERSION = '0.2.0'
 
 const log = (line: string): void => {
   process.stderr.write(`[sai-mcp] ${line}\n`)
@@ -103,6 +107,28 @@ export function createServer(): McpServer {
     },
   })
 
+  const taskLog = new TaskLog()
+  const viewDeps = {
+    tasks: taskLog,
+    // The view wants each step as it happens, not just the end of the turn.
+    wait: (args: { session_id: string; timeout_s?: number; cursor?: string }) =>
+      tools.wait(args, { returnOnEvents: true }),
+    apiUrl: config.apiUrl,
+    run,
+    liveScreen: (machineId: string) => api.liveScreen(machineId),
+  }
+  const viewTools = taskViewTools(viewDeps)
+  const localView = config.localView
+    ? new LocalView({
+        html: taskViewHtml,
+        call: (name, args) =>
+          name === 'sai_task_approve'
+            ? run(() => tools.approve(z.object(toolSchemas.sai_task_approve).parse(args)))
+            : viewTools[name](args),
+        log,
+      })
+    : undefined
+
   mcp.registerTool(
     'sai_machines',
     { description: toolDescriptions.sai_machines, inputSchema: toolSchemas.sai_machines },
@@ -115,8 +141,26 @@ export function createServer(): McpServer {
   )
   mcp.registerTool(
     'sai_task_start',
-    { description: toolDescriptions.sai_task_start, inputSchema: toolSchemas.sai_task_start },
-    (args) => run(() => tools.start(args)),
+    {
+      description: toolDescriptions.sai_task_start,
+      inputSchema: toolSchemas.sai_task_start,
+      // MCP Apps hosts render the live task view under this call.
+      _meta: TASK_VIEW_TOOL_META,
+    },
+    (args) =>
+      run(async () => {
+        const started = await tools.start(args)
+        // Which task this call's view follows (the session outlives it).
+        const taskId = taskLog.start(started.session_id)
+        // For hosts that can't render the view inline: the same page in a browser.
+        const watchUrl = await localView
+          ?.urlFor(started.session_id, started.machine_id, taskId)
+          .catch((err: unknown) => {
+            log(`local view unavailable: ${err instanceof Error ? err.message : String(err)}`)
+            return undefined
+          })
+        return { ...started, task_id: taskId, ...(watchUrl && { watch_url: watchUrl }) }
+      }),
   )
   mcp.registerTool(
     'sai_task_wait',
@@ -138,6 +182,8 @@ export function createServer(): McpServer {
     { description: toolDescriptions.sai_upload, inputSchema: toolSchemas.sai_upload },
     (args) => run(() => tools.upload(args)),
   )
+
+  registerTaskView(mcp, viewDeps)
 
   return mcp
 }

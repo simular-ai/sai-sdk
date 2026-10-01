@@ -11,8 +11,19 @@
     "rootDir": "src",
     "declaration": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/ui/task-view.ts",
+    "src/ui/bridge.ts",
+    "src/ui/live.ts",
+    "src/ui/guacamole/**"
+  ]
 }

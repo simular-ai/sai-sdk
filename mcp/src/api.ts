@@ -128,6 +128,20 @@ export class SaiApi {
     return machines
   }
 
+  /**
+   * `POST /machines/:id/live` — a view-only Guacamole tunnel for the caller's
+   * own machine, for the MCP Apps task view. The URL carries a session token:
+   * hand it to the view only, never to the model or a log.
+   */
+  liveScreen(machineId: string): Promise<{ websocketUrl: string; width: number; height: number }> {
+    return this.json(`/v1/agents/machines/${encodeURIComponent(machineId)}/live`, {
+      method: 'POST',
+      headers: this.headers(),
+      signal: AbortSignal.timeout(20_000),
+      prefix: 'Live screen unavailable',
+    })
+  }
+
   /** GET /models — the catalog a task may name, with per-plan `allowed`. */
   async models(): Promise<{
     models: Array<{

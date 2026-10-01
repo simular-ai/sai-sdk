@@ -27,6 +27,8 @@ export interface WaitOptions {
    * has announced the card, until the agent moves again.
    */
   waitWhile?: readonly SessionStatus[]
+  /** Return as soon as anything new arrives (the task view's poll), not only on a status change. */
+  returnOnEvents?: boolean
 }
 
 /**
@@ -226,6 +228,7 @@ export class StreamCollector implements SessionSource {
       const remaining = deadline - Date.now()
       if (remaining <= 0) break
       await tracked.notifier.wait(remaining)
+      if (opts.returnOnEvents) break
     }
     return snapshot(tracked.state, opts.cursor)
   }
@@ -311,7 +314,8 @@ export class EventsPoller implements SessionSource {
     let since = opts.cursor
     let status: SessionStatus = 'running'
     let text = ''
-    let first = true
+    // The view's poll already has a cursor: hold straight away, one request per poll.
+    let first = !(opts.returnOnEvents && opts.cursor)
     for (;;) {
       const remainingS = Math.ceil((deadline - Date.now()) / 1000)
       // First poll returns immediately (wait=0) so a task that already ended
@@ -333,7 +337,8 @@ export class EventsPoller implements SessionSource {
       }
       if (
         !shouldKeepWaiting(status, polled.state.approval?.approvalId, waitWhile, knownApprovalId) ||
-        Date.now() >= deadline
+        Date.now() >= deadline ||
+        (opts.returnOnEvents && collected.length > 0)
       ) {
         break
       }
