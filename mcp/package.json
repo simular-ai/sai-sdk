@@ -1,6 +1,6 @@
 {
   "name": "@simular-ai/sai-mcp",
-  "version": "0.1.2",
+  "version": "0.2.2",
   "description": "Sai MCP server — drive your Sai computer-use agent from Claude Code, Codex, or Cursor.",
   "license": "MIT",
   "repository": {
@@ -28,7 +28,7 @@
     "dev": "tsx src/server.ts",
     "build": "node build.mjs",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.ui.json",
     "test": "vitest run",
     "prepublishOnly": "npm run build"
   },

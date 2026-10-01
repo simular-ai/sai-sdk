@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sai task</title>
+    <style>
+      :root {
+        --bg: #fff;
+        --fg: #1b1b1b;
+        --muted: #6b6b6b;
+        --line: #e5e5e5;
+        --card: #f6f6f4;
+        --accent: #1b1b1b;
+        --accent-fg: #fff;
+        --ok: #2f9e44;
+        --warn: #e8a317;
+        --err: #d64545;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #161616;
+          --fg: #eee;
+          --muted: #9a9a9a;
+          --line: #2c2c2c;
+          --card: #1f1f1f;
+          --accent: #eee;
+          --accent-fg: #111;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #161616;
+        --fg: #eee;
+        --muted: #9a9a9a;
+        --line: #2c2c2c;
+        --card: #1f1f1f;
+        --accent: #eee;
+        --accent-fg: #111;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 14px 16px;
+        font:
+          13.5px/1.5 system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .brand {
+        font-weight: 600;
+      }
+      .modes {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+      }
+      button.mode {
+        padding: 2px 8px;
+        font-size: 12px;
+      }
+      /* Picture-in-picture: just the screen, the status and any approval. */
+      [data-mode='pip'] #steps,
+      [data-mode='pip'] #steps-more,
+      [data-mode='pip'] #answer,
+      [data-mode='pip'] #live {
+        display: none;
+      }
+      [data-mode='pip'] body {
+        padding: 8px 10px;
+      }
+      #headline {
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex: none;
+      }
+      .dot.running,
+      .dot.starting {
+        background: var(--ok);
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      .dot.needs_approval {
+        background: var(--warn);
+      }
+      .dot.error {
+        background: var(--err);
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.35;
+        }
+      }
+      ol {
+        margin: 10px 0 0;
+        padding-left: 20px;
+        color: var(--muted);
+      }
+      ol li:last-child {
+        color: var(--fg);
+      }
+      #steps-more {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+      .card {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--card);
+      }
+      #approval-text,
+      #answer,
+      #error {
+        white-space: pre-wrap;
+      }
+      #error {
+        border-color: var(--err);
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      button {
+        font: inherit;
+        padding: 5px 10px;
+        border-radius: 7px;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--fg);
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        color: var(--accent-fg);
+        border-color: var(--accent);
+      }
+      #live {
+        margin-top: 12px;
+      }
+      /* Opened in a browser tab rather than inside a host's chat. */
+      .standalone body {
+        max-width: 960px;
+        margin: 24px auto;
+      }
+      #answer code {
+        font:
+          12px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        padding: 1px 4px;
+        border-radius: 4px;
+        background: var(--line);
+      }
+      #steps .detail {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #screen-wrap {
+        margin-top: 10px;
+      }
+      /* Guacamole sizes its own layers; the box keeps 16:9 before the first frame. */
+      #screen {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background: #0b0d12;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #screen img {
+        width: 100%;
+        display: block;
+      }
+      #screen-note {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span id="dot" class="dot starting"></span><span class="brand">Sai</span
+      ><span id="headline">Starting Sai…</span>
+      <span class="modes">
+        <button id="pin" class="mode" hidden title="Keep this view on screen while you scroll">
+          Keep visible
+        </button>
+        <button id="expand" class="mode" hidden title="Open full screen">Expand</button>
+        <button
+          id="popout"
+          class="mode"
+          hidden
+          title="Watch in its own window while you keep chatting"
+        >
+          Open in a window ↗
+        </button>
+        <button id="restore" class="mode" hidden title="Back into the conversation">
+          Back to chat
+        </button>
+      </span>
+    </header>
+    <div id="screen-wrap" hidden>
+      <div id="screen"></div>
+      <div id="screen-note" hidden></div>
+      <button id="watch-here" hidden title="Take the live screen back to this view">
+        Watch here
+      </button>
+    </div>
+    <ol id="steps"></ol>
+    <div id="steps-more"></div>
+    <div id="approval" class="card" hidden>
+      <strong id="approval-title"></strong>
+      <div id="approval-text"></div>
+      <div class="row">
+        <button id="approve" class="primary">Approve</button>
+        <button id="approve-task">Approve for this task</button>
+        <button id="deny">Deny</button>
+        <button id="open-approval" class="primary" hidden>Open to finish</button>
+      </div>
+    </div>
+    <div id="error" class="card" hidden></div>
+    <div id="answer" class="card" hidden></div>
+    <button id="live" hidden>Open in the Playground ↗</button>
+    <script>
+      /*__SAI_TASK_VIEW_JS__*/
+    </script>
+  </body>
+</html>

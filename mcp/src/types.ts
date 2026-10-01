@@ -60,11 +60,26 @@ export type SseEvent =
 export type SessionStatus = 'running' | 'needs_approval' | 'idle' | 'error'
 
 /** What `sai_task_wait` returns — the §4 poll response shape, snake_cased for the tool. */
+/** `GET /events` `usage`: this task's model tokens and cost so far. */
+export interface TaskUsage {
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  costUsd: number
+  modelCalls: number
+  byModel: Record<string, Omit<TaskUsage, 'byModel'>>
+}
+
 export interface WaitResult {
   status: SessionStatus
   events: SseEvent[]
   text: string
   approval?: ApprovalRequest
+  /** This task's token usage so far, when the API reports it. */
+  usage?: TaskUsage
+  /** The session's token usage so far, across its tasks. */
+  sessionUsage?: TaskUsage
   cursor: string
   /** Set on `status: 'error'` — the `error` frame's text. */
   error?: string

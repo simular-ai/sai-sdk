@@ -15,6 +15,7 @@ import type {
   SseEvent,
   StartRequest,
   StartResult,
+  TaskUsage,
   WaitResult,
 } from './types.js'
 
@@ -27,6 +28,8 @@ export interface WaitOptions {
    * has announced the card, until the agent moves again.
    */
   waitWhile?: readonly SessionStatus[]
+  /** Return as soon as anything new arrives (the task view's poll), not only on a status change. */
+  returnOnEvents?: boolean
 }
 
 /**
@@ -226,6 +229,7 @@ export class StreamCollector implements SessionSource {
       const remaining = deadline - Date.now()
       if (remaining <= 0) break
       await tracked.notifier.wait(remaining)
+      if (opts.returnOnEvents) break
     }
     return snapshot(tracked.state, opts.cursor)
   }
@@ -311,7 +315,10 @@ export class EventsPoller implements SessionSource {
     let since = opts.cursor
     let status: SessionStatus = 'running'
     let text = ''
-    let first = true
+    let usage: TaskUsage | undefined
+    let sessionUsage: TaskUsage | undefined
+    // The view's poll already has a cursor: hold straight away, one request per poll.
+    let first = !(opts.returnOnEvents && opts.cursor)
     for (;;) {
       const remainingS = Math.ceil((deadline - Date.now()) / 1000)
       // First poll returns immediately (wait=0) so a task that already ended
@@ -326,6 +333,8 @@ export class EventsPoller implements SessionSource {
       since = page.cursor
       status = page.status
       text = page.text
+      usage = page.usage ?? usage
+      sessionUsage = page.sessionUsage ?? sessionUsage
       // The server's own view of the pending card outranks the local fold.
       if (page.approval) {
         polled.state.approval = page.approval
@@ -333,7 +342,8 @@ export class EventsPoller implements SessionSource {
       }
       if (
         !shouldKeepWaiting(status, polled.state.approval?.approvalId, waitWhile, knownApprovalId) ||
-        Date.now() >= deadline
+        Date.now() >= deadline ||
+        (opts.returnOnEvents && collected.length > 0)
       ) {
         break
       }
@@ -349,6 +359,8 @@ export class EventsPoller implements SessionSource {
       status,
       events: collected,
       text,
+      ...(usage && { usage }),
+      ...(sessionUsage && { sessionUsage }),
       ...(status === 'needs_approval' &&
         polled.state.approval && { approval: polled.state.approval }),
       cursor: since ?? '',

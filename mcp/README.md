@@ -44,6 +44,8 @@ Or in `~/.codex/config.toml`:
 [mcp_servers.sai]
 command = "npx"
 args = ["-y", "@simular-ai/sai-mcp"]
+# sai_task_wait holds for up to 110 s; Codex's default tool timeout is 60 s.
+tool_timeout_sec = 120
 
 [mcp_servers.sai.env]
 SAI_API_KEY = "sapi_YOUR_KEY"
@@ -91,14 +93,31 @@ you a link to finish it and keeps waiting. Sai remembers earlier tasks on the
 same computer; `new_session: true` starts fresh.
 
 There is no screenshot tool: Sai sees the screen itself and reports in text.
-Watch it work live in the [Playground](https://platform.simular.ai/playground).
+
+## Watch Sai work
+
+Each task comes with a live view: the computer's screen, Sai's steps,
+permission requests you can answer, and the result.
+
+- **Apps that show MCP Apps** (Claude desktop and web, ChatGPT, Cursor, VS
+  Code): the view appears in the conversation under the task. In Claude,
+  **Open in a window** pops it out so it stays in sight while you chat.
+- **Everywhere else** (Claude Code, Codex): your agent gives you a
+  `watch_url` link to the same view, served by this server on your own
+  computer (`127.0.0.1`). Your API key never reaches the browser. Codex shows
+  the view inline but keeps it offline, so open the link for the live screen.
+- Or open the [Playground](https://platform.simular.ai/playground).
+
+One view watches a computer at a time. If another one takes over the screen,
+the view says so and offers **Watch here**.
 
 ## Environment
 
-| Variable      | Required | Meaning                                                              |
-| ------------- | -------- | -------------------------------------------------------------------- |
-| `SAI_API_KEY` | yes      | Your Sai API key (`sapi_…`).                                         |
-| `SAI_PUSH`    | no       | `1` turns on Claude Code channels (below). Leave it unset otherwise. |
+| Variable         | Required | Meaning                                                              |
+| ---------------- | -------- | -------------------------------------------------------------------- |
+| `SAI_API_KEY`    | yes      | Your Sai API key (`sapi_…`).                                         |
+| `SAI_PUSH`       | no       | `1` turns on Claude Code channels (below). Leave it unset otherwise. |
+| `SAI_LOCAL_VIEW` | no       | `0` turns off the local `watch_url` page.                            |
 
 ## Claude Code channels (research preview)
 

@@ -230,6 +230,35 @@ describe('EventsPoller (SAI_EVENTS_API=1)', () => {
     expect(JSON.parse(init.body as string)).toEqual({ machineId: 'm1', message: 'go', wait: false })
   })
 
+  it('wait returns the task’s usage from the latest /events page', async () => {
+    const usage = {
+      inputTokens: 1200,
+      outputTokens: 300,
+      cacheReadTokens: 9000,
+      cacheWriteTokens: 0,
+      costUsd: 0.04,
+      modelCalls: 3,
+      byModel: {},
+    }
+    const pages = [
+      { events: [], cursor: 'c1', status: 'running', text: '' },
+      {
+        events: [{ type: 'finish' }],
+        cursor: 'c2',
+        status: 'idle',
+        text: 'ok',
+        usage,
+        sessionUsage: usage,
+      },
+    ]
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify(pages.shift()), { status: 200 }),
+    )
+    const poller = new EventsPoller(new SaiApi('https://api.test', 'k', fetchImpl))
+    const r = await poller.wait('s1', { timeoutMs: 30_000 })
+    expect(r).toMatchObject({ status: 'idle', usage, sessionUsage: usage })
+  })
+
   it('wait polls /events with the cursor until status leaves running, first poll with wait=0', async () => {
     const pages = [
       {
