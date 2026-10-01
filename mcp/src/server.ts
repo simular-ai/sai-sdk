@@ -21,7 +21,7 @@ import { TaskLog } from './task-log.js'
 import { parseInitClaudeFlags, runInitClaude } from './init-claude.js'
 
 export const SERVER_NAME = 'sai'
-export const SERVER_VERSION = '0.2.0'
+export const SERVER_VERSION = '0.2.1'
 
 const log = (line: string): void => {
   process.stderr.write(`[sai-mcp] ${line}\n`)
