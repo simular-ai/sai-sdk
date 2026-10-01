@@ -78,6 +78,8 @@ export interface WaitResult {
   approval?: ApprovalRequest
   /** This task's token usage so far, when the API reports it. */
   usage?: TaskUsage
+  /** The session's token usage so far, across its tasks. */
+  sessionUsage?: TaskUsage
   cursor: string
   /** Set on `status: 'error'` — the `error` frame's text. */
   error?: string

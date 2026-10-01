@@ -33,6 +33,8 @@ export interface EventsResponse {
   approval?: ApprovalRequest
   /** This task's token usage so far; absent before the first billed model call. */
   usage?: TaskUsage
+  /** The session's token usage so far, across its tasks. */
+  sessionUsage?: TaskUsage
 }
 
 export type ApproveResponse = 'yes' | 'no' | 'task'

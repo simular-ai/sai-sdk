@@ -316,6 +316,7 @@ export class EventsPoller implements SessionSource {
     let status: SessionStatus = 'running'
     let text = ''
     let usage: TaskUsage | undefined
+    let sessionUsage: TaskUsage | undefined
     // The view's poll already has a cursor: hold straight away, one request per poll.
     let first = !(opts.returnOnEvents && opts.cursor)
     for (;;) {
@@ -333,6 +334,7 @@ export class EventsPoller implements SessionSource {
       status = page.status
       text = page.text
       usage = page.usage ?? usage
+      sessionUsage = page.sessionUsage ?? sessionUsage
       // The server's own view of the pending card outranks the local fold.
       if (page.approval) {
         polled.state.approval = page.approval
@@ -358,6 +360,7 @@ export class EventsPoller implements SessionSource {
       events: collected,
       text,
       ...(usage && { usage }),
+      ...(sessionUsage && { sessionUsage }),
       ...(status === 'needs_approval' &&
         polled.state.approval && { approval: polled.state.approval }),
       cursor: since ?? '',
