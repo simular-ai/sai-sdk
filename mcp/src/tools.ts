@@ -106,7 +106,7 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
     NO_SCREENSHOT,
   sai_task_wait:
     'Block up to timeout_s (default 90, max 110) for the task to leave the "running" state. ' +
-    'Returns { status, events, text, approval?, cursor, error? }. status: "running" = timed out, call again passing the returned cursor; ' +
+    'Returns { status, events, text, approval?, usage?, cursor, error? }. usage is this task\'s model tokens and cost so far (inputTokens, outputTokens, cacheReadTokens, costUsd, byModel).  status: "running" = timed out, call again passing the returned cursor; ' +
     '"needs_approval" = Sai is paused on `approval` — if approval.isLinkOnly is false decide with sai_task_approve, if true give approval.approvalUrl to the human and call sai_task_wait again; ' +
     '"idle" = done, `text` is Sai\'s answer; "error" = failed, see `error`. ' +
     '`text` is the assistant text of the whole turn so far; `events` are only the frames since `cursor`. ' +

@@ -15,6 +15,7 @@ import type {
   SseEvent,
   StartRequest,
   StartResult,
+  TaskUsage,
   WaitResult,
 } from './types.js'
 
@@ -314,6 +315,7 @@ export class EventsPoller implements SessionSource {
     let since = opts.cursor
     let status: SessionStatus = 'running'
     let text = ''
+    let usage: TaskUsage | undefined
     // The view's poll already has a cursor: hold straight away, one request per poll.
     let first = !(opts.returnOnEvents && opts.cursor)
     for (;;) {
@@ -330,6 +332,7 @@ export class EventsPoller implements SessionSource {
       since = page.cursor
       status = page.status
       text = page.text
+      usage = page.usage ?? usage
       // The server's own view of the pending card outranks the local fold.
       if (page.approval) {
         polled.state.approval = page.approval
@@ -354,6 +357,7 @@ export class EventsPoller implements SessionSource {
       status,
       events: collected,
       text,
+      ...(usage && { usage }),
       ...(status === 'needs_approval' &&
         polled.state.approval && { approval: polled.state.approval }),
       cursor: since ?? '',

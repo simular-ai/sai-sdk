@@ -4,6 +4,7 @@ import type {
   SseEvent,
   StartRequest,
   StartResult,
+  TaskUsage,
   UploadedFile,
 } from './types.js'
 
@@ -30,6 +31,8 @@ export interface EventsResponse {
   text: string
   /** The first pending approval's event data (carries approvalUrl, isLinkOnly). */
   approval?: ApprovalRequest
+  /** This task's token usage so far; absent before the first billed model call. */
+  usage?: TaskUsage
 }
 
 export type ApproveResponse = 'yes' | 'no' | 'task'
