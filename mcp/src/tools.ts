@@ -97,6 +97,7 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
     '"auto" lets Sai pick. Only call this when the user asks for a specific model or a task needs a stronger/faster one.',
   sai_task_start:
     'Send a task to Sai, an autonomous computer-use agent that operates a real Windows/macOS desktop (browser, apps, files) on the chosen machine. ' +
+    'Use it for work that needs a screen or the user\'s logged-in accounts, e.g. "Log in to the vendor portal and list last month\'s invoices with totals" or "Follow this bug report in Chrome and describe what happens at each step". ' +
     'Returns { session_id, machine_id, queued, push, watch_url? } immediately; the task keeps running on the machine. ' +
     'watch_url is a local page where the user can watch the computer live and approve steps: always give it to the user as a clickable link (some apps can only show the screen there). ' +
     'Then call sai_task_wait with session_id until status is not "running" — UNLESS push is true, in which case do NOT call sai_task_wait: ' +
@@ -126,7 +127,8 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
 
 export const serverInstructions = [
   "Sai is an autonomous computer-use agent that operates a real desktop (browser, native apps, files, email) on the user's Sai machine.",
-  "Use it for work that needs a GUI or the user's logged-in accounts, not for things you can do locally.",
+  "Use it when the work needs a screen: sites and apps with no API (vendor portals, admin consoles, legacy web apps), web apps behind the user's logins (sign-ins go to the human as an approval link), desktop software on Windows or macOS, or seeing what a real user sees (testing a sign-up flow, reproducing a bug). Don't use it for what you can do locally or through an API.",
+  'For a workflow the user will repeat, ask Sai after the first run to save it as a replayable skill with parameters ("Save this as a replayable skill named invoice_export, with vendor and month as parameters"); later, ask Sai to run that skill. Sai replays it as code, asking the model only where the screen matters, and the agent takes over if the UI changed.',
   '',
   'The loop:',
   '1. sai_machines once (skip when you already know the machine_id).',

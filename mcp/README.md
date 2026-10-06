@@ -1,16 +1,59 @@
 # @simular-ai/sai-mcp
 
 Give your coding agent a computer. This MCP server lets Claude Code, Codex,
-Cursor or any MCP client hand tasks to [Sai](https://www.simular.ai), Simular's
-computer-use agent. Sai does the work on a real desktop (a browser, native
-apps, files) and reports back. Sai runs on a cloud computer we host; the free
-plan includes one.
+Cursor or any MCP client hand tasks to [Sai](https://platform.simular.ai),
+Simular's computer-use agent, #1 on OSWorld 2.0 (73%). Sai uses apps and
+websites the way a person does, by seeing the screen, clicking and typing, so
+your agent can get work done where there is no API: web apps behind a login,
+admin consoles, desktop software, forms with no import. Sai runs on a
+cloud computer we host; the free plan includes one.
+
+Run a workflow once and Sai can save it as code: later runs replay that code
+and ask the model only where the screen matters, so they are faster and
+cheaper, and the agent takes over when the UI changes.
 
 You need Node.js 22.12 or newer and a Sai API key (`sapi_…`). Sign in at
 [platform.simular.ai](https://platform.simular.ai) and create one under
 [API Keys](https://platform.simular.ai/api-keys). It is shown once.
 
 Docs: [platform.simular.ai/documentation](https://platform.simular.ai/documentation)
+
+## When to use Sai
+
+Use Sai when:
+
+- There is no API, or the API doesn't cover the task: vendor portals, admin
+  consoles, legacy web apps.
+- The task needs a real browser session with someone's accounts. Sign-ins,
+  passwords and phone checks go to the human as an approval link.
+- The work happens in a desktop app, on Windows or macOS.
+- It is a one-off, and a script would cost more to write and keep working than
+  the task itself.
+- You need to see what a real user sees: testing a sign-up flow, reproducing a
+  bug report.
+- It is a workflow you will repeat (see below).
+
+Write code yourself when a documented API or SDK does the job, the data is
+already local, or you need exact, byte-for-byte output.
+
+## Run once, replay as code
+
+1. Run the task once with Sai.
+2. Ask: `Save this as a replayable skill named invoice_export, with vendor and month as parameters.`
+3. Next time: `Run invoice_export for vendor Acme, month March.` Sai replays
+   the code; when a step breaks because the UI changed, the agent takes over.
+
+The research behind it: [Neuro-Symbolic Computer Use](https://arxiv.org/abs/2609.36927)
+(Sep 2026). Learned policies cut per-run cost 15–217× and latency 3.4–5.1×, and
+raised Pass^3 by 3.6–15.8 points over the base agent on OSWorld-Verified and
+ScienceBoard.
+
+## Example tasks
+
+- `Open our staging site in Chrome, sign up with the test Gmail account, click the verification email, and tell me where the flow breaks.`
+- `Log in to the vendor portal (it has no API) and list last month's invoices with their totals.`
+- `Enter each row of the uploaded CSV into the supplier form at <url>, which has no import, and report the rows that failed validation.`
+- `Follow the steps in this bug report in Chrome on Windows and describe exactly what happens at each step.`
 
 ## Install
 
