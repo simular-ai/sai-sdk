@@ -29,7 +29,9 @@
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "gate:src": "true",
+    "gate:test": "true"
   },
   "dependencies": {
     "commander": "15.0.0"
