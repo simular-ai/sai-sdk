@@ -39,6 +39,16 @@ export interface EventsResponse {
 
 export type ApproveResponse = 'yes' | 'no' | 'task'
 
+/** What `POST /v1/sessions/:id/exec` returns (cloud-api routes/sessions.ts). */
+export interface ExecResult {
+  result?: unknown
+  logs: string[]
+  error?: { kind: string; message: string; stack?: string }
+  observations: { screenshot?: { base64: string; mimeType: string } }
+  variables: Array<{ name: string; type: string; preview: string }>
+  durationMs: number
+}
+
 function hostOf(url: string): string {
   try {
     return new URL(url).host
@@ -113,6 +123,50 @@ export class SaiApi {
   private async json<T>(path: string, init: RequestInit & { prefix: string }): Promise<T> {
     const res = await this.request(path, init)
     return (await res.json()) as T
+  }
+
+  // ─── Sessions (Layer 2: docs/plans/2026-10-05-sai-api-sessions-v0.md) ───────
+
+  /** `POST /v1/sessions` — waits for the machine (a free claim takes ~2 min). */
+  sessionOpen(
+    machineId?: string,
+  ): Promise<{ sessionId: string; machineId: string; expiresAfterIdleSec: number }> {
+    return this.json('/v1/sessions', {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(machineId ? { machineId } : {}),
+      signal: AbortSignal.timeout(240_000),
+      prefix: 'Opening a session failed',
+    })
+  }
+
+  /** `POST /v1/sessions/:id/exec` — runs one Simulang block on the machine. */
+  sessionExec(sessionId: string, code: string, timeoutMs?: number): Promise<ExecResult> {
+    return this.json(`/v1/sessions/${encodeURIComponent(sessionId)}/exec`, {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ code, ...(timeoutMs !== undefined && { timeoutMs }) }),
+      signal: AbortSignal.timeout((timeoutMs ?? 120_000) + 45_000),
+      prefix: 'Running the block failed',
+    })
+  }
+
+  sessionInterrupt(sessionId: string): Promise<{ interrupted: boolean }> {
+    return this.json(`/v1/sessions/${encodeURIComponent(sessionId)}/interrupt`, {
+      method: 'POST',
+      headers: this.headers(),
+      signal: AbortSignal.timeout(30_000),
+      prefix: 'Interrupt failed',
+    })
+  }
+
+  async sessionClose(sessionId: string): Promise<void> {
+    await this.request(`/v1/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+      signal: AbortSignal.timeout(30_000),
+      prefix: 'Closing the session failed',
+    })
   }
 
   /** `GET /auth` — verifies the credential and returns the caller's uid. */

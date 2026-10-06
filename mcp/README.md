@@ -161,6 +161,7 @@ the view says so and offers **Watch here**.
 | `SAI_API_KEY`    | yes      | Your Sai API key (`sapi_…`).                                         |
 | `SAI_PUSH`       | no       | `1` turns on Claude Code channels (below). Leave it unset otherwise. |
 | `SAI_LOCAL_VIEW` | no       | `0` turns off the local `watch_url` page.                            |
+| `SAI_SESSIONS`   | no       | `1` adds the direct-control session tools (below).                   |
 
 ## Claude Code channels (research preview)
 
@@ -176,6 +177,20 @@ claude --dangerously-load-development-channels server:sai
 
 Only set `SAI_PUSH=1` together with that flag. Without it, pushed results are
 dropped and your agent is told not to poll.
+
+## Direct control (research preview)
+
+With `SAI_SESSIONS=1`, your agent can also drive the computer itself instead of
+handing Sai a task: `sai_session_open`, then `sai_exec` blocks of Simulang
+(JavaScript) that run on the computer, then `sai_session_close`. Each block
+returns its value and console output, plus a screenshot as an image your
+agent's own model sees. The Simulang reference is the MCP resource
+`sai://simulang/reference`. Direct control must be enabled for your account.
+Docs: [Direct control](https://platform.simular.ai/documentation/concepts/direct-control).
+
+```bash
+claude mcp add sai -e SAI_API_KEY=sapi_YOUR_KEY -e SAI_SESSIONS=1 -- npx -y @simular-ai/sai-mcp
+```
 
 ## Support
 

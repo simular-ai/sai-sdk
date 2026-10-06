@@ -8,6 +8,9 @@
  * - SAI_PUSH      `1` → Claude Code channel mode: `sai_task_start` returns
  *                 `push: true` and the server watches the session itself.
  * - SAI_LOCAL_VIEW `0` → no local task page (`watch_url`) for hosts without MCP Apps.
+ * - SAI_SESSIONS  `1` → register the session tools (sai_session_open, sai_exec,
+ *                 sai_interrupt, sai_session_close). Early access: the API answers
+ *                 403 for accounts outside the allowlist, so they are off by default.
  * - SAI_EVENTS_API `0` → collect the `POST /message` SSE stream instead of A1 (`wait: false`) + A2 (`GET /events`), which is the default; the flag exists for
  *                 collecting the SSE stream in-process. Off until they deploy.
  */
@@ -24,6 +27,8 @@ export interface Config {
   eventsApi: boolean
   /** Serve the task view on 127.0.0.1 and link it from `sai_task_start` (local-view.ts). */
   localView: boolean
+  /** Register the Layer 2 session tools (sessions.ts). */
+  sessions: boolean
   /** Staging Version Tag (`x-sai-version`) for PR previews; unset in normal use. */
   versionTag?: string
 }
@@ -51,6 +56,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // server predating A1/A2.
     eventsApi: env.SAI_EVENTS_API === undefined ? true : flag(env.SAI_EVENTS_API),
     localView: env.SAI_LOCAL_VIEW === undefined ? true : flag(env.SAI_LOCAL_VIEW),
+    sessions: flag(env.SAI_SESSIONS),
     ...(env.SAI_API_VERSION_TAG?.trim() && { versionTag: env.SAI_API_VERSION_TAG.trim() }),
   }
 }

@@ -14,6 +14,7 @@ import { SaiApi } from './api.js'
 import { readConfig } from './config.js'
 import { EventsPoller, StreamCollector, type SessionSource } from './session-source.js'
 import { SaiTools, serverInstructions, toolDescriptions, toolSchemas } from './tools.js'
+import { registerSessionTools, sessionInstructions } from './sessions.js'
 import { watchSession, type ChannelNotification } from './watcher.js'
 import { registerTaskView, TASK_VIEW_TOOL_META, taskViewHtml, taskViewTools } from './app-view.js'
 import { LocalView } from './local-view.js'
@@ -66,7 +67,7 @@ export function createServer(): McpServer {
         experimental: { 'claude/channel': {} },
         tools: {},
       },
-      instructions: serverInstructions,
+      instructions: config.sessions ? serverInstructions + sessionInstructions : serverInstructions,
     },
   )
 
@@ -184,6 +185,7 @@ export function createServer(): McpServer {
   )
 
   registerTaskView(mcp, viewDeps)
+  if (config.sessions) registerSessionTools(mcp, api, run, fail)
 
   return mcp
 }

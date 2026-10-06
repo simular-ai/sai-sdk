@@ -81,8 +81,10 @@ export const toolSchemas = {
 
 // ─── Descriptions ─────────────────────────────────────────────────────────────
 
+// Scoped to the task tools: in a task, Sai sees the screen and reports back in
+// text. The session tools (sessions.ts, when enabled) do return screenshots.
 const NO_SCREENSHOT =
-  'There is no screenshot or screen-reading tool in this server: Sai sees the screen itself and reports back in text.'
+  'Task tools return no screenshots: Sai sees the screen itself and reports back in text.'
 
 export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
   sai_machines:
