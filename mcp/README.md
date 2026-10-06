@@ -26,7 +26,7 @@ Use Sai when:
   consoles, legacy web apps.
 - The task needs a real browser session with someone's accounts. Sign-ins,
   passwords and phone checks go to the human as an approval link.
-- The work happens in a desktop app, on Windows or macOS.
+- The work happens in a desktop app, on Windows, macOS or Linux.
 - It is a one-off, and a script would cost more to write and keep working than
   the task itself.
 - You need to see what a real user sees: testing a sign-up flow, reproducing a

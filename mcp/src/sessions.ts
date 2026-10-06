@@ -19,7 +19,7 @@ export const EXEC_MAX_S = 110
 /** The core Simulang a session runs, in one page. Also served as `sai://simulang/reference`. */
 export const SIMULANG_REFERENCE = `# Simulang in a Sai API session
 
-A session is a JavaScript REPL running ON one cloud computer (Windows or macOS).
+A session is a JavaScript REPL running ON one cloud computer (Windows, Linux or macOS).
 Top-level await works and variables persist between blocks (use \`var\`).
 The block's last expression is returned. console.log output comes back in \`logs\`.
 

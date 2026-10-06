@@ -129,7 +129,7 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
 
 export const serverInstructions = [
   "Sai is an autonomous computer-use agent that operates a real desktop (browser, native apps, files, email) on the user's Sai machine.",
-  "Use it when the work needs a screen: sites and apps with no API (vendor portals, admin consoles, legacy web apps), web apps behind the user's logins (sign-ins go to the human as an approval link), desktop software on Windows or macOS, or seeing what a real user sees (testing a sign-up flow, reproducing a bug). Don't use it for what you can do locally or through an API.",
+  "Use it when the work needs a screen: sites and apps with no API (vendor portals, admin consoles, legacy web apps), web apps behind the user's logins (sign-ins go to the human as an approval link), desktop software on Windows, macOS or Linux, or seeing what a real user sees (testing a sign-up flow, reproducing a bug). Don't use it for what you can do locally or through an API.",
   'For a workflow the user will repeat, ask Sai after the first run to save it as a replayable skill with parameters ("Save this as a replayable skill named invoice_export, with vendor and month as parameters"); later, ask Sai to run that skill. Sai replays it as code, asking the model only where the screen matters, and the agent takes over if the UI changed.',
   '',
   'The loop:',
