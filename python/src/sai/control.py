@@ -86,7 +86,8 @@ class ControlSession:
         _raise_on_block_error(r)
 
     def screenshot(self) -> bytes:
-        """The whole screen as PNG bytes."""
+        """The whole screen as PNG bytes. Needs the computer's screen-capture service;
+        raises `BlockError` where it is off (a page or app snapshot still carries an image)."""
         r = self.exec("var __sai_page = await machine.pageContent(); null")
         _raise_on_block_error(r)
         if r.screenshot_png is None:

@@ -104,10 +104,11 @@ with sai.control_sessions.open(machine=pc) as cs:
         snap.snapshot.grep('points')
     """)
     print(r.result)
-    open("hn.png", "wb").write(r.screenshot_png)
-
-    open("screen.png", "wb").write(cs.screenshot())
+    open("hn.png", "wb").write(r.screenshot_png)   # a page or app snapshot carries a screenshot
 ```
+
+`cs.screenshot()` grabs the whole screen. It needs the computer's screen-capture service; where that is
+off it raises `BlockError`, and a page or app snapshot is the way to get an image.
 
 `exec()` returns an `ExecResult`; a block that threw is still a result, so check `r.error`
 (`exception`, `timeout`, `interrupted`). Use `var`, not `let`/`const`, for values the next block needs.
