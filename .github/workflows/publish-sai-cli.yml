@@ -1,6 +1,6 @@
 name: Publish sai-cli
 
-# CI + npm publish for the @simular-ai/sai-cli package (packages/sai-cli).
+# CI + npm publish for the @simular-ai/sai-cli package (cli).
 #
 # Checks (lint / typecheck / build / test / smoke) run on every non-draft PR that
 # touches the package, and on manual dispatch. Publishing to npmjs.org happens only when
@@ -8,7 +8,7 @@ name: Publish sai-cli
 # own release tags (agent-v*, etc.) never trigger an npm publish.
 #
 # Cutting a release:
-#   1. Bump "version" in packages/sai-cli/package.json (and keep .version() in
+#   1. Bump "version" in cli/package.json (and keep .version() in
 #      src/cli.ts in sync — see the verify step below).
 #   2. Merge to main.
 #   3. git tag sai-cli-v<X.Y.Z> && git push origin sai-cli-v<X.Y.Z>
@@ -19,7 +19,7 @@ name: Publish sai-cli
 # Actions OIDC token for a short-lived publish token — no NPM_TOKEN secret, so
 # anyone able to push a tag can release. Requires the matching trusted-publisher
 # config on npmjs.org (package @simular-ai/sai-cli → Settings → Trusted
-# Publisher): org "simular-ai", repo "simular-pro-unified-ui", workflow filename
+# Publisher): org "simular-ai", repo "sai-sdk", workflow filename
 # "publish-sai-cli.yml", no environment. All fields are exact-match; npm only
 # validates them at publish time.
 #
@@ -34,7 +34,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
-      - 'packages/sai-cli/**'
+      - 'cli/**'
       - '.github/workflows/publish-sai-cli.yml'
   push:
     tags:
@@ -78,30 +78,9 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
 
-      # The single monorepo lockfile resolves every workspace, including app's
-      # private git+ssh @simular-ai deps (guardrails, windows-ui-automation).
-      # Authenticate those clones with a GitHub App token, same as build.yml.
-      - name: Generate GitHub App token (private @simular-ai git deps)
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.SIMULAR_CI_APP_ID }}
-          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
 
-      # --ignore-scripts skips the app workspace's native-module rebuild
-      # (better-sqlite3, @parcel/watcher). sai-cli only needs pure-JS / prebuilt
-      # deps (esbuild, commander, tsx, vitest), so this is both safe and fast.
       - name: Install dependencies
-        # Force bash on all runners — Windows defaults to PowerShell, where this
-        # git-config heredoc and the ${{ runner.temp }} path wouldn't behave the same.
-        shell: bash
-        env:
-          # Isolated gitconfig so the token rewrite doesn't persist on the runner.
-          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
-        run: |
-          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
-          npm ci --ignore-scripts
+        run: npm ci
 
       # Lint the package and fail on any warnings (the lint script runs
       # `eslint . --max-warnings 0`), so lint/formatting warnings can't slip
@@ -119,10 +98,10 @@ jobs:
         run: npm run test -w @simular-ai/sai-cli
 
       - name: Smoke test (--version)
-        run: node packages/sai-cli/dist/cli.cjs --version
+        run: node cli/dist/cli.cjs --version
 
       - name: Smoke test (--help)
-        run: node packages/sai-cli/dist/cli.cjs --help
+        run: node cli/dist/cli.cjs --help
 
   publish:
     name: Publish to npm
@@ -151,21 +130,9 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
 
-      - name: Generate GitHub App token (private @simular-ai git deps)
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.SIMULAR_CI_APP_ID }}
-          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
 
       - name: Install dependencies
-        env:
-          # Isolated gitconfig so the token rewrite doesn't persist on the runner.
-          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
-        run: |
-          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
-          npm ci --ignore-scripts
+        run: npm ci
 
       - name: Verify tag matches package version & determine dist-tag
         id: release
@@ -174,10 +141,10 @@ jobs:
           set -euo pipefail
           TAG_NAME="${GITHUB_REF#refs/tags/}"
           TAG_VERSION="${TAG_NAME#sai-cli-v}"
-          PKG_VERSION="$(node -p "require('./packages/sai-cli/package.json').version")"
+          PKG_VERSION="$(node -p "require('./cli/package.json').version")"
 
           if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::Tag version ($TAG_VERSION) does not match packages/sai-cli/package.json version ($PKG_VERSION). Bump the package version to match the tag." >&2
+            echo "::error::Tag version ($TAG_VERSION) does not match cli/package.json version ($PKG_VERSION). Bump the package version to match the tag." >&2
             exit 1
           fi
 

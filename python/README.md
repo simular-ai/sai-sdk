@@ -140,7 +140,7 @@ A task that ran out of credit ends with `result.status == "error"` and `result.e
 ## Development
 
 ```bash
-cd sdk/python
+cd python
 uv sync
 uv run pytest
 ```

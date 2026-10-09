@@ -1,12 +1,12 @@
 {
   "name": "@simular-ai/sai-cli",
   "version": "0.2.0",
-  "description": "Sai CLI — command-line interface for Simular.",
+  "description": "Sai CLI \u2014 command-line interface for Simular.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/simular-ai/simular-pro-unified-ui.git",
-    "directory": "packages/sai-cli"
+    "url": "git+https://github.com/simular-ai/sai-sdk.git",
+    "directory": "cli"
   },
   "type": "module",
   "engines": {

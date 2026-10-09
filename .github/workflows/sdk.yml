@@ -1,0 +1,66 @@
+name: SDKs
+
+# Python and TypeScript SDK tests. Each suite includes the parity test against
+# surface.json, so a surface change that lands in one language only fails here.
+# Publishing is not wired up yet.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'python/**'
+      - 'typescript/**'
+      - 'surface.json'
+      - 'package-lock.json'
+      - '.github/workflows/sdk.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'python/**'
+      - 'typescript/**'
+      - 'surface.json'
+      - 'package-lock.json'
+      - '.github/workflows/sdk.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python ${{ matrix.python }}
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.13']
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - run: pipx install uv
+      - run: uv sync --locked --python ${{ matrix.python }}
+      - run: uv run pytest
+      - run: uv build
+
+  typescript:
+    name: TypeScript
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - run: npx eslint --max-warnings 0 typescript
+      - run: npm run typecheck -w @simular-ai/sai-sdk
+      - run: npm test -w @simular-ai/sai-sdk
+      - run: npm run build -w @simular-ai/sai-sdk

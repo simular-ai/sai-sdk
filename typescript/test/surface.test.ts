@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import * as sdk from '../src/index.js'
 import { ControlSession, EVENT_KINDS, Sai, Session, TURN_STATUSES, Turn } from '../src/index.js'
 
-// sdk/surface.json is the contract every language's SDK implements (sdk/AGENTS.md).
+// surface.json is the contract every language's SDK implements (AGENTS.md).
 const surface = JSON.parse(
   readFileSync(new URL('../../surface.json', import.meta.url), 'utf8'),
 ) as {
@@ -27,7 +27,7 @@ function publicMethods(proto: object): string[] {
     .sort()
 }
 
-describe('surface parity with sdk/surface.json', () => {
+describe('surface parity with surface.json', () => {
   const sai = new Sai({ apiKey: 'sapi_test', fetch: async () => new Response('{}') })
 
   it('client resources', () => {

@@ -1,7 +1,7 @@
 {
   "name": "@simular-ai/sai-mcp",
   "version": "0.2.3",
-  "description": "Sai MCP server — drive your Sai computer-use agent from Claude Code, Codex, or Cursor.",
+  "description": "Sai MCP server \u2014 drive your Sai computer-use agent from Claude Code, Codex, or Cursor.",
   "homepage": "https://platform.simular.ai",
   "keywords": [
     "mcp",
@@ -18,8 +18,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/simular-ai/simular-pro-unified-ui.git",
-    "directory": "packages/sai-mcp"
+    "url": "git+https://github.com/simular-ai/sai-sdk.git",
+    "directory": "mcp"
   },
   "type": "module",
   "engines": {

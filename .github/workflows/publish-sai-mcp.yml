@@ -1,6 +1,6 @@
 name: Publish sai-mcp
 
-# CI + npm publish for the @simular-ai/sai-mcp package (packages/sai-mcp).
+# CI + npm publish for the @simular-ai/sai-mcp package (mcp).
 # A copy of publish-sai-mcp.yml; keep the two in step.
 #
 # Checks (lint / typecheck / build / test / smoke) run on every non-draft PR that
@@ -9,7 +9,7 @@ name: Publish sai-mcp
 # own release tags (agent-v*, etc.) never trigger an npm publish.
 #
 # Cutting a release:
-#   1. Bump "version" in packages/sai-mcp/package.json and SERVER_VERSION in
+#   1. Bump "version" in mcp/package.json and SERVER_VERSION in
 #      src/server.ts (the verify step below checks both).
 #   2. Merge to main.
 #   3. git tag sai-mcp-v<X.Y.Z> && git push origin sai-mcp-v<X.Y.Z>
@@ -20,7 +20,7 @@ name: Publish sai-mcp
 # Actions OIDC token for a short-lived publish token — no NPM_TOKEN secret, so
 # anyone able to push a tag can release. Requires the matching trusted-publisher
 # config on npmjs.org (package @simular-ai/sai-mcp → Settings → Trusted
-# Publisher): org "simular-ai", repo "simular-pro-unified-ui", workflow filename
+# Publisher): org "simular-ai", repo "sai-sdk", workflow filename
 # "publish-sai-mcp.yml", no environment. All fields are exact-match; npm only
 # validates them at publish time.
 #
@@ -35,7 +35,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
-      - 'packages/sai-mcp/**'
+      - 'mcp/**'
       - '.github/workflows/publish-sai-mcp.yml'
   push:
     tags:
@@ -79,30 +79,9 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
 
-      # The single monorepo lockfile resolves every workspace, including app's
-      # private git+ssh @simular-ai deps (guardrails, windows-ui-automation).
-      # Authenticate those clones with a GitHub App token, same as build.yml.
-      - name: Generate GitHub App token (private @simular-ai git deps)
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.SIMULAR_CI_APP_ID }}
-          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
 
-      # --ignore-scripts skips the app workspace's native-module rebuild
-      # (better-sqlite3, @parcel/watcher). sai-mcp only needs pure-JS / prebuilt
-      # deps (esbuild, @modelcontextprotocol/sdk, zod, tsx, vitest), so this is both safe and fast.
       - name: Install dependencies
-        # Force bash on all runners — Windows defaults to PowerShell, where this
-        # git-config heredoc and the ${{ runner.temp }} path wouldn't behave the same.
-        shell: bash
-        env:
-          # Isolated gitconfig so the token rewrite doesn't persist on the runner.
-          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
-        run: |
-          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
-          npm ci --ignore-scripts
+        run: npm ci
 
       # Lint the package and fail on any warnings (the lint script runs
       # `eslint . --max-warnings 0`), so lint/formatting warnings can't slip
@@ -120,7 +99,7 @@ jobs:
         run: npm run test -w @simular-ai/sai-mcp
 
       - name: Smoke test (--version)
-        run: node packages/sai-mcp/dist/server.js --version
+        run: node mcp/dist/server.js --version
 
       # The packaged skill must be where init-claude looks for it, and land where
       # Claude Code reads skills. Isolated HOME so the runner's own is untouched.
@@ -129,7 +108,7 @@ jobs:
         run: |
           set -euo pipefail
           SMOKE_HOME="$(mktemp -d)"
-          HOME="$SMOKE_HOME" USERPROFILE="$SMOKE_HOME" node packages/sai-mcp/dist/server.js init-claude
+          HOME="$SMOKE_HOME" USERPROFILE="$SMOKE_HOME" node mcp/dist/server.js init-claude
           test -s "$SMOKE_HOME/.claude/skills/sai/SKILL.md"
 
   publish:
@@ -159,21 +138,9 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
 
-      - name: Generate GitHub App token (private @simular-ai git deps)
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.SIMULAR_CI_APP_ID }}
-          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
 
       - name: Install dependencies
-        env:
-          # Isolated gitconfig so the token rewrite doesn't persist on the runner.
-          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-deps
-        run: |
-          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
-          npm ci --ignore-scripts
+        run: npm ci
 
       - name: Verify tag matches package version & determine dist-tag
         id: release
@@ -182,16 +149,16 @@ jobs:
           set -euo pipefail
           TAG_NAME="${GITHUB_REF#refs/tags/}"
           TAG_VERSION="${TAG_NAME#sai-mcp-v}"
-          PKG_VERSION="$(node -p "require('./packages/sai-mcp/package.json').version")"
+          PKG_VERSION="$(node -p "require('./mcp/package.json').version")"
 
-          SRV_VERSION="$(sed -nE "s/^export const SERVER_VERSION = '([^']+)'.*/\\1/p" packages/sai-mcp/src/server.ts)"
+          SRV_VERSION="$(sed -nE "s/^export const SERVER_VERSION = '([^']+)'.*/\\1/p" mcp/src/server.ts)"
           if [ "$SRV_VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::SERVER_VERSION in packages/sai-mcp/src/server.ts ($SRV_VERSION) does not match package.json ($PKG_VERSION)." >&2
+            echo "::error::SERVER_VERSION in mcp/src/server.ts ($SRV_VERSION) does not match package.json ($PKG_VERSION)." >&2
             exit 1
           fi
 
           if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::Tag version ($TAG_VERSION) does not match packages/sai-mcp/package.json version ($PKG_VERSION). Bump the package version to match the tag." >&2
+            echo "::error::Tag version ($TAG_VERSION) does not match mcp/package.json version ($PKG_VERSION). Bump the package version to match the tag." >&2
             exit 1
           fi
 

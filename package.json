@@ -1,0 +1,22 @@
+{
+  "name": "sai-sdk-workspace",
+  "private": true,
+  "workspaces": [
+    "mcp",
+    "cli",
+    "typescript"
+  ],
+  "scripts": {
+    "lint": "eslint --cache --max-warnings 0 .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-prettier": "3.0.0",
+    "@electron-toolkit/eslint-config-ts": "3.1.0",
+    "eslint": "9.39.4",
+    "prettier": "3.8.3"
+  }
+}

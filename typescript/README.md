@@ -137,7 +137,7 @@ A task that ran out of credit ends with `result.status === 'error'` and `result.
 ## Development
 
 ```bash
-cd sdk/typescript
+cd typescript
 npm install
 npm test
 npm run typecheck

@@ -1,4 +1,4 @@
-"""Parity with sdk/surface.json, the contract every language's SDK implements (sdk/AGENTS.md)."""
+"""Parity with surface.json, the contract every language's SDK implements (AGENTS.md)."""
 
 from __future__ import annotations
 
