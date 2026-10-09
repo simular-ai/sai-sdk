@@ -4,9 +4,7 @@ Python SDK for the [Sai API](https://platform.simular.ai/documentation). Hand de
 computer (a Sai cloud computer, or your own PC with the Sai app) and get the answer back, or drive a cloud
 computer yourself.
 
-Status: **alpha (0.1)**. It wraps today's API, so it works now. Names follow the
-[developer API contract](../../docs/plans/2026-10-08-developer-api-contract.md); when the server
-moves to the contract's paths, the SDK surface stays as it is.
+Status: **alpha (0.1)**. The surface may still change before 1.0.
 
 | Layer                  | What it is                                        | Status          |
 | ---------------------- | ------------------------------------------------- | --------------- |

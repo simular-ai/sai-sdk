@@ -1,8 +1,7 @@
 """Sessions: a conversation with Sai on one computer. Sai decides every click.
 
-Maps to `/v1/agents/*` today: `new-session`, `message` (wait=false), `events`,
-`approve`, `abort`. The contract (docs/plans/2026-10-08-developer-api-contract.md)
-moves these to `/v1/sessions/{id}/...`; the SDK surface stays the same.
+Maps to `/v1/agents/*`: `new-session`, `message` (wait=false), `events`,
+`approve`, `abort`.
 """
 
 from __future__ import annotations

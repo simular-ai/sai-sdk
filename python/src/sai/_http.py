@@ -27,7 +27,7 @@ class HTTP:
             "User-Agent": f"sai-python/{__version__}",
         }
         if version_tag:
-            # cloud-api preview revisions answer on this tag (a PR's staging preview).
+            # routes the request to a tagged API revision
             headers["x-sai-version"] = version_tag
         self._client = httpx.Client(
             base_url=base_url.rstrip("/"), headers=headers, timeout=timeout, transport=transport
