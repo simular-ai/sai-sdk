@@ -1,0 +1,82 @@
+name: Publish sai-sdk (Python)
+
+# Builds and publishes the Python SDK (python/) to PyPI as `sai-sdk`.
+#
+# Cutting a release:
+#   1. Bump `version` in python/pyproject.toml and python/src/sai/_version.py.
+#   2. Merge to main.
+#   3. git tag sai-sdk-py-v<version> && git push origin sai-sdk-py-v<version>
+#      (PEP 440 versions: 0.1.0, 0.2.0a1, 0.2.0rc1)
+#
+# Auth: PyPI trusted publishing (OIDC). The PyPI publisher is bound to repo
+# simular-ai/sai-sdk, this workflow's file name and the `pypi` environment; no
+# token is stored here.
+
+on:
+  push:
+    tags:
+      - 'sai-sdk-py-v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - run: pipx install uv
+      - run: uv sync --locked
+      - run: uv run pytest
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/sai-sdk-py-v')
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF#refs/tags/sai-sdk-py-v}"
+          PKG_VERSION="$(sed -nE 's/^version = "([^"]+)"/\1/p' pyproject.toml)"
+          CODE_VERSION="$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' src/sai/_version.py)"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$PKG_VERSION" != "$CODE_VERSION" ]; then
+            echo "::error::tag $TAG_VERSION, pyproject.toml $PKG_VERSION, _version.py $CODE_VERSION must match." >&2
+            exit 1
+          fi
+      - run: uv build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist
+          path: python/dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/sai-sdk-py-v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/sai-sdk/
+    permissions:
+      contents: write # GitHub Release
+      id-token: write # PyPI trusted publishing
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          case "$TAG_NAME" in *a[0-9]*|*b[0-9]*|*rc[0-9]*) PRE=--prerelease ;; *) PRE= ;; esac
+          gh release create "$TAG_NAME" -R "$GITHUB_REPOSITORY" --title "$TAG_NAME" --generate-notes $PRE dist/*

@@ -54,4 +54,6 @@ Releases go through CI only, never by hand:
 
 - `sai-mcp-v*` / `sai-cli-v*` tags publish `@simular-ai/sai-mcp` / `@simular-ai/sai-cli`
   (npm trusted publishing, bound to this repo and the workflow file name).
-- The Python and TypeScript SDKs are not published yet.
+- `sai-sdk-py-v*` publishes `sai-sdk` to PyPI (`publish-sai-sdk-py.yml`, trusted publishing through the
+  `pypi` environment); `sai-sdk-ts-v*` publishes `@simular-ai/sai-sdk` to npm (`publish-sai-sdk-ts.yml`).
+  Bump the version in the package manifest and the version constant together; the workflow checks the tag.
