@@ -4,10 +4,13 @@ version = "0.1.0a1"
 description = "Python SDK for the Sai API: delegate desktop work to Sai, or drive a cloud computer directly."
 readme = "README.md"
 requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = ["httpx>=0.25,<1"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
   "Typing :: Typed",
 ]
 
