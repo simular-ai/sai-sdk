@@ -162,6 +162,7 @@ the view says so and offers **Watch here**.
 | `SAI_PUSH`       | no       | `1` turns on Claude Code channels (below). Leave it unset otherwise. |
 | `SAI_LOCAL_VIEW` | no       | `0` turns off the local `watch_url` page.                            |
 | `SAI_SESSIONS`   | no       | `1` adds the direct-control session tools (below).                   |
+| `SAI_OSWORLD`    | no       | `1` adds the OSWorld tools (below); implies `SAI_SESSIONS`.          |
 
 ## Claude Code channels (research preview)
 
@@ -190,6 +191,21 @@ Docs: [Direct control](https://platform.simular.ai/documentation/concepts/direct
 
 ```bash
 claude mcp add sai -e SAI_API_KEY=sapi_YOUR_KEY -e SAI_SESSIONS=1 -- npx -y @simular-ai/sai-mcp
+```
+
+## OSWorld (research preview)
+
+With `SAI_OSWORLD=1`, your agent can run OSWorld V2.1 tasks: `osworld_start`
+sets a task up on a fresh cloud computer and returns its instruction, your agent
+does the task through a session on that computer, and `osworld_submit` grades
+it (with `outcome: "fail"` when the agent concludes the task cannot be done; some
+tasks are infeasible on purpose). `osworld_ask_user` answers questions for tasks that have a user, and
+`osworld_abandon` ends an attempt without grading so you can start it again.
+Setup and grading run on Simular's side; your agent only sees the instruction
+and the computer. Needs Benchmarks access on your account.
+
+```bash
+claude mcp add sai -e SAI_API_KEY=sapi_YOUR_KEY -e SAI_OSWORLD=1 -- npx -y @simular-ai/sai-mcp
 ```
 
 ## Support

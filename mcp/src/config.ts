@@ -11,6 +11,9 @@
  * - SAI_SESSIONS  `1` → register the session tools (sai_session_open, sai_exec,
  *                 sai_interrupt, sai_session_close). Early access: the API answers
  *                 403 for accounts outside the allowlist, so they are off by default.
+ * - SAI_OSWORLD  `1` → also register the OSWorld tools (osworld_start, osworld_ask_user,
+ *                 osworld_submit, osworld_abandon), for accounts with Benchmarks access. Implies SAI_SESSIONS:
+ *                 the agent works the task through a session.
  * - SAI_EVENTS_API `0` → collect the `POST /message` SSE stream instead of A1 (`wait: false`) + A2 (`GET /events`), which is the default; the flag exists for
  *                 collecting the SSE stream in-process. Off until they deploy.
  */
@@ -29,6 +32,8 @@ export interface Config {
   localView: boolean
   /** Register the Layer 2 session tools (sessions.ts). */
   sessions: boolean
+  /** Register the OSWorld attempt tools (osworld.ts). */
+  osworld: boolean
   /** Staging Version Tag (`x-sai-version`) for PR previews; unset in normal use. */
   versionTag?: string
 }
@@ -56,7 +61,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // server predating A1/A2.
     eventsApi: env.SAI_EVENTS_API === undefined ? true : flag(env.SAI_EVENTS_API),
     localView: env.SAI_LOCAL_VIEW === undefined ? true : flag(env.SAI_LOCAL_VIEW),
-    sessions: flag(env.SAI_SESSIONS),
+    sessions: flag(env.SAI_SESSIONS) || flag(env.SAI_OSWORLD),
+    osworld: flag(env.SAI_OSWORLD),
     ...(env.SAI_API_VERSION_TAG?.trim() && { versionTag: env.SAI_API_VERSION_TAG.trim() }),
   }
 }

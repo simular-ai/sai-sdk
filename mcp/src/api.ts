@@ -1,6 +1,7 @@
 import type {
   ApprovalRequest,
   MachineRow,
+  OsworldAttempt,
   SseEvent,
   StartRequest,
   StartResult,
@@ -166,6 +167,62 @@ export class SaiApi {
       headers: this.headers(),
       signal: AbortSignal.timeout(30_000),
       prefix: 'Closing the session failed',
+    })
+  }
+
+  // ─── OSWorld attempts (docs/plans/2026-10-07-osworld-runner-image.md §8) ───────
+
+  /**
+   * `POST /v1/benchmarks/osworld/attempts` — answers at once with state `starting`; the machine
+   * and the task's setup follow in the background (poll `osworldGet`).
+   */
+  osworldStart(taskId: string): Promise<OsworldAttempt> {
+    return this.json('/v1/benchmarks/osworld/attempts', {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ taskId }),
+      signal: AbortSignal.timeout(90_000),
+      prefix: 'Starting the OSWorld task failed',
+    })
+  }
+
+  osworldGet(attemptId: string): Promise<OsworldAttempt> {
+    return this.json(`/v1/benchmarks/osworld/attempts/${encodeURIComponent(attemptId)}`, {
+      headers: this.headers(),
+      signal: AbortSignal.timeout(90_000),
+      prefix: 'Reading the OSWorld attempt failed',
+    })
+  }
+
+  osworldAskUser(
+    attemptId: string,
+    question: string,
+  ): Promise<{ answer: string | null; note?: string }> {
+    return this.json(`/v1/benchmarks/osworld/attempts/${encodeURIComponent(attemptId)}/ask_user`, {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ question }),
+      signal: AbortSignal.timeout(90_000),
+      prefix: 'Asking the user failed',
+    })
+  }
+
+  osworldAbandon(attemptId: string): Promise<OsworldAttempt> {
+    return this.json(`/v1/benchmarks/osworld/attempts/${encodeURIComponent(attemptId)}/abandon`, {
+      method: 'POST',
+      headers: this.headers(),
+      signal: AbortSignal.timeout(120_000),
+      prefix: 'Abandoning the OSWorld task failed',
+    })
+  }
+
+  osworldEvaluate(attemptId: string, outcome: 'done' | 'fail' = 'done'): Promise<OsworldAttempt> {
+    return this.json(`/v1/benchmarks/osworld/attempts/${encodeURIComponent(attemptId)}/evaluate`, {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ outcome }),
+      signal: AbortSignal.timeout(11 * 60_000),
+      prefix: 'Grading the OSWorld task failed',
     })
   }
 

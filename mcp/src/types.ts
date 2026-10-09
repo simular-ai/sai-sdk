@@ -118,3 +118,16 @@ export interface MachineRow {
   kind?: 'cloud' | 'own'
   online?: boolean
 }
+
+/** An OSWorld attempt as cloud-api returns it (routes/osworld-attempts.ts). */
+export interface OsworldAttempt {
+  attemptId: string
+  taskId: string
+  state: 'starting' | 'ready' | 'evaluating' | 'scored' | 'abandoned' | 'failed'
+  machineId: string | null
+  instruction: string | null
+  hasUser: boolean
+  score: number | null
+  /** Why a `failed` or `abandoned` attempt ended (`setup_failed`, `expired`, …); null otherwise. */
+  reason?: string | null
+}

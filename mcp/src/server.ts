@@ -15,6 +15,7 @@ import { readConfig } from './config.js'
 import { EventsPoller, StreamCollector, type SessionSource } from './session-source.js'
 import { SaiTools, serverInstructions, toolDescriptions, toolSchemas } from './tools.js'
 import { registerSessionTools, sessionInstructions } from './sessions.js'
+import { osworldInstructions, registerOsworldTools } from './osworld.js'
 import { watchSession, type ChannelNotification } from './watcher.js'
 import { registerTaskView, TASK_VIEW_TOOL_META, taskViewHtml, taskViewTools } from './app-view.js'
 import { LocalView } from './local-view.js'
@@ -67,7 +68,10 @@ export function createServer(): McpServer {
         experimental: { 'claude/channel': {} },
         tools: {},
       },
-      instructions: config.sessions ? serverInstructions + sessionInstructions : serverInstructions,
+      instructions:
+        serverInstructions +
+        (config.sessions ? sessionInstructions : '') +
+        (config.osworld ? osworldInstructions : ''),
     },
   )
 
@@ -186,6 +190,7 @@ export function createServer(): McpServer {
 
   registerTaskView(mcp, viewDeps)
   if (config.sessions) registerSessionTools(mcp, api, run, fail)
+  if (config.osworld) registerOsworldTools(mcp, api, run)
 
   return mcp
 }
