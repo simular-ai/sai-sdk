@@ -39,7 +39,7 @@ A free account's first task of the day can stay in `running` for about two minut
 
 ## Rate limits and errors
 
-- `429` on any call: wait 60 seconds and retry once. If it happens again, tell the user the account's hourly limit is reached (60 messages per hour, 1200 polls per hour) and stop. Never poll with `wait=0` in a loop.
+- `429` on any call: wait 60 seconds and retry once. If it happens again, tell the user the account's hourly limit is reached (600 messages per hour on a paid plan, 60 on free; 1200 polls per hour) and stop. Never poll with `wait=0` in a loop.
 - `400` on start with a `machines` array: several computers exist. Pick the one the user named, or ask with AskUserQuestion.
 - `400 {"error":"unknown_model"}` or `403 {"error":"model_not_allowed_for_plan"}` on start: drop `model` or pick one from the `allowedModels` list in the reply.
 - `403` on start: the `machineId` is not on this account. Call `GET /v1/agents/machines` and use one of the returned ids.
