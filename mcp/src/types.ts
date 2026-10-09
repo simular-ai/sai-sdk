@@ -15,7 +15,7 @@ export interface ChoiceQuestion {
   allowOther: boolean
 }
 
-/** `data-approval-request.data` — today's fields plus A3's `approvalUrl` / `expiresAt`. */
+/** `data-approval-request.data` — today's fields plus `approvalUrl` (link-only events only) / `expiresAt`. */
 export interface ApprovalRequest {
   approvalId: string
   title: string

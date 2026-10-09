@@ -14,7 +14,7 @@ export interface ChannelNotification {
 export interface WatchDeps {
   source: SessionSource
   notify: (n: ChannelNotification) => Promise<void>
-  /** Fills `approvalUrl` until A3 ships it. */
+  /** Fills `approvalUrl` on a link-only approval if the server sent none. */
   withUrl: (approval: ApprovalRequest) => Promise<ApprovalRequest>
   log?: (line: string) => void
   /** Per-iteration wait; a test can shorten it. */

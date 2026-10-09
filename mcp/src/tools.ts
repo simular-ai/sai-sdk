@@ -272,14 +272,15 @@ export class SaiTools {
     return this.decorate(result)
   }
 
-  /** Fills `approvalUrl` on a buffered approval until A3 ships it from the server. */
+  /** Fills `approvalUrl` on a buffered link-only approval if the server sent none. */
   async decorate(result: WaitResult): Promise<WaitResult> {
     if (!result.approval) return result
     return { ...result, approval: await this.withUrl(result.approval) }
   }
 
   async withUrl(approval: ApprovalRequest): Promise<ApprovalRequest> {
-    if (approval.approvalUrl) return approval
+    // Only link-only approvals are completed on the page; others are answered in place.
+    if (approval.approvalUrl || !approval.isLinkOnly) return approval
     const uid = await this.ctx.userId()
     return uid ? { ...approval, approvalUrl: buildApprovalUrl(uid, approval.approvalId) } : approval
   }

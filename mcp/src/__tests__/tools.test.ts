@@ -298,24 +298,37 @@ describe('SaiTools.start', () => {
 })
 
 describe('SaiTools.wait', () => {
-  it('clamps the timeout, forwards the cursor and decorates a pre-A3 approval with a url', async () => {
-    const approval: ApprovalRequest = { ...linkOnly, approvalId: 'ap-9', isLinkOnly: false }
-    const wait = vi.fn(async () => ({
-      status: 'needs_approval' as const,
-      events: [],
-      text: '',
-      approval,
-      cursor: '4',
-    }))
-    const tools = new SaiTools({
-      api: new SaiApi('https://api.test', 'k', vi.fn()),
-      source: fakeSource({ wait }),
-      push: false,
-      userId: async () => 'uid1',
-    })
-    const result = await tools.wait({ session_id: 's', timeout_s: 999, cursor: '2' })
+  it('clamps the timeout, forwards the cursor and decorates only a link-only approval with a url', async () => {
+    const waitWith = (approval: ApprovalRequest) =>
+      vi.fn(async () => ({
+        status: 'needs_approval' as const,
+        events: [],
+        text: '',
+        approval,
+        cursor: '4',
+      }))
+    const toolsWith = (wait: ReturnType<typeof waitWith>) =>
+      new SaiTools({
+        api: new SaiApi('https://api.test', 'k', vi.fn()),
+        source: fakeSource({ wait }),
+        push: false,
+        userId: async () => 'uid1',
+      })
+
+    const bareLinkOnly: ApprovalRequest = {
+      ...linkOnly,
+      approvalId: 'ap-9',
+      approvalUrl: undefined,
+    }
+    const wait = waitWith(bareLinkOnly)
+    const result = await toolsWith(wait).wait({ session_id: 's', timeout_s: 999, cursor: '2' })
     expect(wait).toHaveBeenCalledWith('s', { timeoutMs: 110_000, cursor: '2' })
     expect(result.approval?.approvalUrl).toBe('https://sai.simular.ai/approval/uid1/ap-9')
+
+    // An exec/choice approval is answered in place; the page cannot complete it.
+    const exec: ApprovalRequest = { ...bareLinkOnly, approvalId: 'ap-10', isLinkOnly: false }
+    const execResult = await toolsWith(waitWith(exec)).wait({ session_id: 's' })
+    expect(execResult.approval?.approvalUrl).toBeUndefined()
   })
 })
 
