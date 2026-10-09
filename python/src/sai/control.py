@@ -1,0 +1,118 @@
+"""Control sessions: drive a cloud computer directly with Simulang. No agent.
+
+Maps to `/v1/sessions` today; the contract renames it `/v1/control-sessions`.
+Research preview: the account needs direct control enabled.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from ._errors import BlockError, GoneError
+from .types import ExecResult
+
+if TYPE_CHECKING:
+    from ._client import Sai
+    from .machines import Machine
+
+_PATH = "/v1/sessions"
+
+
+class ControlSessions:
+    def __init__(self, sai: Sai) -> None:
+        self._sai = sai
+
+    def open(self, machine: Union[Machine, str, None] = None) -> ControlSession:
+        """Take a cloud computer. Returns once the session holds it, up to ~3 minutes
+        when a Sai task holds it or it has to start. Use as a context manager so
+        it is always released: Sai's tasks on that computer wait until then."""
+        body: dict[str, Any] = {}
+        if machine is not None:
+            body["machineId"] = machine if isinstance(machine, str) else machine.id
+        d = self._sai._http.json("POST", _PATH, json=body, timeout=240)
+        return ControlSession(
+            self._sai, d["sessionId"], d.get("machineId", ""), int(d.get("expiresAfterIdleSec", 0))
+        )
+
+
+class ControlSession:
+    def __init__(self, sai: Sai, session_id: str, machine_id: str, idle_timeout_sec: int) -> None:
+        self._sai = sai
+        self.id = session_id
+        self.machine_id = machine_id
+        self.idle_timeout_sec = idle_timeout_sec
+        self._closed = False
+
+    def __repr__(self) -> str:
+        return f"ControlSession(id={self.id!r}, machine_id={self.machine_id!r})"
+
+    def __enter__(self) -> ControlSession:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    def exec(self, code: str, *, timeout_ms: Optional[int] = None) -> ExecResult:
+        """Run one Simulang (JavaScript) block. Use `var` for anything the next block needs.
+
+        A block that throws, times out or is interrupted still returns: check
+        `result.error`. Raises `GoneError` when the session lost the computer.
+        """
+        body: dict[str, Any] = {"code": code}
+        if timeout_ms is not None:
+            body["timeoutMs"] = timeout_ms
+        d = self._sai._http.json(
+            "POST", f"{_PATH}/{self.id}/exec", json=body, timeout=(timeout_ms or 120_000) / 1000 + 45
+        )
+        return ExecResult.parse(d)
+
+    def shell(self, command: str, *, cwd: Optional[str] = None, timeout_ms: Optional[int] = None) -> dict[str, Any]:
+        """Run a shell command: `{stdout, stderr, exitCode, timedOut}`."""
+        args: dict[str, Any] = {"command": command}
+        if cwd:
+            args["cwd"] = cwd
+        r = self.exec(f"await machine.exec({json.dumps(args)})", timeout_ms=timeout_ms)
+        _raise_on_block_error(r)
+        return r.result
+
+    def read_file(self, path: str) -> str:
+        r = self.exec(f"await machine.readFile({json.dumps({'path': path})})")
+        _raise_on_block_error(r)
+        return r.result
+
+    def write_file(self, path: str, text: str) -> None:
+        r = self.exec(f"await machine.writeToFile({json.dumps({'path': path, 'text': text, 'overwrite': True})})")
+        _raise_on_block_error(r)
+
+    def screenshot(self) -> bytes:
+        """The whole screen as PNG bytes."""
+        r = self.exec("var __sai_page = await machine.pageContent(); null")
+        _raise_on_block_error(r)
+        if r.screenshot_png is None:
+            raise BlockError("exception", "screenshot too large to return" if r.screenshot_omitted else "no screenshot")
+        return r.screenshot_png
+
+    def interrupt(self) -> bool:
+        """Stop the running block at its next step. False if nothing was running."""
+        d = self._sai._http.json("POST", f"{_PATH}/{self.id}/interrupt")
+        return bool(d and d.get("interrupted"))
+
+    def get(self) -> dict[str, Any]:
+        """`{status: open|closed, closedReason?, lastExecAt, ...}`."""
+        return self._sai._http.json("GET", f"{_PATH}/{self.id}")
+
+    def close(self) -> None:
+        """Clear the REPL and release the computer. Safe to call twice."""
+        if self._closed:
+            return
+        try:
+            self._sai._http.request("DELETE", f"{_PATH}/{self.id}")
+        except GoneError:
+            pass
+        self._closed = True
+
+
+def _raise_on_block_error(r: ExecResult) -> None:
+    if r.error:
+        raise BlockError(r.error.kind, r.error.message)

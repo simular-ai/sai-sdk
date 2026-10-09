@@ -1,0 +1,28 @@
+[project]
+name = "sai-sdk"
+version = "0.1.0a1"
+description = "Python SDK for the Sai API: delegate desktop work to Sai, or drive a cloud computer directly."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["httpx>=0.25,<1"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Documentation = "https://platform.simular.ai/documentation"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sai"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
