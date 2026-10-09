@@ -19,7 +19,7 @@ pip install sai-sdk          # import name: sai
 export SAI_API_KEY=sapi_...  # create one at https://platform.simular.ai
 ```
 
-Python 3.9+. One dependency, `httpx`.
+Python 3.10+. One dependency, `httpx`.
 
 ## Give Sai a task
 
