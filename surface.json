@@ -1,0 +1,42 @@
+{
+  "$comment": "The public SDK surface, shared by every language. Names are snake_case; TypeScript uses camelCase. Each SDK's tests fail if its public methods differ from this file. Change this file and every SDK in the same PR. See sdk/AGENTS.md.",
+  "resources": {
+    "client": ["machines", "sessions", "control_sessions", "models", "files", "account"],
+    "machines": ["list", "get", "live"],
+    "sessions": ["create", "resume"],
+    "control_sessions": ["open"],
+    "models": ["list"],
+    "files": ["upload"],
+    "account": ["get"]
+  },
+  "objects": {
+    "Session": ["send", "run", "abort", "respond"],
+    "Turn": ["events", "wait", "respond", "abort"],
+    "ControlSession": [
+      "exec",
+      "shell",
+      "read_file",
+      "write_file",
+      "screenshot",
+      "interrupt",
+      "get",
+      "close"
+    ]
+  },
+  "errors": [
+    "SaiError",
+    "ConnectionError",
+    "BadRequestError",
+    "AuthenticationError",
+    "PermissionDeniedError",
+    "NotFoundError",
+    "ConflictError",
+    "GoneError",
+    "RateLimitError",
+    "ServiceUnavailableError",
+    "BlockError",
+    "LinkOnlyApprovalError"
+  ],
+  "event_kinds": ["step", "message", "approval", "tool_error", "error", "finished", "other"],
+  "turn_statuses": ["running", "idle", "needs_approval", "error"]
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@simular-ai/sai-sdk",
+  "version": "0.1.0-alpha.1",
+  "description": "TypeScript SDK for the Sai API: delegate desktop work to Sai, or drive a cloud computer directly.",
+  "homepage": "https://platform.simular.ai/documentation/sdks/typescript",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simular-ai/simular-pro-unified-ui.git",
+    "directory": "sdk/typescript"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.0"
+  }
+}
