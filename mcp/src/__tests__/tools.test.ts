@@ -31,11 +31,11 @@ describe('decision mapping', () => {
 })
 
 describe('timeout clamp', () => {
-  it('defaults to 90 and caps at 110', () => {
+  it('defaults to 45 and caps at 55, under the 60 s client tool timeout', () => {
     expect(clampTimeoutS(undefined)).toBe(WAIT_DEFAULT_S)
-    expect(WAIT_DEFAULT_S).toBe(90)
-    expect(WAIT_MAX_S).toBe(110)
-    expect(clampTimeoutS(500)).toBe(110)
+    expect(WAIT_DEFAULT_S).toBe(45)
+    expect(WAIT_MAX_S).toBe(55)
+    expect(clampTimeoutS(500)).toBe(55)
     expect(clampTimeoutS(0)).toBe(1)
     expect(clampTimeoutS(42.9)).toBe(42)
     expect(clampTimeoutS(Number.NaN)).toBe(WAIT_DEFAULT_S)
@@ -71,11 +71,11 @@ describe('tool schemas (§7)', () => {
     ).toBe(true)
   })
 
-  it('sai_task_wait bounds timeout_s to 1..110', () => {
+  it('sai_task_wait bounds timeout_s to 1..55', () => {
     const schema = z.object(toolSchemas.sai_task_wait)
     expect(schema.safeParse({ session_id: 's' }).success).toBe(true)
-    expect(schema.safeParse({ session_id: 's', timeout_s: 110, cursor: '3' }).success).toBe(true)
-    expect(schema.safeParse({ session_id: 's', timeout_s: 111 }).success).toBe(false)
+    expect(schema.safeParse({ session_id: 's', timeout_s: 55, cursor: '3' }).success).toBe(true)
+    expect(schema.safeParse({ session_id: 's', timeout_s: 56 }).success).toBe(false)
     expect(schema.safeParse({ session_id: 's', timeout_s: 0 }).success).toBe(false)
     expect(schema.safeParse({}).success).toBe(false)
   })
@@ -322,7 +322,7 @@ describe('SaiTools.wait', () => {
     }
     const wait = waitWith(bareLinkOnly)
     const result = await toolsWith(wait).wait({ session_id: 's', timeout_s: 999, cursor: '2' })
-    expect(wait).toHaveBeenCalledWith('s', { timeoutMs: 110_000, cursor: '2' })
+    expect(wait).toHaveBeenCalledWith('s', { timeoutMs: 55_000, cursor: '2' })
     expect(result.approval?.approvalUrl).toBe('https://sai.simular.ai/approval/uid1/ap-9')
 
     // An exec/choice approval is answered in place; the page cannot complete it.

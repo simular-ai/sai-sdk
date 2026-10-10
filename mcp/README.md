@@ -87,8 +87,6 @@ Or in `~/.codex/config.toml`:
 [mcp_servers.sai]
 command = "npx"
 args = ["-y", "@simular-ai/sai-mcp"]
-# sai_task_wait holds for up to 110 s; Codex's default tool timeout is 60 s.
-tool_timeout_sec = 120
 
 [mcp_servers.sai.env]
 SAI_API_KEY = "sapi_YOUR_KEY"
