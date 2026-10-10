@@ -204,6 +204,7 @@ class TurnResult:
 
     `status` is `idle` (done: `text` is the answer), `error`, or
     `needs_approval` (waiting on `approval`; answer it and call `wait()` again).
+    `run` is the run's result for a structured message (one with a contract).
     """
 
     status: str
@@ -214,10 +215,147 @@ class TurnResult:
     error_code: Optional[str]
     usage: Optional[Usage]
     session_usage: Optional[Usage] = field(default=None, repr=False)
+    run: Optional[Run] = None
 
     @property
     def ok(self) -> bool:
-        return self.status == "idle"
+        """Idle, and for a structured message, the run succeeded."""
+        return self.status == "idle" and (self.run is None or self.run.ok)
+
+
+@dataclass
+class Check:
+    """One yes/no constraint a structured run is checked against after its turn."""
+
+    id: str
+    """Letters, digits, `_` or `-`; at most 64 characters."""
+    check: str
+    return_evidence: bool = False
+    """Also return one sentence of evidence for this check (an extra model call)."""
+
+    def to_json(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"id": self.id, "check": self.check}
+        if self.return_evidence:
+            d["returnEvidence"] = True
+        return d
+
+
+@dataclass
+class Evidence:
+    """The verdict on one success criterion."""
+
+    id: Optional[str]
+    """The check's id; None for a natural-language `success_criteria`."""
+    passed: bool
+    score: Optional[float]
+    """The probability that the check holds (`Check` criteria only)."""
+    evidence: Optional[str]
+    """Always for a natural-language criteria; for a `Check`, only with `return_evidence`."""
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> Evidence:
+        return cls(id=d.get("id"), passed=bool(d.get("passed")), score=d.get("score"), evidence=d.get("evidence"))
+
+
+RUN_STATUSES = ("running", "needs_input", "finalizing", "succeeded", "failed")
+
+
+@dataclass
+class Run:
+    """One message's result, from `GET /v1/runs/{id}`.
+
+    `status` is `running`, `needs_input` (an approval or question is pending),
+    `finalizing` (the agent is done; output and checks are being worked out),
+    `succeeded` or `failed`. On `failed`, `reason_code` says why: `agent_error`,
+    `output_invalid` (see `raw_answer` and `output_errors`), `criteria_not_met`,
+    `criteria_unchecked`, `aborted`, `machine_unavailable` or `not_started`.
+    """
+
+    id: str
+    session_id: Optional[str]
+    machine_id: str
+    kind: str
+    """`plain` or `structured`."""
+    status: str
+    output: Any
+    """Matches `output_schema`; the final text for a plain message."""
+    reason_code: Optional[str]
+    raw_answer: Optional[str]
+    output_errors: list[str]
+    evidence: list[Evidence]
+    usage: Optional[Usage]
+    """Tokens of every model call the agent made in the turn."""
+    steer_of: Optional[str]
+    """Set when the message joined a turn already running; the result is that run's."""
+    record_trajectory: bool
+    trajectory_ref: Optional[str]
+    template: Optional[str]
+    inputs: Optional[dict[str, Any]]
+    replayed: bool
+    """True when `idempotency_key` matched an earlier run: this is that run, and nothing was sent."""
+    raw: dict[str, Any] = field(repr=False)
+
+    @property
+    def done(self) -> bool:
+        return self.status in ("succeeded", "failed")
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "succeeded"
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> Run:
+        return cls(
+            id=d.get("runId", ""),
+            session_id=d.get("sessionId"),
+            machine_id=d.get("machineId", ""),
+            kind=d.get("kind", ""),
+            status=d.get("status", "running"),
+            output=d.get("output"),
+            reason_code=d.get("reason_code"),
+            raw_answer=d.get("raw_answer"),
+            output_errors=d.get("output_errors") or [],
+            evidence=[Evidence.parse(e) for e in d.get("evidence") or []],
+            usage=Usage.parse(d.get("usage")),
+            steer_of=d.get("steerOf"),
+            record_trajectory=bool(d.get("recordTrajectory")),
+            trajectory_ref=d.get("trajectoryRef"),
+            template=d.get("template"),
+            inputs=d.get("inputs"),
+            replayed=bool(d.get("idempotent_replay")),
+            raw=d,
+        )
+
+
+@dataclass
+class TrajectoryStep:
+    """One step the agent took: what it did, and why. Fetch its screen with `sai.runs.screenshot()`."""
+
+    index: int
+    final: bool
+    """The screenshot taken when the turn ended, after the last step."""
+    timestamp: str
+    title: Optional[str]
+    code: Optional[str]
+    rationale: Optional[str]
+    """The agent's text before the action."""
+    error: Optional[str]
+    has_screenshot: bool
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> TrajectoryStep:
+        return cls(
+            index=int(d.get("index", 0)),
+            final=bool(d.get("final")),
+            timestamp=d.get("timestamp", ""),
+            title=d.get("title"),
+            code=d.get("code"),
+            rationale=d.get("rationale"),
+            error=d.get("error"),
+            has_screenshot=bool(d.get("screenshot")),
+            raw=d,
+        )
 
 
 @dataclass

@@ -10,6 +10,7 @@ import httpx
 from ._http import DEFAULT_BASE_URL, HTTP
 from .control import ControlSessions
 from .machines import Machines
+from .runs import Runs
 from .sessions import Sessions
 from .types import Account, Attachment, Model
 
@@ -45,6 +46,7 @@ class Sai:
         )
         self.machines = Machines(self)
         self.sessions = Sessions(self)
+        self.runs = Runs(self)
         self.control_sessions = ControlSessions(self)
         self.models = _Models(self)
         self.files = _Files(self)

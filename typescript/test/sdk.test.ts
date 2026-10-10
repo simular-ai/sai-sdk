@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   AuthenticationError,
@@ -160,6 +160,7 @@ describe('sai typescript sdk', () => {
       message: 'type hello',
       wait: false,
       machineId: 'm_1',
+      sessionId: 'cs_1',
       model: 'auto',
     })
     const polls = calls.filter((c) => c.path === '/v1/agents/events')
@@ -298,5 +299,207 @@ describe('sai typescript sdk', () => {
     expect(a.fileId).toBe('f_1')
     expect(calls[0]!.headers.get('x-filename')).toBe('a%20b.txt')
     expect(calls[0]!.body).toBe('abc')
+  })
+
+  describe('runs', () => {
+    const RUN_DONE = {
+      runId: 'run_1',
+      sessionId: 'cs_9',
+      machineId: 'm_1',
+      kind: 'structured',
+      status: 'succeeded',
+      output: { path: 'C:\\Users\\me\\Desktop\\inv-1001.txt' },
+      reason_code: null,
+      evidence: [
+        { id: 'saved', passed: true, score: 0.93, evidence: 'The file is on the Desktop.' },
+      ],
+      usage: { inputTokens: 120, outputTokens: 30 },
+      recordTrajectory: true,
+      releaseLockAtTurnEnd: true,
+      trajectoryRef: 'gs://b/u/cs_9/run_1/',
+      template: 'Save {{file_name}}',
+      inputs: { file_name: 'inv-1001.txt' },
+    }
+
+    // Run reads are 2 s apart; skip the waits.
+    const settle = async <T>(p: Promise<T>): Promise<T> => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] })
+      await vi.runAllTimersAsync()
+      return p
+    }
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('a structured run without a session waits for the result', async () => {
+      const calls: Call[] = []
+      const sai = client(
+        {
+          'POST /v1/agents/message': [
+            202,
+            { sessionId: 'cs_9', machineId: 'm_1', queued: false, runId: 'run_1' },
+          ],
+          'GET /v1/agents/events': {
+            sessionId: 'cs_9',
+            status: 'idle',
+            events: [],
+            text: 'Saved.',
+            cursor: 'c1',
+          },
+          'GET /v1/runs/run_1': [
+            { ...RUN_DONE, status: 'running' },
+            { ...RUN_DONE, status: 'finalizing' },
+            RUN_DONE,
+          ],
+        },
+        calls,
+      )
+      const turn = await sai.runs.create('Save {{file_name}}', {
+        machine: 'm_1',
+        inputs: { file_name: 'inv-1001.txt' },
+        outputSchema: {
+          type: 'object',
+          properties: { path: { type: 'string' } },
+          required: ['path'],
+        },
+        successCriteria: [
+          { id: 'saved', check: 'The file is saved on the Desktop', returnEvidence: true },
+        ],
+        idempotencyKey: 'inv-1001',
+        recordTrajectory: true,
+      })
+      expect(turn.runId).toBe('run_1')
+      expect(turn.session.id).toBe('cs_9')
+      const result = await settle(turn.wait())
+      expect(result.ok).toBe(true)
+      expect(result.run?.output).toEqual({ path: 'C:\\Users\\me\\Desktop\\inv-1001.txt' })
+      expect(result.run?.evidence[0]?.score).toBe(0.93)
+      expect(result.run?.usage?.inputTokens).toBe(120)
+
+      const body = JSON.parse(calls.find((c) => c.path === '/v1/agents/message')!.body) as Record<
+        string,
+        unknown
+      >
+      // a structured run without a session opens its own
+      expect(body.sessionId).toBeUndefined()
+      expect(body.success_criteria).toEqual([
+        { id: 'saved', check: 'The file is saved on the Desktop', returnEvidence: true },
+      ])
+      expect(body.idempotency_key).toBe('inv-1001')
+      expect(body.recordTrajectory).toBe(true)
+      expect(calls.filter((c) => c.path === '/v1/runs/run_1')).toHaveLength(3)
+    })
+
+    it('a failed run is not ok', async () => {
+      const sai = client({
+        'POST /v1/agents/new-session': { sessionId: 'cs_1' },
+        'POST /v1/agents/message': [202, { sessionId: 'cs_1', machineId: 'm_1', runId: 'run_1' }],
+        'GET /v1/agents/events': {
+          sessionId: 'cs_1',
+          status: 'idle',
+          events: [],
+          text: 'I saved it.',
+        },
+        'GET /v1/runs/run_1': {
+          ...RUN_DONE,
+          status: 'failed',
+          output: null,
+          reason_code: 'output_invalid',
+          raw_answer: 'I saved it.',
+          output_errors: ["must have required property 'path'"],
+        },
+      })
+      const session = await sai.sessions.create({ machine: 'm_1' })
+      const result = await session.run('Save it', { outputSchema: { type: 'object' } })
+      expect(result.status).toBe('idle')
+      expect(result.ok).toBe(false)
+      expect(result.run?.reasonCode).toBe('output_invalid')
+      expect(result.run?.rawAnswer).toBe('I saved it.')
+      expect(result.run?.outputErrors).toHaveLength(1)
+    })
+
+    it('a plain message has a run id but does not wait for it', async () => {
+      const calls: Call[] = []
+      const sai = client(
+        {
+          'POST /v1/agents/new-session': { sessionId: 'cs_1' },
+          'POST /v1/agents/message': [202, { sessionId: 'cs_1', machineId: 'm_1', runId: 'run_2' }],
+          'GET /v1/agents/events': { sessionId: 'cs_1', status: 'idle', events: [], text: 'Done.' },
+        },
+        calls,
+      )
+      const turn = await (await sai.sessions.create({ machine: 'm_1' })).send('hello')
+      expect(turn.runId).toBe('run_2')
+      expect((await turn.wait()).run).toBeNull()
+      expect(calls.some((c) => c.path.startsWith('/v1/runs'))).toBe(false)
+    })
+
+    it('an idempotent replay returns the earlier run', async () => {
+      const calls: Call[] = []
+      const sai = client(
+        { 'POST /v1/agents/message': { ...RUN_DONE, idempotent_replay: true } },
+        calls,
+      )
+      const turn = await sai.runs.create('Save {{file_name}}', {
+        machine: 'm_1',
+        inputs: { file_name: 'x' },
+        idempotencyKey: 'k',
+      })
+      const events: Event[] = []
+      for await (const ev of turn.events()) events.push(ev)
+      expect(events).toEqual([])
+      const result = await turn.wait()
+      expect(result.run?.replayed).toBe(true)
+      expect(result.run?.id).toBe('run_1')
+      expect(turn.session.id).toBe('cs_9')
+      expect(calls.map((c) => c.path)).toEqual(['/v1/agents/message'])
+    })
+
+    it('a structured run to a busy session is a conflict', async () => {
+      const sai = client({
+        'POST /v1/agents/new-session': { sessionId: 'cs_1' },
+        'POST /v1/agents/message': [
+          409,
+          { error: 'session_busy', message: 'The session is still working.' },
+        ],
+      })
+      const session = await sai.sessions.create({ machine: 'm_1' })
+      const err = await session.send('x', { outputSchema: { type: 'object' } }).catch((e) => e)
+      expect(err).toBeInstanceOf(ConflictError)
+      expect((err as ConflictError).code).toBe('session_busy')
+    })
+
+    it('wait, trajectory and screenshot', async () => {
+      const jpeg = new Uint8Array([0xff, 0xd8, 0x6a])
+      const sai = client({
+        'GET /v1/runs/run_1': [
+          { ...RUN_DONE, status: 'running' },
+          { ...RUN_DONE, status: 'needs_input' },
+        ],
+        'GET /v1/runs/run_1/trajectory': {
+          runId: 'run_1',
+          trajectoryRef: 'gs://b/u/cs_9/run_1/',
+          steps: [
+            {
+              index: 0,
+              timestamp: 't0',
+              title: 'Open Notepad',
+              code: "app.open('notepad')",
+              screenshot: '/v1/runs/run_1/trajectory/screenshots/0',
+            },
+            { index: 1, final: true, timestamp: 't1', screenshot: null },
+          ],
+        },
+        'GET /v1/runs/run_1/trajectory/screenshots/0': () =>
+          new Response(jpeg, { headers: { 'content-type': 'image/jpeg' } }),
+      })
+      expect((await settle(sai.runs.wait('run_1'))).status).toBe('needs_input')
+      const steps = await sai.runs.trajectory('run_1')
+      expect(steps.map((s) => [s.index, s.title, s.hasScreenshot, s.final])).toEqual([
+        [0, 'Open Notepad', true, false],
+        [1, null, false, true],
+      ])
+      expect(await sai.runs.screenshot('run_1', 0)).toEqual(jpeg)
+    })
   })
 })

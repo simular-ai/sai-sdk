@@ -2,7 +2,8 @@
  * Sessions: a conversation with Sai on one computer. Sai decides every click.
  *
  * Maps to `/v1/agents/*`: `new-session`, `message` (wait=false), `events`,
- * `approve`, `abort`.
+ * `approve`, `abort`. Every message is a run (`/v1/runs`); a message with a
+ * contract (inputs, output schema, success criteria) is a structured run.
  */
 
 import { ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError } from './errors.js'
@@ -11,10 +12,14 @@ import { idOf, type MachineRef, type Machines } from './machines.js'
 import {
   parseApproval,
   parseEvent,
+  parseRun,
   parseUsage,
   type Approval,
   type Attachment,
+  type Check,
   type Event,
+  type Run,
+  type RunStatus,
   type TurnResult,
   type TurnStatus,
 } from './types.js'
@@ -31,6 +36,21 @@ export interface SendOptions {
   /** An id from `sai.models.list()` (or `auto`); sticks to the session until changed. */
   model?: string
   attachments?: Attachment[]
+  /** Values for the `{{name}}` placeholders in the message. Makes the message a structured run. */
+  inputs?: Record<string, string | number | boolean>
+  /** JSON Schema (at most 32 KB) the run's output must match. Makes the message a structured run. */
+  outputSchema?: Record<string, unknown>
+  /**
+   * A guideline for a judge, or yes/no checks, the turn is checked against.
+   * Makes the message a structured run.
+   */
+  successCriteria?: string | Check[]
+  /** The same key again returns the earlier run and sends nothing. Makes the message a structured run. */
+  idempotencyKey?: string
+  /** Keep a screenshot and the action for each step (`sai.runs.trajectory()`). */
+  recordTrajectory?: boolean
+  /** Applies to `sai.runs.create()`: keep the machine when the structured run's turn ends. */
+  keepLockAtTurnEnd?: boolean
 }
 
 export interface WaitOptions {
@@ -42,6 +62,8 @@ export interface WaitOptions {
 }
 
 const POLL_WAIT = 30
+/** Between run reads; `GET /v1/runs/{id}` never holds. */
+const RUN_POLL_INTERVAL_MS = 2_000
 
 interface EventsPage {
   sessionId?: string
@@ -97,15 +119,46 @@ export class Session {
   /**
    * Give Sai a task, or steer the running one. Returns at once. Sent while a
    * turn is running, the message steers that turn (`turn.queued` is true).
+   *
+   * Any of `inputs`, `outputSchema`, `successCriteria` or `idempotencyKey`
+   * makes the message a structured run: the message is a template whose
+   * `{{name}}` placeholders are filled from `inputs`, the output must match
+   * `outputSchema`, and the turn is checked against `successCriteria`.
+   * `wait()` then also returns the run's result in `result.run`. A structured
+   * run is refused with `ConflictError` (`session_busy`) while a turn is running.
    */
   async send(message: string, opts: SendOptions = {}): Promise<Turn> {
     const body: Record<string, unknown> = { message, wait: false }
     if (this.machineId) body.machineId = this.machineId
+    if (this.id) body.sessionId = this.id
     if (opts.model) body.model = opts.model
     if (opts.attachments?.length) body.attachments = opts.attachments.map((a) => a.raw)
+    if (opts.inputs !== undefined) body.inputs = opts.inputs
+    if (opts.outputSchema !== undefined) body.output_schema = opts.outputSchema
+    if (opts.successCriteria !== undefined) body.success_criteria = opts.successCriteria
+    if (opts.idempotencyKey !== undefined) body.idempotency_key = opts.idempotencyKey
+    if (opts.recordTrajectory) body.recordTrajectory = true
+    if (opts.keepLockAtTurnEnd) body.keepLockAtTurnEnd = true
+    const structured = [
+      opts.inputs,
+      opts.outputSchema,
+      opts.successCriteria,
+      opts.idempotencyKey,
+    ].some((v) => v !== undefined)
     const d = await this.http.json<Record<string, unknown>>('POST', '/v1/agents/message', {
       json: body,
     })
+    if (d.idempotent_replay) {
+      // The key was used before: this is that run, and nothing was sent.
+      const run = parseRun(d)
+      this.id = run.sessionId ?? this.id
+      this.machineId = run.machineId || this.machineId
+      return new Turn(this, this.http, false, null, {
+        runId: run.id,
+        structured: true,
+        replay: run,
+      })
+    }
     if (typeof d.sessionId !== 'string' || !d.sessionId) {
       // Handled without starting a task (e.g. a plain acknowledgement): the reply is in `error`.
       const text = typeof d.error === 'string' ? d.error : ''
@@ -113,7 +166,8 @@ export class Session {
     }
     this.id = d.sessionId
     if (typeof d.machineId === 'string') this.machineId = d.machineId
-    return new Turn(this, this.http, Boolean(d.queued))
+    const runId = typeof d.runId === 'string' ? d.runId : null
+    return new Turn(this, this.http, Boolean(d.queued), null, { runId, structured })
   }
 
   /** `send()` then `wait()`: the answer, or where it stopped. */
@@ -160,11 +214,18 @@ export class Session {
   }
 }
 
-/** One message's work. Iterate `events()` to watch it, or `wait()` for the result. */
+/**
+ * One message's work (a run). Iterate `events()` to watch it, or `wait()` for
+ * the result. `runId` names the run (`sai.runs.get(turn.runId)`); null when the
+ * message was answered without starting a task.
+ */
 export class Turn {
+  readonly runId: string | null
   private cursor: string | null = null
   private last: TurnResult | null
-  // answered without starting a task: nothing to poll
+  private readonly structured: boolean
+  private readonly replay: Run | null
+  // answered without starting a task, or an idempotent replay: no events to poll
   private readonly local: boolean
 
   constructor(
@@ -172,9 +233,16 @@ export class Turn {
     private readonly http: Http,
     readonly queued: boolean,
     done: TurnResult | null = null,
+    run: { runId: string | null; structured: boolean; replay?: Run } = {
+      runId: null,
+      structured: false,
+    },
   ) {
     this.last = done
-    this.local = done !== null
+    this.runId = run.runId
+    this.structured = run.structured
+    this.replay = run.replay ?? null
+    this.local = done !== null || this.replay !== null
   }
 
   get status(): TurnStatus {
@@ -209,11 +277,20 @@ export class Turn {
    * Without `onApproval`, resolves with `status === 'needs_approval'` and the
    * `approval` so the caller can decide. With it, the handler's answer is sent
    * and waiting continues; a handler returning null leaves the approval to
-   * someone else (a link-only one to a human) and keeps waiting.
+   * someone else (a link-only one to a human) and keeps waiting. For a
+   * structured message, it then waits for the run's result (`result.run`:
+   * output, evidence), which is worked out after the turn.
    */
   async wait(opts: WaitOptions = {}): Promise<TurnResult> {
-    if (this.local) return this.last!
     const deadline = opts.timeoutMs === undefined ? null : Date.now() + opts.timeoutMs
+    if (this.replay) {
+      const run = this.replay.done
+        ? this.replay
+        : await waitRun(this.http, this.replay.id, deadline)
+      this.last = withRun(localResult(run.sessionId ?? this.session.id ?? '', ''), run)
+      return this.last
+    }
+    if (this.local) return this.last!
     const answered = new Set<string>()
     for (;;) {
       let pollWait = opts.pollWait ?? POLL_WAIT
@@ -228,7 +305,12 @@ export class Turn {
         pollWait = Math.max(1, Math.min(pollWait, Math.floor(left / 1000)))
       }
       const page = await this.#poll(pollWait)
-      if (page.status === 'idle' || page.status === 'error') return this.last!
+      if (page.status === 'idle' || page.status === 'error') {
+        if (this.structured && this.runId) {
+          this.last = withRun(this.last!, await waitRun(this.http, this.runId, deadline))
+        }
+        return this.last!
+      }
       const approval = this.last?.approval
       if (page.status !== 'needs_approval' || !approval) continue
       if (!opts.onApproval) return this.last!
@@ -291,10 +373,44 @@ export class Turn {
       errorCode,
       usage: parseUsage(page.usage),
       sessionUsage: parseUsage(page.sessionUsage),
+      run: null,
       ok: status === 'idle',
     }
     return page
   }
+}
+
+/**
+ * Read the run until its status is in `stop`. Throws a `TimeoutError`
+ * (DOMException) past `deadline` (epoch ms).
+ */
+export async function waitRun(
+  http: Http,
+  runId: string,
+  deadline: number | null,
+  stop: readonly RunStatus[] = ['succeeded', 'failed'],
+): Promise<Run> {
+  for (;;) {
+    let run: Run
+    try {
+      run = parseRun(await http.json('GET', `/v1/runs/${encodeURIComponent(runId)}`))
+    } catch (err) {
+      if (!(err instanceof RateLimitError)) throw err
+      await sleep((err.retryAfter ?? 30) * 1000)
+      continue
+    }
+    if (stop.includes(run.status)) return run
+    if (deadline !== null && Date.now() + RUN_POLL_INTERVAL_MS > deadline) {
+      throw new DOMException(`Run ${runId} still ${run.status}.`, 'TimeoutError')
+    }
+    await sleep(RUN_POLL_INTERVAL_MS)
+  }
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+function withRun(result: TurnResult, run: Run): TurnResult {
+  return { ...result, run, ok: result.status === 'idle' && run.ok }
 }
 
 function localResult(sessionId: string, text: string): TurnResult {
@@ -307,6 +423,7 @@ function localResult(sessionId: string, text: string): TurnResult {
     errorCode: null,
     usage: null,
     sessionUsage: null,
+    run: null,
     ok: true,
   }
 }

@@ -1,6 +1,7 @@
 import { ControlSessions } from './control.js'
 import { DEFAULT_BASE_URL, Http, type FetchLike } from './http.js'
 import { Machines } from './machines.js'
+import { Runs } from './runs.js'
 import { Sessions } from './sessions.js'
 import {
   parseAccount,
@@ -35,6 +36,7 @@ export interface SaiOptions {
 export class Sai {
   readonly machines: Machines
   readonly sessions: Sessions
+  readonly runs: Runs
   readonly controlSessions: ControlSessions
   readonly models: Models
   readonly files: Files
@@ -57,6 +59,7 @@ export class Sai {
     )
     this.machines = new Machines(http)
     this.sessions = new Sessions(http, this.machines)
+    this.runs = new Runs(http, this.machines)
     this.controlSessions = new ControlSessions(http)
     this.models = new Models(http)
     this.files = new Files(http)

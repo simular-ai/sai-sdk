@@ -10,7 +10,7 @@ import pytest
 
 import sai as sdk
 from sai import ControlSession, Sai, Session, Turn
-from sai.types import _KINDS
+from sai.types import _KINDS, RUN_STATUSES
 
 SURFACE = json.loads((Path(__file__).resolve().parents[2] / "surface.json").read_text())
 
@@ -48,3 +48,7 @@ def test_errors() -> None:
 
 def test_event_kinds() -> None:
     assert sorted(set(_KINDS.values()) | {"other"}) == sorted(SURFACE["event_kinds"])
+
+
+def test_run_statuses() -> None:
+    assert list(RUN_STATUSES) == SURFACE["run_statuses"]

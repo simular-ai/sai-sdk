@@ -220,7 +220,8 @@ export type TurnStatus = (typeof TURN_STATUSES)[number]
 /**
  * Where a turn stopped. `status` is `idle` (done: `text` is the answer),
  * `error`, or `needs_approval` (waiting on `approval`; answer it and call
- * `wait()` again).
+ * `wait()` again). `run` is the run's result for a structured message (one
+ * with a contract).
  */
 export interface TurnResult {
   status: TurnStatus
@@ -231,7 +232,129 @@ export interface TurnResult {
   errorCode: string | null
   usage: Usage | null
   sessionUsage: Usage | null
+  run: Run | null
+  /** Idle, and for a structured message, the run succeeded. */
   ok: boolean
+}
+
+/** One yes/no constraint a structured run is checked against after its turn. */
+export interface Check {
+  /** Letters, digits, `_` or `-`; at most 64 characters. */
+  id: string
+  check: string
+  /** Also return one sentence of evidence for this check (an extra model call). */
+  returnEvidence?: boolean
+}
+
+/** The verdict on one success criterion. */
+export interface Evidence {
+  /** The check's id; null for a natural-language `successCriteria`. */
+  id: string | null
+  passed: boolean
+  /** The probability that the check holds (`Check` criteria only). */
+  score: number | null
+  /** Always for a natural-language criteria; for a `Check`, only with `returnEvidence`. */
+  evidence: string | null
+}
+
+/** Run statuses, from `GET /v1/runs/{id}`. */
+export const RUN_STATUSES = ['running', 'needs_input', 'finalizing', 'succeeded', 'failed'] as const
+export type RunStatus = (typeof RUN_STATUSES)[number]
+
+/**
+ * One message's result. `status` is `running`, `needs_input` (an approval or
+ * question is pending), `finalizing` (the agent is done; output and checks are
+ * being worked out), `succeeded` or `failed`. On `failed`, `reasonCode` says
+ * why: `agent_error`, `output_invalid` (see `rawAnswer` and `outputErrors`),
+ * `criteria_not_met`, `criteria_unchecked`, `aborted`, `machine_unavailable`
+ * or `not_started`.
+ */
+export interface Run {
+  id: string
+  sessionId: string | null
+  machineId: string
+  /** `plain` or `structured`. */
+  kind: string
+  status: RunStatus
+  /** Matches `outputSchema`; the final text for a plain message. */
+  output: unknown
+  reasonCode: string | null
+  rawAnswer: string | null
+  outputErrors: string[]
+  evidence: Evidence[]
+  /** Tokens of every model call the agent made in the turn. */
+  usage: Usage | null
+  /** Set when the message joined a turn already running; the result is that run's. */
+  steerOf: string | null
+  recordTrajectory: boolean
+  trajectoryRef: string | null
+  template: string | null
+  inputs: Json | null
+  /** True when `idempotencyKey` matched an earlier run: this is that run, and nothing was sent. */
+  replayed: boolean
+  done: boolean
+  ok: boolean
+  raw: Json
+}
+
+export function parseRun(d: Json): Run {
+  const status = (str(d.status) ?? 'running') as RunStatus
+  return {
+    id: str(d.runId) ?? '',
+    sessionId: str(d.sessionId) ?? null,
+    machineId: str(d.machineId) ?? '',
+    kind: str(d.kind) ?? '',
+    status,
+    output: d.output ?? null,
+    reasonCode: str(d.reason_code) ?? null,
+    rawAnswer: str(d.raw_answer) ?? null,
+    outputErrors: Array.isArray(d.output_errors) ? (d.output_errors as string[]) : [],
+    evidence: (Array.isArray(d.evidence) ? (d.evidence as Json[]) : []).map((e) => ({
+      id: str(e.id) ?? null,
+      passed: Boolean(e.passed),
+      score: typeof e.score === 'number' ? e.score : null,
+      evidence: str(e.evidence) ?? null,
+    })),
+    usage: parseUsage(d.usage),
+    steerOf: str(d.steerOf) ?? null,
+    recordTrajectory: Boolean(d.recordTrajectory),
+    trajectoryRef: str(d.trajectoryRef) ?? null,
+    template: str(d.template) ?? null,
+    inputs: d.inputs && typeof d.inputs === 'object' ? (d.inputs as Json) : null,
+    replayed: Boolean(d.idempotent_replay),
+    done: status === 'succeeded' || status === 'failed',
+    ok: status === 'succeeded',
+    raw: d,
+  }
+}
+
+/** One step the agent took: what it did, and why. Fetch its screen with `sai.runs.screenshot()`. */
+export interface TrajectoryStep {
+  index: number
+  /** The screenshot taken when the turn ended, after the last step. */
+  final: boolean
+  timestamp: string
+  title: string | null
+  code: string | null
+  /** The agent's text before the action. */
+  rationale: string | null
+  error: string | null
+  hasScreenshot: boolean
+  raw: Json
+}
+
+export function parseTrajectoryStep(d: Json): TrajectoryStep {
+  return {
+    index: num(d.index),
+    final: Boolean(d.final),
+    timestamp: str(d.timestamp) ?? '',
+    title: str(d.title) ?? null,
+    code: str(d.code) ?? null,
+    rationale: str(d.rationale) ?? null,
+    error: str(d.error) ?? null,
+    hasScreenshot: Boolean(d.screenshot),
+    raw: d,
+  }
 }
 
 export interface ExecError {
