@@ -21,7 +21,7 @@ The SDKs are one product in several languages. A developer who learns one must b
 other, and the docs show both side by side.
 
 1. **`surface.json` is the contract.** It lists the client's resources, each resource's methods,
-   the `Session` / `Turn` / `ControlSession` methods, the exported error classes, the event kinds and
+   the `Session` / `Turn` / `ControlLease` methods, the exported error classes, the event kinds and
    the turn statuses. Names are snake_case; TypeScript uses the camelCase of the same name.
 2. **Each SDK has a parity test** (`python/tests/test_surface.py`, `typescript/test/surface.test.ts`)
    that fails when its public methods, errors or enums differ from `surface.json`, in either direction.

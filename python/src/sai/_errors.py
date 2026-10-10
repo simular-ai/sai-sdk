@@ -56,7 +56,7 @@ class ConflictError(SaiError):
 
 
 class GoneError(SaiError):
-    """410: the control session was closed or sat idle. Open a new one."""
+    """410: the control lease was closed or sat idle. Open a new one."""
 
 
 class RateLimitError(SaiError):
@@ -68,7 +68,7 @@ class ServiceUnavailableError(SaiError):
 
 
 class BlockError(SaiError):
-    """A control-session helper's Simulang block failed on the computer. `kind` is
+    """A control helper's Simulang block failed on the computer. `kind` is
     `exception`, `timeout` or `interrupted`."""
 
     def __init__(self, kind: str, message: str) -> None:

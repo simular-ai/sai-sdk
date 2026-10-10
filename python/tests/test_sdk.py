@@ -57,7 +57,7 @@ def test_errors_map_status_and_code() -> None:
 
     sai = client({"POST /v1/machines/m_1/control": (409, {"error": "machine_busy", "message": "A task holds it"})})
     with pytest.raises(ConflictError) as c:
-        sai.control_sessions.open("m_1")
+        sai.control.open("m_1")
     assert c.value.code == "machine_busy"
     assert c.value.message == "A task holds it"
 
@@ -206,7 +206,7 @@ def test_error_code_surfaces() -> None:
     assert (r.status, r.error_code) == ("error", "insufficient_credits")
 
 
-def test_control_session_exec_and_close() -> None:
+def test_control_lease_exec_and_close() -> None:
     png = b"\x89PNG fake"
     calls: list[httpx.Request] = []
     sai = client(
@@ -227,7 +227,7 @@ def test_control_session_exec_and_close() -> None:
         },
         calls,
     )
-    with sai.control_sessions.open("m_1") as cs:
+    with sai.control.open("m_1") as cs:
         assert cs.shell("hostname")["stdout"].strip() == "HOST"
         assert cs.screenshot() == png
         r = cs.exec("throw new Error('boom')")

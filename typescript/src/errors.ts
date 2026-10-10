@@ -40,7 +40,7 @@ export class PermissionDeniedError extends SaiError {}
 export class NotFoundError extends SaiError {}
 /** 409: e.g. `machine_busy`, `link_only`, approval no longer pending. */
 export class ConflictError extends SaiError {}
-/** 410: the control session was closed or sat idle. Open a new one. */
+/** 410: the control lease was closed or sat idle. Open a new one. */
 export class GoneError extends SaiError {}
 /** 429: a rate limit, or a free-plan budget that resets daily. */
 export class RateLimitError extends SaiError {}
@@ -48,7 +48,7 @@ export class RateLimitError extends SaiError {}
 export class ServiceUnavailableError extends SaiError {}
 
 /**
- * A control-session helper's Simulang block failed on the computer. `kind` is
+ * A control helper's Simulang block failed on the computer. `kind` is
  * `exception`, `timeout` or `interrupted`.
  */
 export class BlockError extends SaiError {

@@ -90,7 +90,7 @@ describe('sai typescript sdk', () => {
     const err = await client({
       'POST /v1/machines/m_1/control': [409, { error: 'machine_busy', message: 'A task holds it' }],
     })
-      .controlSessions.open({ machine: 'm_1' })
+      .control.open({ machine: 'm_1' })
       .catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ConflictError)
     expect((err as ConflictError).code).toBe('machine_busy')
@@ -237,7 +237,7 @@ describe('sai typescript sdk', () => {
     expect([r.status, r.errorCode]).toEqual(['error', 'insufficient_credits'])
   })
 
-  it('runs a control session and closes it', async () => {
+  it('runs a control lease and closes it', async () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
     const calls: Call[] = []
     const exec = (over: Record<string, unknown>) => ({
@@ -265,7 +265,7 @@ describe('sai typescript sdk', () => {
       calls,
     )
     {
-      await using cs = await sai.controlSessions.open({ machine: 'm_1' })
+      await using cs = await sai.control.open({ machine: 'm_1' })
       expect((await cs.shell('hostname')).stdout.trim()).toBe('HOST')
       expect(await cs.screenshot()).toEqual(png)
       const r = await cs.exec("throw new Error('boom')")

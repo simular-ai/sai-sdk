@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import * as sdk from '../src/index.js'
-import { ControlSession, EVENT_KINDS, Sai, Session, TURN_STATUSES, Turn } from '../src/index.js'
+import { ControlLease, EVENT_KINDS, Sai, Session, TURN_STATUSES, Turn } from '../src/index.js'
 
 // surface.json is the contract every language's SDK implements (AGENTS.md).
 const surface = JSON.parse(
@@ -45,7 +45,7 @@ describe('surface parity with surface.json', () => {
     })
   }
 
-  const classes: Record<string, { prototype: object }> = { Session, Turn, ControlSession }
+  const classes: Record<string, { prototype: object }> = { Session, Turn, ControlLease }
   for (const [name, methods] of Object.entries(surface.objects)) {
     it(`${name} methods`, () => {
       expect(publicMethods(classes[name]!.prototype)).toEqual(methods.map(camel).sort())

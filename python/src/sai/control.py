@@ -24,21 +24,21 @@ def _control_path(machine_id: str) -> str:
     return f"/v1/machines/{quote(machine_id, safe='')}/control"
 
 
-class ControlSessions:
+class Control:
     def __init__(self, sai: Sai) -> None:
         self._sai = sai
 
-    def open(self, machine: Union[Machine, str]) -> ControlSession:
+    def open(self, machine: Union[Machine, str]) -> ControlLease:
         """Take a cloud computer. Returns once the lease holds it, up to ~3 minutes
         when a Sai task holds it or it has to start; at once if the lease is already
         open. Use as a context manager so it is always released: Sai's tasks on that
         computer wait until then."""
         machine_id = machine if isinstance(machine, str) else machine.id
         d = self._sai._http.json("POST", _control_path(machine_id), timeout=240)
-        return ControlSession(self._sai, machine_id, int(d.get("expiresAfterIdleSec", 0)))
+        return ControlLease(self._sai, machine_id, int(d.get("expiresAfterIdleSec", 0)))
 
 
-class ControlSession:
+class ControlLease:
     def __init__(self, sai: Sai, machine_id: str, idle_timeout_sec: int) -> None:
         self._sai = sai
         self.machine_id = machine_id
@@ -47,9 +47,9 @@ class ControlSession:
         self._closed = False
 
     def __repr__(self) -> str:
-        return f"ControlSession(machine_id={self.machine_id!r})"
+        return f"ControlLease(machine_id={self.machine_id!r})"
 
-    def __enter__(self) -> ControlSession:
+    def __enter__(self) -> ControlLease:
         return self
 
     def __exit__(self, *exc: object) -> None:

@@ -15,7 +15,7 @@ function controlPath(machineId: string): string {
   return `/v1/machines/${encodeURIComponent(machineId)}/control`
 }
 
-export class ControlSessions {
+export class Control {
   constructor(private readonly http: Http) {}
 
   /**
@@ -24,16 +24,16 @@ export class ControlSessions {
    * is already open. Close it when done (`await using`, or `try/finally`):
    * Sai's tasks on that computer wait until then.
    */
-  async open(opts: { machine: MachineRef }): Promise<ControlSession> {
+  async open(opts: { machine: MachineRef }): Promise<ControlLease> {
     const machineId = idOf(opts.machine)
     const d = await this.http.json<Record<string, unknown>>('POST', controlPath(machineId), {
       timeoutMs: 240_000,
     })
-    return new ControlSession(this.http, machineId, Number(d.expiresAfterIdleSec ?? 0))
+    return new ControlLease(this.http, machineId, Number(d.expiresAfterIdleSec ?? 0))
   }
 }
 
-export class ControlSession {
+export class ControlLease {
   private closed = false
   private readonly path: string
 
