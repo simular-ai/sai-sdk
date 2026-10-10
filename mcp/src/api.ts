@@ -40,7 +40,7 @@ export interface EventsResponse {
 
 export type ApproveResponse = 'yes' | 'no' | 'task'
 
-/** What `POST /v1/sessions/:id/exec` returns (cloud-api routes/sessions.ts). */
+/** What `POST /v1/machines/:id/control/exec` returns (cloud-api routes/machine-control.ts). */
 export interface ExecResult {
   result?: unknown
   logs: string[]
@@ -126,24 +126,28 @@ export class SaiApi {
     return (await res.json()) as T
   }
 
-  // ─── Sessions (Layer 2: docs/plans/2026-10-05-sai-api-sessions-v0.md) ───────
+  // ─── Direct control (Layer 2: /v1/machines/:id/control) ─────────────────────
 
-  /** `POST /v1/sessions` — waits for the machine (a free claim takes ~2 min). */
-  sessionOpen(
-    machineId?: string,
-  ): Promise<{ sessionId: string; machineId: string; expiresAfterIdleSec: number }> {
-    return this.json('/v1/sessions', {
+  private controlPath(machineId: string): string {
+    return `/v1/machines/${encodeURIComponent(machineId)}/control`
+  }
+
+  /**
+   * `POST /v1/machines/:id/control` — opens the lease, waiting for the machine
+   * (a free claim takes ~2 min). Answers at once if the lease is already open.
+   */
+  controlOpen(machineId: string): Promise<{ machineId: string; expiresAfterIdleSec: number }> {
+    return this.json(this.controlPath(machineId), {
       method: 'POST',
-      headers: this.headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(machineId ? { machineId } : {}),
+      headers: this.headers(),
       signal: AbortSignal.timeout(240_000),
-      prefix: 'Opening a session failed',
+      prefix: 'Opening control failed',
     })
   }
 
-  /** `POST /v1/sessions/:id/exec` — runs one Simulang block on the machine. */
-  sessionExec(sessionId: string, code: string, timeoutMs?: number): Promise<ExecResult> {
-    return this.json(`/v1/sessions/${encodeURIComponent(sessionId)}/exec`, {
+  /** `POST /v1/machines/:id/control/exec` — runs one Simulang block on the machine. */
+  controlExec(machineId: string, code: string, timeoutMs?: number): Promise<ExecResult> {
+    return this.json(`${this.controlPath(machineId)}/exec`, {
       method: 'POST',
       headers: this.headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ code, ...(timeoutMs !== undefined && { timeoutMs }) }),
@@ -152,8 +156,8 @@ export class SaiApi {
     })
   }
 
-  sessionInterrupt(sessionId: string): Promise<{ interrupted: boolean }> {
-    return this.json(`/v1/sessions/${encodeURIComponent(sessionId)}/interrupt`, {
+  controlInterrupt(machineId: string): Promise<{ interrupted: boolean }> {
+    return this.json(`${this.controlPath(machineId)}/interrupt`, {
       method: 'POST',
       headers: this.headers(),
       signal: AbortSignal.timeout(30_000),
@@ -161,12 +165,12 @@ export class SaiApi {
     })
   }
 
-  async sessionClose(sessionId: string): Promise<void> {
-    await this.request(`/v1/sessions/${encodeURIComponent(sessionId)}`, {
+  async controlClose(machineId: string): Promise<void> {
+    await this.request(this.controlPath(machineId), {
       method: 'DELETE',
       headers: this.headers(),
       signal: AbortSignal.timeout(30_000),
-      prefix: 'Closing the session failed',
+      prefix: 'Closing control failed',
     })
   }
 

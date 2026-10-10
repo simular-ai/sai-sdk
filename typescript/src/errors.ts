@@ -86,7 +86,7 @@ export function errorFor(
   const err = body.error
   const detail = body.message
   // Two body shapes: `{ error: "<human text>" }` (/v1/agents) and
-  // `{ error: "<code>", message: "<human text>" }` (/v1/sessions, newer errors).
+  // `{ error: "<code>", message: "<human text>" }` (/v1/machines/{id}/control, newer errors).
   const code =
     typeof err === 'string' && (detail !== undefined || looksLikeCode(err)) ? err : undefined
   let message =

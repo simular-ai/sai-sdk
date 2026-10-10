@@ -100,7 +100,7 @@ def error_for(status: int, body: dict[str, Any], retry_after: Optional[float]) -
     err = body.get("error")
     detail = body.get("message")
     # Two body shapes: `{ error: "<human text>" }` (/v1/agents) and
-    # `{ error: "<code>", message: "<human text>" }` (/v1/sessions, newer errors).
+    # `{ error: "<code>", message: "<human text>" }` (/v1/machines/{id}/control, newer errors).
     code = err if isinstance(err, str) and (detail is not None or _looks_like_code(err)) else None
     message = detail if isinstance(detail, str) else (err if isinstance(err, str) else f"HTTP {status}")
     if status == 401:

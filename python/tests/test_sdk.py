@@ -55,7 +55,7 @@ def test_errors_map_status_and_code() -> None:
         sai.machines.list()
     assert e.value.status == 401
 
-    sai = client({"POST /v1/sessions": (409, {"error": "machine_busy", "message": "A task holds it"})})
+    sai = client({"POST /v1/machines/m_1/control": (409, {"error": "machine_busy", "message": "A task holds it"})})
     with pytest.raises(ConflictError) as c:
         sai.control_sessions.open("m_1")
     assert c.value.code == "machine_busy"
@@ -211,8 +211,8 @@ def test_control_session_exec_and_close() -> None:
     calls: list[httpx.Request] = []
     sai = client(
         {
-            "POST /v1/sessions": {"sessionId": "ses_1", "machineId": "m_1", "expiresAfterIdleSec": 600},
-            "POST /v1/sessions/ses_1/exec": [
+            "POST /v1/machines/m_1/control": {"machineId": "m_1", "expiresAfterIdleSec": 600},
+            "POST /v1/machines/m_1/control/exec": [
                 {"result": {"stdout": "HOST\r\n", "exitCode": 0}, "logs": [], "observations": {}, "variables": [], "durationMs": 5},
                 {
                     "result": None,
@@ -223,7 +223,7 @@ def test_control_session_exec_and_close() -> None:
                 },
                 {"logs": [], "error": {"kind": "exception", "message": "boom"}, "observations": {}, "variables": [], "durationMs": 1},
             ],
-            "DELETE /v1/sessions/ses_1": lambda req: httpx.Response(204),
+            "DELETE /v1/machines/m_1/control": lambda req: httpx.Response(204),
         },
         calls,
     )

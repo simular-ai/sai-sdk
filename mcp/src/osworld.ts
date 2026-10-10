@@ -6,7 +6,7 @@ import type { OsworldAttempt } from './types.js'
 
 /**
  * OSWorld attempts (docs/plans/2026-10-07-osworld-runner-image.md §8): the harness sets a
- * task up on a fresh machine, the coding agent works it through a session, the harness
+ * task up on a fresh machine, the coding agent works it through direct control, the harness
  * grades it. Registered with SAI_OSWORLD=1 only: the routes are Benchmarks-gated, and an
  * account without access would only see three tools that answer 403.
  */
@@ -42,8 +42,8 @@ export const osworldToolDescriptions: Record<keyof typeof osworldToolSchemas, st
     'Start an OSWorld task: a fresh cloud computer is created for you and the task is set up on it ' +
     '(waits until it is ready, often several minutes). Returns { attempt_id, state, machine_id, instruction, ' +
     'has_user }; state "failed" (with a reason) means the setup did not complete and you can start again. ' +
-    'Then do the task on that computer: sai_session_open { machine_id } and sai_exec blocks of Simulang, ' +
-    'and sai_session_close when you are done. Work only from the instruction and what you observe on the ' +
+    'Then do the task on that computer: sai_control_open { machine_id } and sai_control_exec blocks of Simulang, ' +
+    'and sai_control_close when you are done. Work only from the instruction and what you observe on the ' +
     'computer: do not look for the task’s files, configs, graders or reference results anywhere else. ' +
     'One attempt at a time: submit or abandon the current one before starting another.',
   osworld_ask_user:
@@ -51,16 +51,16 @@ export const osworldToolDescriptions: Record<keyof typeof osworldToolSchemas, st
     'something for them to decide. Returns { answer }.',
   osworld_submit:
     'Grade the attempt in the computer’s current state and release the computer. Call it once, when you ' +
-    'are done, with outcome "fail" if you concluded the task cannot be done. Close your session first. ' +
+    'are done, with outcome "fail" if you concluded the task cannot be done. Close control first. ' +
     'Returns { score, state }.',
   osworld_abandon:
     'End the attempt without grading and free its computer. Use it to restart a task: abandon, then ' +
-    'osworld_start again for a fresh computer. Close your session first. Returns { state }.',
+    'osworld_start again for a fresh computer. Close control first. Returns { state }.',
 }
 
 export const osworldInstructions = [
   '',
-  'OSWorld: osworld_start → work the task on its machine_id through a session → osworld_submit (osworld_abandon to restart).',
+  'OSWorld: osworld_start → work the task on its machine_id through direct control → osworld_submit (osworld_abandon to restart).',
 ].join('\n')
 
 const POLL_MS = 5_000

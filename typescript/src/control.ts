@@ -1,8 +1,9 @@
 /**
- * Control sessions: drive a cloud computer directly with Simulang. No agent.
+ * Direct control: drive a cloud computer with Simulang. No agent.
  *
- * Maps to `/v1/sessions` today. Research preview: the account needs direct
- * control enabled.
+ * Maps to `/v1/machines/{id}/control`, a lease on the machine: at most one per
+ * machine, so the machine id is the handle. Research preview: the account
+ * needs direct control enabled.
  */
 
 import { BlockError, GoneError } from './errors.js'
@@ -10,39 +11,39 @@ import type { Http } from './http.js'
 import { idOf, type MachineRef } from './machines.js'
 import { parseExecResult, type ExecResult } from './types.js'
 
-const PATH = '/v1/sessions'
+function controlPath(machineId: string): string {
+  return `/v1/machines/${encodeURIComponent(machineId)}/control`
+}
 
 export class ControlSessions {
   constructor(private readonly http: Http) {}
 
   /**
-   * Take a cloud computer. Resolves once the session holds it, up to ~3
-   * minutes when a Sai task holds it or it has to start. Close it when done
-   * (`await using`, or `try/finally`): Sai's tasks on that computer wait until then.
+   * Take a cloud computer. Resolves once the lease holds it, up to ~3
+   * minutes when a Sai task holds it or it has to start; at once if the lease
+   * is already open. Close it when done (`await using`, or `try/finally`):
+   * Sai's tasks on that computer wait until then.
    */
-  async open(opts: { machine?: MachineRef } = {}): Promise<ControlSession> {
-    const d = await this.http.json<Record<string, unknown>>('POST', PATH, {
-      json: opts.machine ? { machineId: idOf(opts.machine) } : {},
+  async open(opts: { machine: MachineRef }): Promise<ControlSession> {
+    const machineId = idOf(opts.machine)
+    const d = await this.http.json<Record<string, unknown>>('POST', controlPath(machineId), {
       timeoutMs: 240_000,
     })
-    return new ControlSession(
-      this.http,
-      String(d.sessionId),
-      typeof d.machineId === 'string' ? d.machineId : '',
-      Number(d.expiresAfterIdleSec ?? 0),
-    )
+    return new ControlSession(this.http, machineId, Number(d.expiresAfterIdleSec ?? 0))
   }
 }
 
 export class ControlSession {
   private closed = false
+  private readonly path: string
 
   constructor(
     private readonly http: Http,
-    readonly id: string,
     readonly machineId: string,
     readonly idleTimeoutSec: number,
-  ) {}
+  ) {
+    this.path = controlPath(machineId)
+  }
 
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close()
@@ -51,12 +52,12 @@ export class ControlSession {
   /**
    * Run one Simulang (JavaScript) block. Use `var` for anything the next block
    * needs. A block that throws, times out or is interrupted still resolves:
-   * check `result.error`. Throws `GoneError` when the session lost the computer.
+   * check `result.error`. Throws `GoneError` when the lease lost the computer.
    */
   async exec(code: string, opts: { timeoutMs?: number } = {}): Promise<ExecResult> {
     const body: Record<string, unknown> = { code }
     if (opts.timeoutMs !== undefined) body.timeoutMs = opts.timeoutMs
-    const d = await this.http.json<Record<string, unknown>>('POST', `${PATH}/${this.id}/exec`, {
+    const d = await this.http.json<Record<string, unknown>>('POST', `${this.path}/exec`, {
       json: body,
       timeoutMs: (opts.timeoutMs ?? 120_000) + 45_000,
     })
@@ -110,21 +111,21 @@ export class ControlSession {
   async interrupt(): Promise<boolean> {
     const d = await this.http.json<{ interrupted?: boolean } | null>(
       'POST',
-      `${PATH}/${this.id}/interrupt`,
+      `${this.path}/interrupt`,
     )
     return Boolean(d?.interrupted)
   }
 
   /** `{ status: open|closed, closedReason?, lastExecAt, ... }`. */
   get(): Promise<Record<string, unknown>> {
-    return this.http.json('GET', `${PATH}/${this.id}`)
+    return this.http.json('GET', this.path)
   }
 
   /** Clear the REPL and release the computer. Safe to call twice. */
   async close(): Promise<void> {
     if (this.closed) return
     try {
-      await this.http.request('DELETE', `${PATH}/${this.id}`)
+      await this.http.request('DELETE', this.path)
     } catch (err) {
       if (!(err instanceof GoneError)) throw err
     }

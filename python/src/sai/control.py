@@ -1,12 +1,14 @@
-"""Control sessions: drive a cloud computer directly with Simulang. No agent.
+"""Direct control: drive a cloud computer with Simulang. No agent.
 
-Maps to `/v1/sessions` today; the contract renames it `/v1/control-sessions`.
-Research preview: the account needs direct control enabled.
+Maps to `/v1/machines/{id}/control`, a lease on the machine: at most one per
+machine, so the machine id is the handle. Research preview: the account needs
+direct control enabled.
 """
 
 from __future__ import annotations
 
 import json
+from urllib.parse import quote
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from ._errors import BlockError, GoneError
@@ -16,36 +18,36 @@ if TYPE_CHECKING:
     from ._client import Sai
     from .machines import Machine
 
-_PATH = "/v1/sessions"
+
+
+def _control_path(machine_id: str) -> str:
+    return f"/v1/machines/{quote(machine_id, safe='')}/control"
 
 
 class ControlSessions:
     def __init__(self, sai: Sai) -> None:
         self._sai = sai
 
-    def open(self, machine: Union[Machine, str, None] = None) -> ControlSession:
-        """Take a cloud computer. Returns once the session holds it, up to ~3 minutes
-        when a Sai task holds it or it has to start. Use as a context manager so
-        it is always released: Sai's tasks on that computer wait until then."""
-        body: dict[str, Any] = {}
-        if machine is not None:
-            body["machineId"] = machine if isinstance(machine, str) else machine.id
-        d = self._sai._http.json("POST", _PATH, json=body, timeout=240)
-        return ControlSession(
-            self._sai, d["sessionId"], d.get("machineId", ""), int(d.get("expiresAfterIdleSec", 0))
-        )
+    def open(self, machine: Union[Machine, str]) -> ControlSession:
+        """Take a cloud computer. Returns once the lease holds it, up to ~3 minutes
+        when a Sai task holds it or it has to start; at once if the lease is already
+        open. Use as a context manager so it is always released: Sai's tasks on that
+        computer wait until then."""
+        machine_id = machine if isinstance(machine, str) else machine.id
+        d = self._sai._http.json("POST", _control_path(machine_id), timeout=240)
+        return ControlSession(self._sai, machine_id, int(d.get("expiresAfterIdleSec", 0)))
 
 
 class ControlSession:
-    def __init__(self, sai: Sai, session_id: str, machine_id: str, idle_timeout_sec: int) -> None:
+    def __init__(self, sai: Sai, machine_id: str, idle_timeout_sec: int) -> None:
         self._sai = sai
-        self.id = session_id
         self.machine_id = machine_id
+        self._path = _control_path(machine_id)
         self.idle_timeout_sec = idle_timeout_sec
         self._closed = False
 
     def __repr__(self) -> str:
-        return f"ControlSession(id={self.id!r}, machine_id={self.machine_id!r})"
+        return f"ControlSession(machine_id={self.machine_id!r})"
 
     def __enter__(self) -> ControlSession:
         return self
@@ -57,13 +59,13 @@ class ControlSession:
         """Run one Simulang (JavaScript) block. Use `var` for anything the next block needs.
 
         A block that throws, times out or is interrupted still returns: check
-        `result.error`. Raises `GoneError` when the session lost the computer.
+        `result.error`. Raises `GoneError` when the lease lost the computer.
         """
         body: dict[str, Any] = {"code": code}
         if timeout_ms is not None:
             body["timeoutMs"] = timeout_ms
         d = self._sai._http.json(
-            "POST", f"{_PATH}/{self.id}/exec", json=body, timeout=(timeout_ms or 120_000) / 1000 + 45
+            "POST", f"{self._path}/exec", json=body, timeout=(timeout_ms or 120_000) / 1000 + 45
         )
         return ExecResult.parse(d)
 
@@ -96,19 +98,19 @@ class ControlSession:
 
     def interrupt(self) -> bool:
         """Stop the running block at its next step. False if nothing was running."""
-        d = self._sai._http.json("POST", f"{_PATH}/{self.id}/interrupt")
+        d = self._sai._http.json("POST", f"{self._path}/interrupt")
         return bool(d and d.get("interrupted"))
 
     def get(self) -> dict[str, Any]:
         """`{status: open|closed, closedReason?, lastExecAt, ...}`."""
-        return self._sai._http.json("GET", f"{_PATH}/{self.id}")
+        return self._sai._http.json("GET", self._path)
 
     def close(self) -> None:
         """Clear the REPL and release the computer. Safe to call twice."""
         if self._closed:
             return
         try:
-            self._sai._http.request("DELETE", f"{_PATH}/{self.id}")
+            self._sai._http.request("DELETE", self._path)
         except GoneError:
             pass
         self._closed = True

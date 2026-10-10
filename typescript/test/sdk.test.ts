@@ -88,7 +88,7 @@ describe('sai typescript sdk', () => {
     ).rejects.toBeInstanceOf(AuthenticationError)
 
     const err = await client({
-      'POST /v1/sessions': [409, { error: 'machine_busy', message: 'A task holds it' }],
+      'POST /v1/machines/m_1/control': [409, { error: 'machine_busy', message: 'A task holds it' }],
     })
       .controlSessions.open({ machine: 'm_1' })
       .catch((e: unknown) => e)
@@ -249,8 +249,8 @@ describe('sai typescript sdk', () => {
     })
     const sai = client(
       {
-        'POST /v1/sessions': { sessionId: 'ses_1', machineId: 'm_1', expiresAfterIdleSec: 600 },
-        'POST /v1/sessions/ses_1/exec': [
+        'POST /v1/machines/m_1/control': { machineId: 'm_1', expiresAfterIdleSec: 600 },
+        'POST /v1/machines/m_1/control/exec': [
           exec({ result: { stdout: 'HOST\r\n', exitCode: 0 } }),
           exec({
             result: null,
@@ -260,7 +260,7 @@ describe('sai typescript sdk', () => {
           }),
           exec({ error: { kind: 'exception', message: 'boom' } }),
         ],
-        'DELETE /v1/sessions/ses_1': () => new Response(null, { status: 204 }),
+        'DELETE /v1/machines/m_1/control': () => new Response(null, { status: 204 }),
       },
       calls,
     )
