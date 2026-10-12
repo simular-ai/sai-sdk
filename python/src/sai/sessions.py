@@ -142,8 +142,11 @@ class Session:
             self.machine_id = record.machine_id or self.machine_id
             return Turn(self, turn_id=record.id, structured=structured, replay=record)
         if not d.get("sessionId"):
-            # Handled without starting a task (e.g. a plain acknowledgement): the reply is in `error`.
-            return Turn(self, done=_result(self.id or "", "idle", d.get("error", "")))
+            # Handled without starting a task (e.g. a plain acknowledgement): the reply is in
+            # `reply`, or in `error` on servers before `reply` existed.
+            reply = d.get("reply")
+            text = reply if isinstance(reply, str) else d.get("error", "")
+            return Turn(self, done=_result(self.id or "", "idle", text))
         self.id = d["sessionId"]
         self.machine_id = d.get("machineId", self.machine_id)
         return Turn(self, queued=bool(d.get("queued")), turn_id=d.get("turnId"), structured=structured)

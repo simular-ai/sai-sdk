@@ -21,8 +21,11 @@ class Machine:
     online: bool
     """True when a message can reach it now (a hibernated cloud computer wakes on the first message)."""
     status: Optional[str]
+    """Deprecated: the server's internal lifecycle value; it may gain values at any time. Use `state`."""
     can_wake: bool
     raw: dict[str, Any] = field(repr=False)
+    state: Optional[str] = None
+    """`running`, `starting`, `asleep`, `creating` or `unknown`; None on servers that do not send it yet."""
 
     @classmethod
     def parse(cls, d: dict[str, Any]) -> Machine:
@@ -34,6 +37,7 @@ class Machine:
             status=d.get("status"),
             can_wake=bool(d.get("canWake")),
             raw=d,
+            state=d.get("state"),
         )
 
 

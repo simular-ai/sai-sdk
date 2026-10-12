@@ -230,6 +230,45 @@ describe('EventsPoller (SAI_EVENTS_API=1)', () => {
     expect(JSON.parse(init.body as string)).toEqual({ machineId: 'm1', message: 'go', wait: false })
   })
 
+  it.each([
+    ['current servers: `reply`', { handled: true, reply: 'Noted.', error: 'Noted.' }],
+    ['older servers: the reply in `error`', { error: 'Noted.' }],
+  ])('start reports a message handled without a task — %s', async (_name, body) => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }))
+    const poller = new EventsPoller(new SaiApi('https://api.test', 'k', fetchImpl))
+    await expect(poller.start({ machineId: 'm1', message: 'thanks' })).rejects.toThrow(
+      'Sai answered without starting a task: Noted.',
+    )
+  })
+
+  it('wait carries the error frame’s `code`', async () => {
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.includes('/events')
+        ? new Response(
+            JSON.stringify({
+              events: [
+                { type: 'error', errorText: 'Out of credits.', code: 'insufficient_credits' },
+              ],
+              cursor: 'c1',
+              status: 'error',
+              text: '',
+            }),
+            { status: 200 },
+          )
+        : new Response(JSON.stringify({ sessionId: 's1', machineId: 'm1', queued: false }), {
+            status: 202,
+          }),
+    )
+    const poller = new EventsPoller(new SaiApi('https://api.test', 'k', fetchImpl))
+    await poller.start({ machineId: 'm1', message: 'go' })
+    const r = await poller.wait('s1', { timeoutMs: 30_000 })
+    expect(r).toMatchObject({
+      status: 'error',
+      error: 'Out of credits.',
+      errorCode: 'insufficient_credits',
+    })
+  })
+
   it('wait returns the task’s usage from the latest /events page', async () => {
     const usage = {
       inputTokens: 1200,

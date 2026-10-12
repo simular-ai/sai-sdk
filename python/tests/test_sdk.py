@@ -14,7 +14,9 @@ from sai import (
     ConflictError,
     GoneError,
     LinkOnlyApprovalError,
+    NotFoundError,
     PermissionDeniedError,
+    RateLimitError,
     Sai,
     SpendCapReachedError,
     TurnResult,
@@ -209,6 +211,39 @@ def test_acknowledgement_without_task() -> None:
     turn = sai.sessions.resume("cs_1", "m_1").send("hello")
     assert list(turn.events()) == []
     assert turn.wait().text == "Hi! What should I do?"
+
+
+def test_handled_message_reads_reply() -> None:
+    sai = client({"POST /v1/agents/message": {"handled": True, "reply": "Hi! What should I do?", "error": "old"}})
+    turn = sai.sessions.resume("cs_1", "m_1").send("hello")
+    assert turn.wait().text == "Hi! What should I do?"
+
+
+def test_error_code_and_message_body() -> None:
+    sai = client({"POST /v1/agents/abort": (404, {"error": "not_found", "message": "Session not found."})})
+    with pytest.raises(NotFoundError) as e:
+        sai.sessions.resume("cs_1", "m_1").abort()
+    assert e.value.code == "not_found"
+    assert e.value.message == "Session not found."
+
+
+def test_retry_after_from_body_without_header() -> None:
+    body = {"error": "rate_limited", "message": "Too many requests.", "retryAfterSeconds": 42}
+    sai = client({"GET /v1/agents/machines": (429, body)})
+    with pytest.raises(RateLimitError) as e:
+        sai.machines.list()
+    assert e.value.retry_after == 42
+
+
+def test_machine_state() -> None:
+    machines = {
+        "machines": [
+            {"machineId": "m_1", "kind": "cloud", "state": "asleep", "status": "hibernated"},
+            {"machineId": "m_2", "kind": "own"},
+        ]
+    }
+    got = client({"GET /v1/agents/machines": machines}).machines.list()
+    assert [(m.state, m.status) for m in got] == [("asleep", "hibernated"), (None, None)]
 
 
 def test_error_code_surfaces() -> None:

@@ -161,8 +161,10 @@ export class Session {
       return new Turn(this, this.http, false, null, { id: record.id, structured, replay: record })
     }
     if (typeof d.sessionId !== 'string' || !d.sessionId) {
-      // Handled without starting a task (e.g. a plain acknowledgement): the reply is in `error`.
-      const text = typeof d.error === 'string' ? d.error : ''
+      // Handled without starting a task (e.g. a plain acknowledgement): the reply is in `reply`,
+      // or in `error` on servers before `reply` existed.
+      const text =
+        typeof d.reply === 'string' ? d.reply : typeof d.error === 'string' ? d.error : ''
       return new Turn(this, this.http, false, localResult(this.id ?? '', text))
     }
     this.id = d.sessionId

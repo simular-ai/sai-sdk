@@ -64,6 +64,12 @@ export interface Machine {
   kind: string
   /** True when a message can reach it now (a hibernated cloud computer wakes on the first message). */
   online: boolean
+  /**
+   * `running`, `starting`, `asleep`, `creating` or `unknown`; `null` on servers that do not
+   * send it yet. Prefer it over `status`.
+   */
+  state: string | null
+  /** @deprecated The server's internal lifecycle value; it may gain values at any time. Use `state`. */
   status: string | null
   canWake: boolean
   raw: Json
@@ -75,6 +81,7 @@ export function parseMachine(d: Json): Machine {
     name: str(d.name) ?? null,
     kind: str(d.kind) ?? '',
     online: Boolean(d.online),
+    state: str(d.state) ?? null,
     status: str(d.status) ?? null,
     canWake: Boolean(d.canWake),
     raw: d,

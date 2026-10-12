@@ -2,6 +2,7 @@ import { readFileSync, statSync } from 'fs'
 import { basename } from 'path'
 import { CLOUD_API_URL } from '../config.js'
 import { apiFetch } from '../http.js'
+import { errorDetail } from '../sai/client.js'
 
 export interface UploadedFile {
   path: string
@@ -57,8 +58,8 @@ export async function uploadFile(authToken: string, filePath: string): Promise<U
   })
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(`Upload failed (${res.status}): ${body.error ?? res.statusText}`)
+    const body: unknown = await res.json().catch(() => ({}))
+    throw new Error(`Upload failed (${res.status}): ${errorDetail(body, res.statusText)}`)
   }
 
   return (await res.json()) as UploadedFile
