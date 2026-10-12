@@ -52,7 +52,8 @@ export class ControlLease {
   /**
    * Run one Simulang (JavaScript) block. Use `var` for anything the next block
    * needs. A block that throws, times out or is interrupted still resolves:
-   * check `result.error`. Throws `GoneError` when the lease lost the computer.
+   * check `result.error`. Throws `GoneError` once the lease has ended (closed,
+   * idle, taken by a Sai task, or the computer stopped answering): open again.
    */
   async exec(code: string, opts: { timeoutMs?: number } = {}): Promise<ExecResult> {
     const body: Record<string, unknown> = { code }

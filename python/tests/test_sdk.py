@@ -11,6 +11,7 @@ from sai import (
     AuthenticationError,
     BadRequestError,
     ConflictError,
+    GoneError,
     LinkOnlyApprovalError,
     Sai,
 )
@@ -235,6 +236,29 @@ def test_control_lease_exec_and_close() -> None:
     assert calls[-1].method == "DELETE"
     first_exec = next(c for c in calls if c.url.path.endswith("/exec"))
     assert json.loads(first_exec.content)["code"] == 'await machine.exec({"command": "hostname"})'
+
+
+def test_control_exec_raises_gone_with_reason_when_lease_lost() -> None:
+    sai = client(
+        {
+            "POST /v1/machines/m_1/control": {"machineId": "m_1", "expiresAfterIdleSec": 600},
+            "POST /v1/machines/m_1/control/exec": (
+                410,
+                {
+                    "error": "control_closed",
+                    "message": "The computer stopped answering, so this control lease was closed.",
+                    "reason": "unresponsive",
+                },
+            ),
+            "DELETE /v1/machines/m_1/control": lambda req: httpx.Response(204),
+        }
+    )
+    cs = sai.control.open("m_1")
+    with pytest.raises(GoneError) as e:
+        cs.exec("1")
+    assert e.value.code == "control_closed"
+    assert e.value.body["reason"] == "unresponsive"
+    cs.close()
 
 
 def test_upload_sends_raw_body_and_filename() -> None:

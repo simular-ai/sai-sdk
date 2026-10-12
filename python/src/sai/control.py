@@ -59,7 +59,8 @@ class ControlLease:
         """Run one Simulang (JavaScript) block. Use `var` for anything the next block needs.
 
         A block that throws, times out or is interrupted still returns: check
-        `result.error`. Raises `GoneError` when the lease lost the computer.
+        `result.error`. Raises `GoneError` once the lease has ended (closed, idle,
+        taken by a Sai task, or the computer stopped answering): open again.
         """
         body: dict[str, Any] = {"code": code}
         if timeout_ms is not None:

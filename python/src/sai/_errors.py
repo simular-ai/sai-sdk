@@ -56,7 +56,11 @@ class ConflictError(SaiError):
 
 
 class GoneError(SaiError):
-    """410: the control lease was closed or sat idle. Open a new one."""
+    """410 `control_closed`: the control lease has ended. Open a new one.
+
+    `body["reason"]` says why: `closed`, `idle_timeout`, `lock_lost` (a Sai task
+    took the computer) or `unresponsive` (the computer stopped answering).
+    """
 
 
 class RateLimitError(SaiError):

@@ -7,6 +7,7 @@ import {
   AuthenticationError,
   BadRequestError,
   ConflictError,
+  GoneError,
   LinkOnlyApprovalError,
   Sai,
   type Event,
@@ -275,6 +276,27 @@ describe('sai typescript sdk', () => {
     expect(calls.at(-1)!.method).toBe('DELETE')
     const first = calls.find((c) => c.path.endsWith('/exec'))!
     expect(JSON.parse(first.body).code).toBe('await machine.exec({"command":"hostname"})')
+  })
+
+  it('raises GoneError with the reason when the lease has lost its computer', async () => {
+    const sai = client({
+      'POST /v1/machines/m_1/control': { machineId: 'm_1', expiresAfterIdleSec: 600 },
+      'POST /v1/machines/m_1/control/exec': [
+        410,
+        {
+          error: 'control_closed',
+          message: 'The computer stopped answering, so this control lease was closed.',
+          reason: 'unresponsive',
+        },
+      ],
+      'DELETE /v1/machines/m_1/control': () => new Response(null, { status: 204 }),
+    })
+    const cs = await sai.control.open({ machine: 'm_1' })
+    const err = await cs.exec('1').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(GoneError)
+    expect((err as GoneError).code).toBe('control_closed')
+    expect((err as GoneError).body.reason).toBe('unresponsive')
+    await cs.close()
   })
 
   it('uploads the raw body with the file name', async () => {

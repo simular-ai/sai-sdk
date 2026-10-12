@@ -40,7 +40,11 @@ export class PermissionDeniedError extends SaiError {}
 export class NotFoundError extends SaiError {}
 /** 409: e.g. `machine_busy`, `link_only`, approval no longer pending. */
 export class ConflictError extends SaiError {}
-/** 410: the control lease was closed or sat idle. Open a new one. */
+/**
+ * 410 `control_closed`: the control lease has ended (closed, sat idle, lost
+ * the computer to a Sai task, or the computer stopped answering). `body.reason`
+ * says which. Open a new one.
+ */
 export class GoneError extends SaiError {}
 /** 429: a rate limit, or a free-plan budget that resets daily. */
 export class RateLimitError extends SaiError {}

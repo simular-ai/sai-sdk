@@ -102,7 +102,9 @@ export const controlToolDescriptions: Record<keyof typeof controlToolSchemas, st
     'Run one Simulang block on the computer you control. Returns { result, logs, error?, variables, duration_ms } and, when the block ' +
     'took a screenshot (machine.pageContent(), page/app snapshot or screenshot()), that screenshot as an image. ' +
     'Variables persist between blocks (use `var`). Prefer page.snapshot()/app.snapshot() refs over pixel clicks. ' +
-    'error.kind: exception | timeout | interrupted.\n\n' +
+    'error.kind: exception | timeout | interrupted. ' +
+    'If control has ended (closed, idle, taken by a Sai task, or the computer stopped answering) it fails with ' +
+    '410 control_closed and a reason: call sai_control_open again for a fresh lease.\n\n' +
     'Quick reference: `await machine.exec({ command })`, `var page = await machine.browser.newtab(url)`, ' +
     '`var snap = await page.snapshot(); snap.snapshot.outline()`, `await page.click({ ref })`, ' +
     '`await machine.pageContent()`, `await machine.ground({ concept })` → { x, y }, `await machine.click({ x, y })`. ' +

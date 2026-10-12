@@ -115,16 +115,16 @@ off it raises `BlockError`, and a page or app snapshot is the way to get an imag
 
 Every non-2xx response raises a `SaiError` subclass with `status`, `code`, `message` and `retry_after`:
 
-| Exception                 | When                                                         |
-| ------------------------- | ------------------------------------------------------------ |
-| `AuthenticationError`     | 401: the key is missing, unknown or revoked                  |
-| `PermissionDeniedError`   | 403: plan or ownership (`model_not_allowed_for_plan`, ...)   |
-| `BadRequestError`         | 400: e.g. several computers and no `machine=`                |
-| `ConflictError`           | 409: `machine_busy`, approval no longer pending, ...         |
-| `LinkOnlyApprovalError`   | the approval must be answered in a browser: `e.approval_url` |
-| `GoneError`               | 410: the control lease lost its computer; open a new one     |
-| `RateLimitError`          | 429: a rate limit, or the free plan's daily budget           |
-| `ServiceUnavailableError` | 503: the computer did not come online; honor `retry_after`   |
+| Exception                 | When                                                          |
+| ------------------------- | ------------------------------------------------------------- |
+| `AuthenticationError`     | 401: the key is missing, unknown or revoked                   |
+| `PermissionDeniedError`   | 403: plan or ownership (`model_not_allowed_for_plan`, ...)    |
+| `BadRequestError`         | 400: e.g. several computers and no `machine=`                 |
+| `ConflictError`           | 409: `machine_busy`, approval no longer pending, ...          |
+| `LinkOnlyApprovalError`   | the approval must be answered in a browser: `e.approval_url`  |
+| `GoneError`               | 410: the control lease ended (`e.body["reason"]`); open again |
+| `RateLimitError`          | 429: a rate limit, or the free plan's daily budget            |
+| `ServiceUnavailableError` | 503: the computer did not come online; honor `retry_after`    |
 
 A task that ran out of credit ends with `result.status == "error"` and `result.error_code` set to
 `insufficient_credits` or `free_computer_time_exhausted`: stop retrying for today.
