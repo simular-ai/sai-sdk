@@ -12,7 +12,10 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { ExecResult, SaiApi } from './api.js'
 
-/** Under the clients' tool timeouts (Claude Code ~2 min), like sai_task_wait's cap. */
+/**
+ * Under Claude Code's 2-minute auto-background threshold. Clients with a 60 s tool timeout
+ * must raise it where they can (Codex: tool_timeout_sec); see the direct-control docs.
+ */
 export const EXEC_DEFAULT_S = 90
 export const EXEC_MAX_S = 110
 
