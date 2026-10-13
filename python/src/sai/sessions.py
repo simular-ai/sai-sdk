@@ -1,8 +1,9 @@
 """Sessions: a conversation with Sai on one computer. Sai decides every click.
 
 Maps to `/v1/agents/*`: `new-session`, `message` (wait=false), `events`,
-`approve`, `abort`. Every message is a run (`/v1/runs`); a message with a
-contract (inputs, output schema, success criteria) is a structured run.
+`approve`, `abort`. Every message gets a turn id (`turn.id`, read with
+`sai.turns`); a message with `inputs`, `output_schema` or `success_criteria` is
+structured and its turn also returns a typed result.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from ._errors import ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError
-from .types import Approval, Attachment, Check, Event, Run, TurnResult, Usage
+from .types import Approval, Attachment, Check, Event, TurnRecord, TurnResult, Usage
 
 if TYPE_CHECKING:
     from ._client import Sai
@@ -27,7 +28,7 @@ ApprovalAnswer = Union[str, tuple[str, list[list[str]]], None]
 ApprovalHandler = Callable[[Approval], ApprovalAnswer]
 
 _POLL_WAIT = 30  # seconds the server may hold a poll; it caps at 60
-_RUN_POLL_INTERVAL = 2  # seconds between run reads; GET /v1/runs/{id} never holds
+_RECORD_POLL_INTERVAL = 2  # seconds between turn reads; GET /v1/agents/turns/{id} never holds
 
 Inputs = dict[str, Union[str, int, float, bool]]
 SuccessCriteria = Union[str, Sequence[Union[Check, dict[str, Any]]]]
@@ -80,7 +81,6 @@ class Session:
         success_criteria: Optional[SuccessCriteria] = None,
         idempotency_key: Optional[str] = None,
         record_trajectory: bool = False,
-        keep_lock_at_turn_end: bool = False,
     ) -> Turn:
         """Give Sai a task, or steer the running one. Returns at once.
 
@@ -88,16 +88,16 @@ class Session:
         session until changed. Sent while a turn is running, the message steers
         that turn (`turn.queued` is True) instead of starting a new one.
 
-        Any of `inputs`, `output_schema`, `success_criteria` or `idempotency_key`
-        makes the message a structured run: `message` is a template whose
-        `{{name}}` placeholders are filled from `inputs`, the output must match
-        `output_schema` (JSON Schema, at most 32 KB), and the turn is checked
-        against `success_criteria` (a guideline for a judge, or a list of `Check`).
-        `wait()` then also returns the run's result in `result.run`. A structured
-        run is refused with `ConflictError` (`session_busy`) while a turn is running.
-        The same `idempotency_key` again returns the earlier run and sends nothing.
+        Any of `inputs`, `output_schema` or `success_criteria` makes the message
+        structured: `message` is a template whose `{{name}}` placeholders are
+        filled from `inputs`, the output must match `output_schema` (JSON Schema,
+        at most 32 KB), and the turn is checked against `success_criteria` (a
+        guideline for a judge, or a list of `Check`). `wait()` then also returns
+        the turn's record in `result.record`. A structured message is refused
+        with `ConflictError` (`session_busy`) while a turn is running.
+        The same `idempotency_key` again returns the earlier turn and sends nothing.
         `record_trajectory` keeps a screenshot and the action for each step
-        (`sai.runs.trajectory()`). `keep_lock_at_turn_end` applies to `sai.runs.create()`.
+        (`sai.turns.trajectory()`). These go to the API as `options`.
         """
         body: dict[str, Any] = {"message": message, "wait": False}
         if self.machine_id:
@@ -108,36 +108,37 @@ class Session:
             body["model"] = model
         if attachments:
             body["attachments"] = [a.raw for a in attachments]
+        options: dict[str, Any] = {}
         if inputs is not None:
-            body["inputs"] = inputs
+            options["inputs"] = inputs
         if output_schema is not None:
-            body["output_schema"] = output_schema
+            options["output_schema"] = output_schema
         if success_criteria is not None:
-            body["success_criteria"] = (
+            options["success_criteria"] = (
                 success_criteria
                 if isinstance(success_criteria, str)
                 else [c.to_json() if isinstance(c, Check) else c for c in success_criteria]
             )
         if idempotency_key is not None:
-            body["idempotency_key"] = idempotency_key
+            options["idempotency_key"] = idempotency_key
         if record_trajectory:
-            body["recordTrajectory"] = True
-        if keep_lock_at_turn_end:
-            body["keepLockAtTurnEnd"] = True
-        structured = any(v is not None for v in (inputs, output_schema, success_criteria, idempotency_key))
+            options["recordTrajectory"] = True
+        if options:
+            body["options"] = options
+        structured = any(v is not None for v in (inputs, output_schema, success_criteria))
         d = self._sai._http.json("POST", "/v1/agents/message", json=body)
         if d.get("idempotent_replay"):
-            # The key was used before: this is that run, and nothing was sent.
-            run = Run.parse(d)
-            self.id = run.session_id or self.id
-            self.machine_id = run.machine_id or self.machine_id
-            return Turn(self, run_id=run.id, structured=True, replay=run)
+            # The key was used before: this is that turn, and nothing was sent.
+            record = TurnRecord.parse(d)
+            self.id = record.session_id or self.id
+            self.machine_id = record.machine_id or self.machine_id
+            return Turn(self, turn_id=record.id, structured=structured, replay=record)
         if not d.get("sessionId"):
             # Handled without starting a task (e.g. a plain acknowledgement): the reply is in `error`.
             return Turn(self, done=_result(self.id or "", "idle", d.get("error", "")))
         self.id = d["sessionId"]
         self.machine_id = d.get("machineId", self.machine_id)
-        return Turn(self, queued=bool(d.get("queued")), run_id=d.get("runId"), structured=structured)
+        return Turn(self, queued=bool(d.get("queued")), turn_id=d.get("turnId"), structured=structured)
 
     def run(
         self,
@@ -150,7 +151,6 @@ class Session:
         success_criteria: Optional[SuccessCriteria] = None,
         idempotency_key: Optional[str] = None,
         record_trajectory: bool = False,
-        keep_lock_at_turn_end: bool = False,
         on_approval: Optional[ApprovalHandler] = None,
         timeout: Optional[float] = None,
     ) -> TurnResult:
@@ -164,7 +164,6 @@ class Session:
             success_criteria=success_criteria,
             idempotency_key=idempotency_key,
             record_trajectory=record_trajectory,
-            keep_lock_at_turn_end=keep_lock_at_turn_end,
         ).wait(on_approval=on_approval, timeout=timeout)
 
     def abort(self) -> bool:
@@ -203,10 +202,10 @@ class Session:
 
 
 class Turn:
-    """One message's work (a run). Iterate `events()` to watch it, or `wait()` for the result.
+    """One message's work. Iterate `events()` to watch it, or `wait()` for the result.
 
-    `run_id` names the run (`sai.runs.get(turn.run_id)`); None when the
-    message was answered without starting a task.
+    `id` is the turn the message started, or the running turn it joined
+    (`sai.turns.get(turn)`); None when the message was answered without one.
     """
 
     def __init__(
@@ -215,13 +214,13 @@ class Turn:
         *,
         queued: bool = False,
         done: Optional[TurnResult] = None,
-        run_id: Optional[str] = None,
+        turn_id: Optional[str] = None,
         structured: bool = False,
-        replay: Optional[Run] = None,
+        replay: Optional[TurnRecord] = None,
     ) -> None:
         self.session = session
         self.queued = queued
-        self.run_id = run_id
+        self.id = turn_id
         self._structured = structured
         self._replay = replay
         self._cursor: Optional[str] = None
@@ -230,7 +229,7 @@ class Turn:
         self._local = done is not None or replay is not None
 
     def __repr__(self) -> str:
-        return f"Turn(session_id={self.session.id!r}, run_id={self.run_id!r}, status={self.status!r})"
+        return f"Turn(session_id={self.session.id!r}, id={self.id!r}, status={self.status!r})"
 
     @property
     def status(self) -> str:
@@ -273,17 +272,17 @@ class Turn:
         `approval` so the caller can decide. With it, the handler's answer is
         sent and waiting continues; a handler returning None leaves the approval
         to someone else (a link-only one to a human) and keeps waiting.
-        For a structured message, it then waits for the run's result
-        (`result.run`: output, evidence), which is worked out after the turn.
+        For a structured message, it then waits for the turn's record
+        (`result.record`: output, evidence), which is worked out after the turn.
         `timeout` (seconds) raises `TimeoutError` with the turn still running.
         """
         deadline = None if timeout is None else time.monotonic() + timeout
         if self._replay is not None:
-            run = self._replay
-            if not run.done:
-                run = _wait_run(self.session._sai, run.id, deadline=deadline)
-            self._result = _result(run.session_id or self.session.id or "", "idle", "")
-            self._result.run = run
+            record = self._replay
+            if not record.done:
+                record = _wait_record(self.session._sai, record.id, deadline=deadline)
+            self._result = _result(record.session_id or self.session.id or "", "idle", "")
+            self._result.record = record
             return self._result
         if self._local:
             return self._result  # type: ignore[return-value]
@@ -297,9 +296,9 @@ class Turn:
             page = self._poll(poll_wait)
             status = page.get("status")
             if status in ("idle", "error"):
-                if self._structured and self.run_id:
-                    self._result.run = _wait_run(  # type: ignore[union-attr]
-                        self.session._sai, self.run_id, deadline=deadline
+                if self._structured and self.id:
+                    self._result.record = _wait_record(  # type: ignore[union-attr]
+                        self.session._sai, self.id, deadline=deadline
                     )
                 return self._result  # type: ignore[return-value]
             if status == "needs_approval" and self._result and self._result.approval:
@@ -363,21 +362,23 @@ class Turn:
         return page
 
 
-def _wait_run(
-    sai: Sai, run_id: str, *, deadline: Optional[float], stop: tuple[str, ...] = ("succeeded", "failed")
-) -> Run:
-    """Read the run until its status is in `stop`; `TimeoutError` past `deadline` (monotonic)."""
+def _wait_record(
+    sai: Sai, turn_id: str, *, deadline: Optional[float], stop: tuple[str, ...] = ("succeeded", "failed")
+) -> TurnRecord:
+    """Read the turn's record until its status is in `stop`; `TimeoutError` past `deadline` (monotonic)."""
     while True:
         try:
-            run = Run.parse(sai._http.json("GET", f"/v1/runs/{urllib.parse.quote(run_id, safe='')}"))
+            record = TurnRecord.parse(
+                sai._http.json("GET", f"/v1/agents/turns/{urllib.parse.quote(turn_id, safe='')}")
+            )
         except RateLimitError as e:
             time.sleep(e.retry_after or 30)
             continue
-        if run.status in stop:
-            return run
-        if deadline is not None and time.monotonic() + _RUN_POLL_INTERVAL > deadline:
-            raise TimeoutError(f"Run {run_id} still {run.status}.")
-        time.sleep(_RUN_POLL_INTERVAL)
+        if record.status in stop:
+            return record
+        if deadline is not None and time.monotonic() + _RECORD_POLL_INTERVAL > deadline:
+            raise TimeoutError(f"Turn {turn_id} still {record.status}.")
+        time.sleep(_RECORD_POLL_INTERVAL)
 
 
 def _result(session_id: str, status: str, text: str) -> TurnResult:

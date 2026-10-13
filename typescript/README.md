@@ -11,7 +11,7 @@ Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 | -------------- | --------------------------------------------- | ---------------- |
 | `sai.sessions` | A conversation with Sai on one computer       | available        |
 | `sai.control`  | Drive a cloud computer directly with Simulang | research preview |
-| `sai.runs`     | Typed tasks: inputs, output schema, evidence  | not yet          |
+| `sai.turns`    | A turn's record: typed output, evidence       | available        |
 
 ## Install
 
@@ -85,18 +85,46 @@ const turn = await session.send('...')
 await turn.abort()
 ```
 
-## Get typed results (runs)
+## Get typed results
 
-Every message is a run. Add a contract and it becomes a structured run: the message is a template filled
-from `inputs`, the answer must match `outputSchema`, and the turn is checked against `successCriteria`.
-`wait()` / `run()` then resolve with the run's result in `result.run`.
+Any message can also return structured data. Pass `outputSchema` and the turn's record comes back in
+`result.record`, with `output` matching the schema:
 
 ```ts
-const turn = await sai.runs.create(
-  'Open Notepad, type "Invoice {{invoice_number}}: {{amount}} USD" and save it on the Desktop ' +
-    'as {{file_name}}. Return the full path of the saved file.',
+const session = await sai.sessions.create({ machine: pc })
+const result = await session.run(
+  'Open Notepad, type "hello" and save it on the Desktop as hello.txt. Return the saved file\'s path.',
   {
-    machine: pc,
+    outputSchema: {
+      type: 'object',
+      properties: { path: { type: 'string' } },
+      required: ['path'],
+    },
+  },
+)
+if (result.ok) console.log((result.record?.output as { path: string }).path)
+else console.log(result.record?.reasonCode) // e.g. output_invalid, with result.record.rawAnswer
+```
+
+More options, all optional (the SDK sends them to the API as `options`):
+
+| Option             | What it does                                                                 |
+| ------------------ | ---------------------------------------------------------------------------- |
+| `inputs`           | Fill `{{name}}` placeholders in the message; every placeholder needs a value |
+| `outputSchema`     | JSON Schema (at most 32 KB) the output must match                            |
+| `successCriteria`  | A guideline for a judge, or `{ id, check, returnEvidence? }` yes/no checks   |
+| `idempotencyKey`   | The same key again returns the earlier turn and sends nothing                |
+| `recordTrajectory` | Keep a screenshot and the action for each step                               |
+
+`inputs`, `outputSchema` or `successCriteria` make the message _structured_. A structured message
+behaves like any other (same session, same computer); it only adds the typed result. It is rejected with
+`ConflictError` (`code === 'session_busy'`) while the session is working, because it starts a turn of
+its own. A plain message sent then joins the running turn instead.
+
+```ts
+const result = await session.run(
+  'Save "Invoice {{invoice_number}}: {{amount}} USD" on the Desktop as {{file_name}}. Return its path.',
+  {
     inputs: { invoice_number: 'INV-1001', amount: '42.50', file_name: 'inv-1001.txt' },
     outputSchema: {
       type: 'object',
@@ -110,68 +138,36 @@ const turn = await sai.runs.create(
         returnEvidence: true,
       },
     ],
-    idempotencyKey: 'inv-1001', // a retry returns this run and sends nothing
-    recordTrajectory: true, // a screenshot and the action for each step
+    idempotencyKey: 'inv-1001', // a retry returns this turn and sends nothing
+    recordTrajectory: true,
   },
 )
-const { run } = await turn.wait()
-console.log(run?.status) // succeeded | failed
-console.log(run?.output) // { path: 'C:\\Users\\...\\inv-1001.txt' }, matches outputSchema
-console.log(run?.reasonCode) // on failed: agent_error | output_invalid | criteria_not_met | ...
-console.log(run?.evidence) // [{ id: 'saved', passed: true, score: 0.94, evidence: '...' }]
-console.log(run?.usage) // tokens of the agent's model calls in this turn
+const record = result.record
+console.log(record?.status) // succeeded | failed
+console.log(record?.evidence) // [{ id: 'saved', passed: true, score: 0.94, evidence: '...' }]
+console.log(record?.usage) // tokens of the agent's model calls in this turn
 ```
 
-`result.ok` is true only when the run succeeded. On `output_invalid`, `run.rawAnswer` and
-`run.outputErrors` say what came back instead; the output is never a partial object.
+`result.ok` is true only when the turn succeeded. On `failed`, `record.reasonCode` says why
+(`agent_error`, `output_invalid`, `criteria_not_met`, ...); the output is never a partial object.
 
-**Where a run goes.** `sai.runs.create()` sends the message without a session: a structured run opens a
-session of its own, so its result does not depend on earlier conversations, and gives the computer back
-when its turn ends (`keepLockAtTurnEnd: true` keeps it). `turn.session` continues that session.
-`session.send()` / `session.run()` with the same options run in that session instead, and see its
-history:
+**Reading a turn later.** Every message gets a turn id, `turn.id` (plain messages too):
 
 ```ts
-const day = await sai.sessions.create({ machine: pc })
-await day.run('Sign in to the Delta Dental provider portal') // plain
-const eobs = await day.run('Download the EOBs posted since {{since}}', {
-  inputs: { since: '2026-10-01' },
-  outputSchema: EOB_SCHEMA,
-}) // structured, same session
-for (const claim of (eobs.run?.output as { claims: Claim[] }).claims) {
-  // one new session per claim
-  const turn = await sai.runs.create('Compare claim {{claimNumber}} with the ledger', {
-    machine: pc,
-    inputs: { claimNumber: claim.claimNumber },
-    outputSchema: MATCH_SCHEMA,
-    idempotencyKey: `check-${claim.claimNumber}`,
-  })
-  const check = (await turn.wait()).run
-  if (check?.ok && !(check.output as { match: boolean }).match) {
-    console.log((await turn.session.run('Why did the paid amount differ?')).text) // same session
-  }
-}
-```
-
-A structured run sent while the session is working is rejected with `ConflictError`
-(`code === 'session_busy'`); send it again when the turn is over. A plain message joins the running turn
-instead.
-
-**Reading runs later.** `turn.runId` names the run (plain messages have one too):
-
-```ts
-let run = await sai.runs.get(runId) // never waits; `finalizing` while the result is worked out
-run = await sai.runs.wait(runId, { timeoutMs: 600_000 }) // until succeeded, failed or needs_input
-for (const step of await sai.runs.trajectory(runId)) {
+const turn = await session.send('...')
+let record = await sai.turns.get(turn) // never waits; `finalizing` while the result is worked out
+record = await sai.turns.wait(turn, { timeoutMs: 600_000 }) // until succeeded, failed or needs_input
+for (const step of await sai.turns.trajectory(turn)) {
   // needs recordTrajectory: true
   console.log(step.index, step.title, step.code)
   if (step.hasScreenshot)
-    await writeFile(`step${step.index}.jpg`, await sai.runs.screenshot(runId, step.index))
+    await writeFile(`step${step.index}.jpg`, await sai.turns.screenshot(turn, step.index))
 }
 ```
 
-`run.status` is `running`, `needs_input` (an approval is pending: answer it on
-`sai.sessions.resume(run.sessionId)`), `finalizing`, `succeeded` or `failed`.
+Each takes a `Turn`, a `TurnRecord` or the id string. `record.status` is `running`, `needs_input` (an
+approval is pending: answer it on `sai.sessions.resume(record.sessionId)`), `finalizing`, `succeeded` or
+`failed`.
 
 ## Drive a computer yourself
 

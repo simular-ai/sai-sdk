@@ -204,7 +204,8 @@ class TurnResult:
 
     `status` is `idle` (done: `text` is the answer), `error`, or
     `needs_approval` (waiting on `approval`; answer it and call `wait()` again).
-    `run` is the run's result for a structured message (one with a contract).
+    `record` is the turn's record for a structured message (one with `inputs`,
+    `output_schema` or `success_criteria`).
     """
 
     status: str
@@ -215,17 +216,17 @@ class TurnResult:
     error_code: Optional[str]
     usage: Optional[Usage]
     session_usage: Optional[Usage] = field(default=None, repr=False)
-    run: Optional[Run] = None
+    record: Optional[TurnRecord] = None
 
     @property
     def ok(self) -> bool:
-        """Idle, and for a structured message, the run succeeded."""
-        return self.status == "idle" and (self.run is None or self.run.ok)
+        """Idle, and for a structured message, the turn succeeded."""
+        return self.status == "idle" and (self.record is None or self.record.ok)
 
 
 @dataclass
 class Check:
-    """One yes/no constraint a structured run is checked against after its turn."""
+    """One yes/no constraint a structured message's turn is checked against after it ends."""
 
     id: str
     """Letters, digits, `_` or `-`; at most 64 characters."""
@@ -257,42 +258,43 @@ class Evidence:
         return cls(id=d.get("id"), passed=bool(d.get("passed")), score=d.get("score"), evidence=d.get("evidence"))
 
 
-RUN_STATUSES = ("running", "needs_input", "finalizing", "succeeded", "failed")
+TURN_RECORD_STATUSES = ("running", "needs_input", "finalizing", "succeeded", "failed")
 
 
 @dataclass
-class Run:
-    """One message's result, from `GET /v1/runs/{id}`.
+class TurnRecord:
+    """A turn's record, from `GET /v1/agents/turns/{id}`.
 
     `status` is `running`, `needs_input` (an approval or question is pending),
     `finalizing` (the agent is done; output and checks are being worked out),
-    `succeeded` or `failed`. On `failed`, `reason_code` says why: `agent_error`,
-    `output_invalid` (see `raw_answer` and `output_errors`), `criteria_not_met`,
-    `criteria_unchecked`, `aborted`, `machine_unavailable` or `not_started`.
+    `succeeded` or `failed`. On `failed`, `reason_code` says why: `agent_error`
+    (with `error_code` when known), `machine_unavailable`, `not_started`, and for
+    a structured message `output_invalid` (see `raw_answer` and `output_errors`),
+    `criteria_not_met` or `criteria_unchecked`.
     """
 
     id: str
     session_id: Optional[str]
     machine_id: str
-    kind: str
-    """`plain` or `structured`."""
     status: str
     output: Any
-    """Matches `output_schema`; the final text for a plain message."""
+    """The agent's final text; with `output_schema`, an object matching it."""
     reason_code: Optional[str]
     raw_answer: Optional[str]
+    error_code: Optional[str]
+    """`insufficient_credits` or `free_computer_time_exhausted`, for a known `agent_error`."""
     output_errors: list[str]
     evidence: list[Evidence]
+    """Empty for a plain message."""
     usage: Optional[Usage]
     """Tokens of every model call the agent made in the turn."""
-    steer_of: Optional[str]
-    """Set when the message joined a turn already running; the result is that run's."""
     record_trajectory: bool
-    trajectory_ref: Optional[str]
+    trajectory_recorded: bool
+    """At least one step was stored (`sai.turns.trajectory()`)."""
     template: Optional[str]
     inputs: Optional[dict[str, Any]]
     replayed: bool
-    """True when `idempotency_key` matched an earlier run: this is that run, and nothing was sent."""
+    """True when `idempotency_key` matched an earlier turn: this is that turn, and nothing was sent."""
     raw: dict[str, Any] = field(repr=False)
 
     @property
@@ -304,22 +306,21 @@ class Run:
         return self.status == "succeeded"
 
     @classmethod
-    def parse(cls, d: dict[str, Any]) -> Run:
+    def parse(cls, d: dict[str, Any]) -> TurnRecord:
         return cls(
-            id=d.get("runId", ""),
+            id=d.get("turnId", ""),
             session_id=d.get("sessionId"),
             machine_id=d.get("machineId", ""),
-            kind=d.get("kind", ""),
             status=d.get("status", "running"),
             output=d.get("output"),
             reason_code=d.get("reason_code"),
             raw_answer=d.get("raw_answer"),
+            error_code=d.get("error_code"),
             output_errors=d.get("output_errors") or [],
             evidence=[Evidence.parse(e) for e in d.get("evidence") or []],
             usage=Usage.parse(d.get("usage")),
-            steer_of=d.get("steerOf"),
             record_trajectory=bool(d.get("recordTrajectory")),
-            trajectory_ref=d.get("trajectoryRef"),
+            trajectory_recorded=bool((d.get("trajectory") or {}).get("recorded")),
             template=d.get("template"),
             inputs=d.get("inputs"),
             replayed=bool(d.get("idempotent_replay")),
@@ -329,7 +330,7 @@ class Run:
 
 @dataclass
 class TrajectoryStep:
-    """One step the agent took: what it did, and why. Fetch its screen with `sai.runs.screenshot()`."""
+    """One step the agent took: what it did, and why. Fetch its screen with `sai.turns.screenshot()`."""
 
     index: int
     final: bool

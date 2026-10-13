@@ -285,64 +285,68 @@ def test_upload_sends_raw_body_and_filename() -> None:
     assert calls[0].headers["x-filename"] == "a%20b.txt" and calls[0].content == b"abc"
 
 
-RUN_DONE = {
-    "runId": "run_1",
-    "sessionId": "cs_9",
+DONE = {
+    "turnId": "turn_1",
+    "sessionId": "cs_1",
     "machineId": "m_1",
-    "kind": "structured",
     "status": "succeeded",
     "output": {"path": "C:\\Users\\me\\Desktop\\inv-1001.txt"},
     "reason_code": None,
     "evidence": [{"id": "saved", "passed": True, "score": 0.93, "evidence": "The file is on the Desktop."}],
     "usage": {"inputTokens": 120, "outputTokens": 30},
     "recordTrajectory": True,
-    "releaseLockAtTurnEnd": True,
-    "trajectoryRef": "gs://b/u/cs_9/run_1/",
+    "trajectory": {"recorded": True, "url": "/v1/agents/turns/turn_1/trajectory"},
     "template": "Save {{file_name}}",
     "inputs": {"file_name": "inv-1001.txt"},
 }
+SCHEMA = {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}
 
 
-def test_structured_run_without_session_waits_for_the_result(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("sai.sessions._RUN_POLL_INTERVAL", 0)
+def test_structured_message_sends_options_and_waits_for_the_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sai.sessions._RECORD_POLL_INTERVAL", 0)
     calls: list[httpx.Request] = []
     sai = client(
         {
-            "POST /v1/agents/message": (202, {"sessionId": "cs_9", "machineId": "m_1", "queued": False, "runId": "run_1"}),
-            "GET /v1/agents/events": {"sessionId": "cs_9", "status": "idle", "events": [], "text": "Saved.", "cursor": "c1"},
-            "GET /v1/runs/run_1": [{**RUN_DONE, "status": "running"}, {**RUN_DONE, "status": "finalizing"}, RUN_DONE],
+            "POST /v1/agents/new-session": {"sessionId": "cs_1"},
+            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "queued": False, "turnId": "turn_1"}),
+            "GET /v1/agents/events": {"sessionId": "cs_1", "status": "idle", "events": [], "text": "Saved.", "cursor": "c1"},
+            "GET /v1/agents/turns/turn_1": [{**DONE, "status": "running"}, {**DONE, "status": "finalizing"}, DONE],
         },
         calls,
     )
-    turn = sai.runs.create(
+    turn = sai.sessions.create("m_1").send(
         "Save {{file_name}}",
-        machine="m_1",
         inputs={"file_name": "inv-1001.txt"},
-        output_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+        output_schema=SCHEMA,
         success_criteria=[Check("saved", "The file is saved on the Desktop", return_evidence=True)],
         idempotency_key="inv-1001",
         record_trajectory=True,
     )
-    assert turn.run_id == "run_1" and turn.session.id == "cs_9"
+    assert turn.id == "turn_1"
     result = turn.wait()
-    assert result.ok and result.run is not None
-    assert result.run.output == {"path": "C:\\Users\\me\\Desktop\\inv-1001.txt"}
-    assert result.run.evidence[0].score == 0.93 and result.run.usage is not None
-    assert result.run.usage.input_tokens == 120
+    assert result.ok and result.record is not None
+    assert result.record.output == {"path": "C:\\Users\\me\\Desktop\\inv-1001.txt"}
+    assert result.record.evidence[0].score == 0.93 and result.record.usage is not None
+    assert result.record.usage.input_tokens == 120 and result.record.trajectory_recorded
 
     body = json.loads(next(c for c in calls if c.url.path == "/v1/agents/message").content)
-    assert "sessionId" not in body  # a structured run without a session opens its own
-    assert body["success_criteria"] == [
-        {"id": "saved", "check": "The file is saved on the Desktop", "returnEvidence": True}
-    ]
-    assert body["idempotency_key"] == "inv-1001" and body["recordTrajectory"] is True
-    assert len([c for c in calls if c.url.path == "/v1/runs/run_1"]) == 3
+    assert body["sessionId"] == "cs_1"
+    # Everything beyond a plain message goes in `options`.
+    assert body["options"] == {
+        "inputs": {"file_name": "inv-1001.txt"},
+        "output_schema": SCHEMA,
+        "success_criteria": [{"id": "saved", "check": "The file is saved on the Desktop", "returnEvidence": True}],
+        "idempotency_key": "inv-1001",
+        "recordTrajectory": True,
+    }
+    assert "output_schema" not in body
+    assert len([c for c in calls if c.url.path == "/v1/agents/turns/turn_1"]) == 3
 
 
-def test_failed_run_is_not_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("sai.sessions._RUN_POLL_INTERVAL", 0)
+def test_failed_structured_turn_is_not_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sai.sessions._RECORD_POLL_INTERVAL", 0)
     failed = {
-        **RUN_DONE,
+        **DONE,
         "status": "failed",
         "output": None,
         "reason_code": "output_invalid",
@@ -352,48 +356,77 @@ def test_failed_run_is_not_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     sai = client(
         {
             "POST /v1/agents/new-session": {"sessionId": "cs_1"},
-            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "runId": "run_1"}),
+            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_1"}),
             "GET /v1/agents/events": {"sessionId": "cs_1", "status": "idle", "events": [], "text": "I saved it."},
-            "GET /v1/runs/run_1": failed,
+            "GET /v1/agents/turns/turn_1": failed,
         }
     )
     result = sai.sessions.create("m_1").run("Save it", output_schema={"type": "object"})
     assert result.status == "idle" and not result.ok
-    assert result.run is not None and result.run.reason_code == "output_invalid"
-    assert result.run.raw_answer == "I saved it." and result.run.output_errors
+    assert result.record is not None and result.record.reason_code == "output_invalid"
+    assert result.record.raw_answer == "I saved it." and result.record.output_errors
 
 
-def test_plain_message_has_a_run_id_but_does_not_wait_for_it() -> None:
+def test_plain_message_has_a_turn_id_but_does_not_wait_for_the_record() -> None:
     calls: list[httpx.Request] = []
     sai = client(
         {
             "POST /v1/agents/new-session": {"sessionId": "cs_1"},
-            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "runId": "run_2"}),
+            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_2"}),
             "GET /v1/agents/events": {"sessionId": "cs_1", "status": "idle", "events": [], "text": "Done."},
         },
         calls,
     )
     turn = sai.sessions.create("m_1").send("hello")
-    assert turn.run_id == "run_2"
-    assert turn.wait().run is None
-    assert not any(c.url.path.startswith("/v1/runs") for c in calls)
+    assert turn.id == "turn_2"
+    assert turn.wait().record is None
+    assert not any(c.url.path.startswith("/v1/agents/turns") for c in calls)
+    assert "options" not in json.loads(next(c for c in calls if c.url.path == "/v1/agents/message").content)
 
 
-def test_idempotent_replay_returns_the_earlier_run() -> None:
+def test_idempotency_key_alone_keeps_the_message_plain() -> None:
     calls: list[httpx.Request] = []
     sai = client(
-        {"POST /v1/agents/message": {**RUN_DONE, "idempotent_replay": True}},
+        {
+            "POST /v1/agents/new-session": {"sessionId": "cs_1"},
+            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_3"}),
+            "GET /v1/agents/events": {"sessionId": "cs_1", "status": "idle", "events": [], "text": "Done."},
+        },
         calls,
     )
-    turn = sai.runs.create("Save {{file_name}}", machine="m_1", inputs={"file_name": "x"}, idempotency_key="k")
+    assert sai.sessions.create("m_1").run("hello", idempotency_key="k").record is None
+    assert not any(c.url.path.startswith("/v1/agents/turns") for c in calls)
+
+
+def test_steer_gets_the_id_of_the_turn_it_joined() -> None:
+    sai = client(
+        {
+            "POST /v1/agents/new-session": {"sessionId": "cs_1"},
+            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "queued": True, "turnId": "turn_running"}),
+        }
+    )
+    turn = sai.sessions.create("m_1").send("also this")
+    assert turn.queued and turn.id == "turn_running"
+
+
+def test_idempotent_replay_returns_the_earlier_turn() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/agents/new-session": {"sessionId": "cs_1"},
+            "POST /v1/agents/message": {**DONE, "idempotent_replay": True},
+        },
+        calls,
+    )
+    turn = sai.sessions.create("m_1").send("Save {{file_name}}", inputs={"file_name": "x"}, idempotency_key="k")
     assert list(turn.events()) == []
     result = turn.wait()
-    assert result.run is not None and result.run.replayed and result.run.id == "run_1"
-    assert turn.session.id == "cs_9"
-    assert [c.url.path for c in calls] == ["/v1/agents/message"]
+    assert turn.id == "turn_1"
+    assert result.record is not None and result.record.replayed and result.record.id == "turn_1"
+    assert [c.url.path for c in calls] == ["/v1/agents/new-session", "/v1/agents/message"]
 
 
-def test_structured_run_to_a_busy_session_is_a_conflict() -> None:
+def test_structured_message_to_a_busy_session_is_a_conflict() -> None:
     sai = client(
         {
             "POST /v1/agents/new-session": {"sessionId": "cs_1"},
@@ -405,8 +438,8 @@ def test_structured_run_to_a_busy_session_is_a_conflict() -> None:
     assert e.value.code == "session_busy"
 
 
-def test_runs_wait_trajectory_and_screenshot(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("sai.sessions._RUN_POLL_INTERVAL", 0)
+def test_turns_get_wait_trajectory_and_screenshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sai.sessions._RECORD_POLL_INTERVAL", 0)
     jpeg = b"\xff\xd8jpeg"
 
     def shot(req: httpx.Request) -> httpx.Response:
@@ -414,23 +447,24 @@ def test_runs_wait_trajectory_and_screenshot(monkeypatch: pytest.MonkeyPatch) ->
 
     sai = client(
         {
-            "GET /v1/runs/run_1": [{**RUN_DONE, "status": "running"}, {**RUN_DONE, "status": "needs_input"}],
-            "GET /v1/runs/run_1/trajectory": {
-                "runId": "run_1",
-                "trajectoryRef": "gs://b/u/cs_9/run_1/",
+            "GET /v1/agents/turns/turn_1": [{**DONE, "status": "running"}, {**DONE, "status": "needs_input"}],
+            "GET /v1/agents/turns/turn_1/trajectory": {
+                "turnId": "turn_1",
+                "trajectory": {"recorded": True, "url": "/v1/agents/turns/turn_1/trajectory"},
                 "steps": [
                     {"index": 0, "timestamp": "t0", "title": "Open Notepad", "code": "app.open('notepad')",
-                     "screenshot": "/v1/runs/run_1/trajectory/screenshots/0"},
+                     "screenshot": "/v1/agents/turns/turn_1/trajectory/screenshots/0"},
                     {"index": 1, "final": True, "timestamp": "t1", "screenshot": None},
                 ],
             },
-            "GET /v1/runs/run_1/trajectory/screenshots/0": shot,
+            "GET /v1/agents/turns/turn_1/trajectory/screenshots/0": shot,
         }
     )
-    assert sai.runs.wait("run_1").status == "needs_input"
-    steps = sai.runs.trajectory("run_1")
+    assert sai.turns.get("turn_1").status == "running"
+    assert sai.turns.wait("turn_1").status == "needs_input"
+    steps = sai.turns.trajectory("turn_1")
     assert [(s.index, s.title, s.has_screenshot, s.final) for s in steps] == [
         (0, "Open Notepad", True, False),
         (1, None, False, True),
     ]
-    assert sai.runs.screenshot("run_1", 0) == jpeg
+    assert sai.turns.screenshot("turn_1", 0) == jpeg

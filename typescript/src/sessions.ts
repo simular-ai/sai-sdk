@@ -2,8 +2,9 @@
  * Sessions: a conversation with Sai on one computer. Sai decides every click.
  *
  * Maps to `/v1/agents/*`: `new-session`, `message` (wait=false), `events`,
- * `approve`, `abort`. Every message is a run (`/v1/runs`); a message with a
- * contract (inputs, output schema, success criteria) is a structured run.
+ * `approve`, `abort`. Every message gets a turn id (`turn.id`, read with
+ * `sai.turns`); a message with `inputs`, `outputSchema` or `successCriteria`
+ * is structured and its turn also returns a typed result.
  */
 
 import { ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError } from './errors.js'
@@ -12,14 +13,14 @@ import { idOf, type MachineRef, type Machines } from './machines.js'
 import {
   parseApproval,
   parseEvent,
-  parseRun,
+  parseTurnRecord,
   parseUsage,
   type Approval,
   type Attachment,
   type Check,
   type Event,
-  type Run,
-  type RunStatus,
+  type TurnRecord,
+  type TurnRecordStatus,
   type TurnResult,
   type TurnStatus,
 } from './types.js'
@@ -36,21 +37,19 @@ export interface SendOptions {
   /** An id from `sai.models.list()` (or `auto`); sticks to the session until changed. */
   model?: string
   attachments?: Attachment[]
-  /** Values for the `{{name}}` placeholders in the message. Makes the message a structured run. */
+  /** Values for the `{{name}}` placeholders in the message. Makes the message structured. */
   inputs?: Record<string, string | number | boolean>
-  /** JSON Schema (at most 32 KB) the run's output must match. Makes the message a structured run. */
+  /** JSON Schema (at most 32 KB) the turn's output must match. Makes the message structured. */
   outputSchema?: Record<string, unknown>
   /**
    * A guideline for a judge, or yes/no checks, the turn is checked against.
-   * Makes the message a structured run.
+   * Makes the message structured.
    */
   successCriteria?: string | Check[]
-  /** The same key again returns the earlier run and sends nothing. Makes the message a structured run. */
+  /** The same key again returns the earlier turn and sends nothing. */
   idempotencyKey?: string
-  /** Keep a screenshot and the action for each step (`sai.runs.trajectory()`). */
+  /** Keep a screenshot and the action for each step (`sai.turns.trajectory()`). */
   recordTrajectory?: boolean
-  /** Applies to `sai.runs.create()`: keep the machine when the structured run's turn ends. */
-  keepLockAtTurnEnd?: boolean
 }
 
 export interface WaitOptions {
@@ -62,8 +61,8 @@ export interface WaitOptions {
 }
 
 const POLL_WAIT = 30
-/** Between run reads; `GET /v1/runs/{id}` never holds. */
-const RUN_POLL_INTERVAL_MS = 2_000
+/** Between turn reads; `GET /v1/agents/turns/{id}` never holds. */
+const RECORD_POLL_INTERVAL_MS = 2_000
 
 interface EventsPage {
   sessionId?: string
@@ -120,12 +119,13 @@ export class Session {
    * Give Sai a task, or steer the running one. Returns at once. Sent while a
    * turn is running, the message steers that turn (`turn.queued` is true).
    *
-   * Any of `inputs`, `outputSchema`, `successCriteria` or `idempotencyKey`
-   * makes the message a structured run: the message is a template whose
-   * `{{name}}` placeholders are filled from `inputs`, the output must match
-   * `outputSchema`, and the turn is checked against `successCriteria`.
-   * `wait()` then also returns the run's result in `result.run`. A structured
-   * run is refused with `ConflictError` (`session_busy`) while a turn is running.
+   * Any of `inputs`, `outputSchema` or `successCriteria` makes the message
+   * structured: the message is a template whose `{{name}}` placeholders are
+   * filled from `inputs`, the output must match `outputSchema`, and the turn
+   * is checked against `successCriteria`. `wait()` then also returns the
+   * turn's record in `result.record`. A structured message is refused with
+   * `ConflictError` (`session_busy`) while a turn is running. These go to the
+   * API as `options`.
    */
   async send(message: string, opts: SendOptions = {}): Promise<Turn> {
     const body: Record<string, unknown> = { message, wait: false }
@@ -133,31 +133,25 @@ export class Session {
     if (this.id) body.sessionId = this.id
     if (opts.model) body.model = opts.model
     if (opts.attachments?.length) body.attachments = opts.attachments.map((a) => a.raw)
-    if (opts.inputs !== undefined) body.inputs = opts.inputs
-    if (opts.outputSchema !== undefined) body.output_schema = opts.outputSchema
-    if (opts.successCriteria !== undefined) body.success_criteria = opts.successCriteria
-    if (opts.idempotencyKey !== undefined) body.idempotency_key = opts.idempotencyKey
-    if (opts.recordTrajectory) body.recordTrajectory = true
-    if (opts.keepLockAtTurnEnd) body.keepLockAtTurnEnd = true
-    const structured = [
-      opts.inputs,
-      opts.outputSchema,
-      opts.successCriteria,
-      opts.idempotencyKey,
-    ].some((v) => v !== undefined)
+    const options: Record<string, unknown> = {}
+    if (opts.inputs !== undefined) options.inputs = opts.inputs
+    if (opts.outputSchema !== undefined) options.output_schema = opts.outputSchema
+    if (opts.successCriteria !== undefined) options.success_criteria = opts.successCriteria
+    if (opts.idempotencyKey !== undefined) options.idempotency_key = opts.idempotencyKey
+    if (opts.recordTrajectory) options.recordTrajectory = true
+    if (Object.keys(options).length) body.options = options
+    const structured = [opts.inputs, opts.outputSchema, opts.successCriteria].some(
+      (v) => v !== undefined,
+    )
     const d = await this.http.json<Record<string, unknown>>('POST', '/v1/agents/message', {
       json: body,
     })
     if (d.idempotent_replay) {
-      // The key was used before: this is that run, and nothing was sent.
-      const run = parseRun(d)
-      this.id = run.sessionId ?? this.id
-      this.machineId = run.machineId || this.machineId
-      return new Turn(this, this.http, false, null, {
-        runId: run.id,
-        structured: true,
-        replay: run,
-      })
+      // The key was used before: this is that turn, and nothing was sent.
+      const record = parseTurnRecord(d)
+      this.id = record.sessionId ?? this.id
+      this.machineId = record.machineId || this.machineId
+      return new Turn(this, this.http, false, null, { id: record.id, structured, replay: record })
     }
     if (typeof d.sessionId !== 'string' || !d.sessionId) {
       // Handled without starting a task (e.g. a plain acknowledgement): the reply is in `error`.
@@ -166,8 +160,8 @@ export class Session {
     }
     this.id = d.sessionId
     if (typeof d.machineId === 'string') this.machineId = d.machineId
-    const runId = typeof d.runId === 'string' ? d.runId : null
-    return new Turn(this, this.http, Boolean(d.queued), null, { runId, structured })
+    const id = typeof d.turnId === 'string' ? d.turnId : null
+    return new Turn(this, this.http, Boolean(d.queued), null, { id, structured })
   }
 
   /** `send()` then `wait()`: the answer, or where it stopped. */
@@ -215,16 +209,16 @@ export class Session {
 }
 
 /**
- * One message's work (a run). Iterate `events()` to watch it, or `wait()` for
- * the result. `runId` names the run (`sai.runs.get(turn.runId)`); null when the
- * message was answered without starting a task.
+ * One message's work. Iterate `events()` to watch it, or `wait()` for the
+ * result. `id` is the turn the message started, or the running turn it joined
+ * (`sai.turns.get(turn)`); null when the message was answered without one.
  */
 export class Turn {
-  readonly runId: string | null
+  readonly id: string | null
   private cursor: string | null = null
   private last: TurnResult | null
   private readonly structured: boolean
-  private readonly replay: Run | null
+  private readonly replay: TurnRecord | null
   // answered without starting a task, or an idempotent replay: no events to poll
   private readonly local: boolean
 
@@ -233,15 +227,15 @@ export class Turn {
     private readonly http: Http,
     readonly queued: boolean,
     done: TurnResult | null = null,
-    run: { runId: string | null; structured: boolean; replay?: Run } = {
-      runId: null,
+    turn: { id: string | null; structured: boolean; replay?: TurnRecord } = {
+      id: null,
       structured: false,
     },
   ) {
     this.last = done
-    this.runId = run.runId
-    this.structured = run.structured
-    this.replay = run.replay ?? null
+    this.id = turn.id
+    this.structured = turn.structured
+    this.replay = turn.replay ?? null
     this.local = done !== null || this.replay !== null
   }
 
@@ -278,16 +272,16 @@ export class Turn {
    * `approval` so the caller can decide. With it, the handler's answer is sent
    * and waiting continues; a handler returning null leaves the approval to
    * someone else (a link-only one to a human) and keeps waiting. For a
-   * structured message, it then waits for the run's result (`result.run`:
+   * structured message, it then waits for the turn's record (`result.record`:
    * output, evidence), which is worked out after the turn.
    */
   async wait(opts: WaitOptions = {}): Promise<TurnResult> {
     const deadline = opts.timeoutMs === undefined ? null : Date.now() + opts.timeoutMs
     if (this.replay) {
-      const run = this.replay.done
+      const record = this.replay.done
         ? this.replay
-        : await waitRun(this.http, this.replay.id, deadline)
-      this.last = withRun(localResult(run.sessionId ?? this.session.id ?? '', ''), run)
+        : await waitTurnRecord(this.http, this.replay.id, deadline)
+      this.last = withRecord(localResult(record.sessionId ?? this.session.id ?? '', ''), record)
       return this.last
     }
     if (this.local) return this.last!
@@ -306,8 +300,8 @@ export class Turn {
       }
       const page = await this.#poll(pollWait)
       if (page.status === 'idle' || page.status === 'error') {
-        if (this.structured && this.runId) {
-          this.last = withRun(this.last!, await waitRun(this.http, this.runId, deadline))
+        if (this.structured && this.id) {
+          this.last = withRecord(this.last!, await waitTurnRecord(this.http, this.id, deadline))
         }
         return this.last!
       }
@@ -373,7 +367,7 @@ export class Turn {
       errorCode,
       usage: parseUsage(page.usage),
       sessionUsage: parseUsage(page.sessionUsage),
-      run: null,
+      record: null,
       ok: status === 'idle',
     }
     return page
@@ -381,36 +375,38 @@ export class Turn {
 }
 
 /**
- * Read the run until its status is in `stop`. Throws a `TimeoutError`
+ * Read the turn's record until its status is in `stop`. Throws a `TimeoutError`
  * (DOMException) past `deadline` (epoch ms).
  */
-export async function waitRun(
+export async function waitTurnRecord(
   http: Http,
-  runId: string,
+  turnId: string,
   deadline: number | null,
-  stop: readonly RunStatus[] = ['succeeded', 'failed'],
-): Promise<Run> {
+  stop: readonly TurnRecordStatus[] = ['succeeded', 'failed'],
+): Promise<TurnRecord> {
   for (;;) {
-    let run: Run
+    let record: TurnRecord
     try {
-      run = parseRun(await http.json('GET', `/v1/runs/${encodeURIComponent(runId)}`))
+      record = parseTurnRecord(
+        await http.json('GET', `/v1/agents/turns/${encodeURIComponent(turnId)}`),
+      )
     } catch (err) {
       if (!(err instanceof RateLimitError)) throw err
       await sleep((err.retryAfter ?? 30) * 1000)
       continue
     }
-    if (stop.includes(run.status)) return run
-    if (deadline !== null && Date.now() + RUN_POLL_INTERVAL_MS > deadline) {
-      throw new DOMException(`Run ${runId} still ${run.status}.`, 'TimeoutError')
+    if (stop.includes(record.status)) return record
+    if (deadline !== null && Date.now() + RECORD_POLL_INTERVAL_MS > deadline) {
+      throw new DOMException(`Turn ${turnId} still ${record.status}.`, 'TimeoutError')
     }
-    await sleep(RUN_POLL_INTERVAL_MS)
+    await sleep(RECORD_POLL_INTERVAL_MS)
   }
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
-function withRun(result: TurnResult, run: Run): TurnResult {
-  return { ...result, run, ok: result.status === 'idle' && run.ok }
+function withRecord(result: TurnResult, record: TurnRecord): TurnResult {
+  return { ...result, record, ok: result.status === 'idle' && record.ok }
 }
 
 function localResult(sessionId: string, text: string): TurnResult {
@@ -423,7 +419,7 @@ function localResult(sessionId: string, text: string): TurnResult {
     errorCode: null,
     usage: null,
     sessionUsage: null,
-    run: null,
+    record: null,
     ok: true,
   }
 }

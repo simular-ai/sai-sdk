@@ -10,7 +10,7 @@ Status: **alpha (0.1)**. The surface may still change before 1.0.
 | -------------- | --------------------------------------------- | ---------------- |
 | `sai.sessions` | A conversation with Sai on one computer       | available        |
 | `sai.control`  | Drive a cloud computer directly with Simulang | research preview |
-| `sai.runs`     | Typed tasks: inputs, output schema, evidence  | not yet          |
+| `sai.turns`    | A turn's record: typed output, evidence       | available        |
 
 ## Install
 
@@ -86,72 +86,73 @@ turn = session.send("...")
 turn.abort()
 ```
 
-## Get typed results (runs)
+## Get typed results
 
-Every message is a run. Add a contract and it becomes a structured run: `message` is a template filled
-from `inputs`, the answer must match `output_schema`, and the turn is checked against `success_criteria`.
-`wait()` / `run()` then return the run's result in `result.run`.
+Any message can also return structured data. Pass `output_schema` and the turn's record comes back in
+`result.record`, with `output` matching the schema:
+
+```python
+session = sai.sessions.create(machine=pc)
+result = session.run(
+    "Open Notepad, type \"hello\" and save it on the Desktop as hello.txt. Return the saved file's path.",
+    output_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+)
+if result.ok:
+    print(result.record.output["path"])   # C:\Users\...\Desktop\hello.txt
+else:
+    print(result.record.reason_code)      # e.g. output_invalid, with result.record.raw_answer
+```
+
+More options, all optional (the SDK sends them to the API as `options`):
+
+| Argument            | What it does                                                                 |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `inputs`            | Fill `{{name}}` placeholders in the message; every placeholder needs a value |
+| `output_schema`     | JSON Schema (at most 32 KB) the output must match                            |
+| `success_criteria`  | A guideline for a judge, or a list of `Check` yes/no checks                  |
+| `idempotency_key`   | The same key again returns the earlier turn and sends nothing                |
+| `record_trajectory` | Keep a screenshot and the action for each step                               |
+
+`inputs`, `output_schema` or `success_criteria` make the message _structured_. A structured message
+behaves like any other (same session, same computer); it only adds the typed result. It is refused with
+`ConflictError` (`code == "session_busy"`) while the session is working, because it starts a turn of its
+own. A plain message sent then joins the running turn instead.
 
 ```python
 from sai import Check
 
-turn = sai.runs.create(
-    "Open Notepad, type \"Invoice {{invoice_number}}: {{amount}} USD\" and save it on the Desktop "
-    "as {{file_name}}. Return the full path of the saved file.",
-    machine=pc,
+result = session.run(
+    "Save \"Invoice {{invoice_number}}: {{amount}} USD\" on the Desktop as {{file_name}}. Return its path.",
     inputs={"invoice_number": "INV-1001", "amount": "42.50", "file_name": "inv-1001.txt"},
     output_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
     success_criteria=[Check("saved", "The file is saved and contains the invoice line", return_evidence=True)],
-    idempotency_key="inv-1001",          # a retry returns this run and sends nothing
-    record_trajectory=True,              # a screenshot and the action for each step
+    idempotency_key="inv-1001",   # a retry returns this turn and sends nothing
+    record_trajectory=True,
 )
-result = turn.wait()
-run = result.run
-print(run.status)       # succeeded | failed
-print(run.output)       # {"path": "C:\\Users\\...\\inv-1001.txt"}, matches output_schema
-print(run.reason_code)  # on failed: agent_error | output_invalid | criteria_not_met | ...
-print(run.evidence)     # [Evidence(id="saved", passed=True, score=0.94, evidence="...")]
-print(run.usage)        # tokens of the agent's model calls in this turn
+record = result.record
+print(record.status)      # succeeded | failed
+print(record.evidence)    # [Evidence(id="saved", passed=True, score=0.94, evidence="...")]
+print(record.usage)       # tokens of the agent's model calls in this turn
 ```
 
-`result.ok` is True only when the run succeeded. On `output_invalid`, `run.raw_answer` and
-`run.output_errors` say what came back instead; the output is never a partial object.
+`result.ok` is True only when the turn succeeded. On `failed`, `record.reason_code` says why
+(`agent_error`, `output_invalid`, `criteria_not_met`, ...); the output is never a partial object.
 
-**Where a run goes.** `sai.runs.create()` sends the message without a session: a structured run opens a
-session of its own, so its result does not depend on earlier conversations, and gives the computer back
-when its turn ends (`keep_lock_at_turn_end=True` keeps it). `turn.session` continues that session.
-`session.send()` / `session.run()` with the same fields run in that session instead, and see its history:
+**Reading a turn later.** Every message gets a turn id, `turn.id` (plain messages too):
 
 ```python
-day = sai.sessions.create(machine=pc)
-day.run("Sign in to the Delta Dental provider portal")                       # plain
-eobs = day.run("Download the EOBs posted since {{since}}", inputs={"since": "2026-10-01"},
-               output_schema=EOB_SCHEMA).run.output                           # structured, same session
-for claim in eobs["claims"]:                                                  # one new session per claim
-    turn = sai.runs.create("Compare claim {{claimNumber}} with the ledger", machine=pc,
-                           inputs={"claimNumber": claim["claimNumber"]}, output_schema=MATCH_SCHEMA,
-                           idempotency_key=f"check-{claim['claimNumber']}")
-    check = turn.wait().run
-    if check.ok and not check.output["match"]:
-        print(turn.session.run("Why did the paid amount differ?").text)        # follow-up, same session
-```
-
-A structured run sent while the session is working is refused with `ConflictError` (`code ==
-"session_busy"`); send it again when the turn is over. A plain message joins the running turn instead.
-
-**Reading runs later.** `turn.run_id` names the run (plain messages have one too):
-
-```python
-run = sai.runs.get(run_id)                 # never waits; `finalizing` while the result is worked out
-run = sai.runs.wait(run_id, timeout=600)   # until succeeded, failed or needs_input
-for step in sai.runs.trajectory(run_id):   # needs record_trajectory=True
+turn = session.send("...")
+record = sai.turns.get(turn)                 # never waits; `finalizing` while the result is worked out
+record = sai.turns.wait(turn, timeout=600)   # until succeeded, failed or needs_input
+for step in sai.turns.trajectory(turn):      # needs record_trajectory=True
     print(step.index, step.title, step.code)
     if step.has_screenshot:
-        open(f"step{step.index}.jpg", "wb").write(sai.runs.screenshot(run_id, step.index))
+        open(f"step{step.index}.jpg", "wb").write(sai.turns.screenshot(turn, step.index))
 ```
 
-`run.status` is `running`, `needs_input` (an approval is pending: answer it on
-`sai.sessions.resume(run.session_id)`), `finalizing`, `succeeded` or `failed`.
+Each takes a `Turn`, a `TurnRecord` or the id string. `record.status` is `running`, `needs_input` (an
+approval is pending: answer it on `sai.sessions.resume(record.session_id)`), `finalizing`, `succeeded` or
+`failed`.
 
 ## Drive a computer yourself
 
