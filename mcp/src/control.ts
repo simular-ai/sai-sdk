@@ -1,8 +1,8 @@
 /**
- * Session tools: Sai API Layer 2 (docs/plans/2026-10-05-sai-api-sessions-v0.md §6).
+ * Direct control tools: Sai API Layer 2, `/v1/machines/:id/control`.
  *
- * Where the task tools hand Sai a goal and Sai looks at the screen, a session
- * lets the coding agent drive the computer itself: it runs Simulang blocks in
+ * Where the task tools hand Sai a goal and Sai looks at the screen, direct
+ * control lets the coding agent drive the computer itself: it runs Simulang blocks in
  * a REPL on the machine and gets back the value, the console, and — when a
  * block captured one — a screenshot as MCP image content, so the agent's own
  * model sees the screen on its next turn.
@@ -19,14 +19,14 @@ import type { ExecResult, SaiApi } from './api.js'
 export const EXEC_DEFAULT_S = 90
 export const EXEC_MAX_S = 110
 
-/** The core Simulang a session runs, in one page. Also served as `sai://simulang/reference`. */
-export const SIMULANG_REFERENCE = `# Simulang in a Sai API session
+/** The core Simulang direct control runs, in one page. Also served as `sai://simulang/reference`. */
+export const SIMULANG_REFERENCE = `# Simulang in Sai direct control
 
-A session is a JavaScript REPL running ON one cloud computer (Windows, Linux or macOS).
+Direct control is a JavaScript REPL running ON one cloud computer (Windows, Linux or macOS).
 Top-level await works and variables persist between blocks (use \`var\`).
 The block's last expression is returned. console.log output comes back in \`logs\`.
 
-## The machine: \`machine\` (already held by your session)
+## The machine: \`machine\` (already held by your control lease)
 Shell and files:
   await machine.exec({ command, cwd?, timeout? })      → { stdout, stderr, exitCode, timedOut }
   await machine.readFile({ path })                      → the file's text
@@ -65,20 +65,16 @@ Refs come from the LATEST snapshot: snapshot, act, snapshot again.
   await wait({ waitTime: 2 })   seconds (unit: 'ms' for milliseconds)
   $lastVisualObservation, $lastAccessibilityObservation, $lastExec
 
-Not available in a session: sai.*, integrations (google, slack, …), callLLM, askUser,
+Not available in direct control: sai.*, integrations (google, slack, …), callLLM, askUser,
 requestApproval, generateImage, secrets. Do those from your own program.
 `
 
-export const sessionToolSchemas = {
-  sai_session_open: {
-    machine_id: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('Cloud computer from sai_machines. Optional when the account has exactly one.'),
-  },
-  sai_exec: {
-    session_id: z.string().min(1).describe('session_id from sai_session_open.'),
+const machineId = z.string().min(1).describe('Cloud computer from sai_machines.')
+
+export const controlToolSchemas = {
+  sai_control_open: { machine_id: machineId },
+  sai_control_exec: {
+    machine_id: z.string().min(1).describe('machine_id passed to sai_control_open.'),
     code: z.string().min(1).describe('Simulang (JavaScript) to run on the machine.'),
     timeout_s: z
       .number()
@@ -90,39 +86,42 @@ export const sessionToolSchemas = {
         `Seconds the block may run. Default ${EXEC_DEFAULT_S}, max ${EXEC_MAX_S}. Split longer work into several blocks.`,
       ),
   },
-  sai_interrupt: {
-    session_id: z.string().min(1).describe('session_id whose running block should stop.'),
+  sai_control_interrupt: {
+    machine_id: z.string().min(1).describe('Machine whose running block should stop.'),
   },
-  sai_session_close: {
-    session_id: z.string().min(1).describe('session_id to end.'),
+  sai_control_close: {
+    machine_id: z.string().min(1).describe('Machine to release.'),
   },
 } as const
 
-export const sessionToolDescriptions: Record<keyof typeof sessionToolSchemas, string> = {
-  sai_session_open:
-    'Open a session on a Sai cloud computer so YOU can drive it directly by running Simulang (JavaScript) blocks with sai_exec. ' +
+export const controlToolDescriptions: Record<keyof typeof controlToolSchemas, string> = {
+  sai_control_open:
+    'Take direct control of a Sai cloud computer so YOU can drive it by running Simulang (JavaScript) blocks with sai_control_exec. ' +
     'Use this instead of sai_task_start when you want step-by-step control, or want to write a script you can replay. ' +
-    'Returns { session_id, machine_id, expires_after_idle_s }. The session holds the computer: Sai tasks on it wait until you close it. ' +
+    'Returns { machine_id, expires_after_idle_s }. Control holds the computer: Sai tasks on it wait until you close it. ' +
+    'Calling it again while control is open is fine and returns at once. ' +
     'Can take up to ~2 minutes while the computer starts. Read sai://simulang/reference for the API.',
-  sai_exec:
-    "Run one Simulang block on the session's computer. Returns { result, logs, error?, variables, duration_ms } and, when the block " +
+  sai_control_exec:
+    'Run one Simulang block on the computer you control. Returns { result, logs, error?, variables, duration_ms } and, when the block ' +
     'took a screenshot (machine.pageContent(), page/app snapshot or screenshot()), that screenshot as an image. ' +
     'Variables persist between blocks (use `var`). Prefer page.snapshot()/app.snapshot() refs over pixel clicks. ' +
-    'error.kind: exception | timeout | interrupted.\n\n' +
+    'error.kind: exception | timeout | interrupted. ' +
+    'If control has ended (closed, idle, taken by a Sai task, or the computer stopped answering) it fails with ' +
+    '410 control_closed and a reason: call sai_control_open again for a fresh lease.\n\n' +
     'Quick reference: `await machine.exec({ command })`, `var page = await machine.browser.newtab(url)`, ' +
     '`var snap = await page.snapshot(); snap.snapshot.outline()`, `await page.click({ ref })`, ' +
     '`await machine.pageContent()`, `await machine.ground({ concept })` → { x, y }, `await machine.click({ x, y })`. ' +
     'Full API: resource sai://simulang/reference.',
-  sai_interrupt:
-    'Stop the block running in a session (it ends at its next primitive call or loop iteration). Returns { interrupted }; false means nothing was running.',
-  sai_session_close:
-    'End a session: resets its REPL and releases the computer for Sai and other sessions. Always close when you are done.',
+  sai_control_interrupt:
+    'Stop the running block (it ends at its next primitive call or loop iteration). Returns { interrupted }; false means nothing was running.',
+  sai_control_close:
+    'Release the computer: resets the REPL and frees the computer for Sai tasks. Always close when you are done.',
 }
 
-export const sessionInstructions = [
+export const controlInstructions = [
   '',
-  'Sessions (drive the computer yourself): sai_session_open → sai_exec blocks of Simulang → sai_session_close.',
-  'Each sai_exec result includes a screenshot image when the block captured one. Read sai://simulang/reference first.',
+  'Direct control (drive the computer yourself): sai_control_open → sai_control_exec blocks of Simulang → sai_control_close.',
+  'Each sai_control_exec result includes a screenshot image when the block captured one. Read sai://simulang/reference first.',
 ].join('\n')
 
 /** The exec result as the coding agent sees it: text, plus the screenshot as an image block. */
@@ -138,7 +137,7 @@ export function execToolResult(r: ExecResult): CallToolResult {
   }
 }
 
-export function registerSessionTools(
+export function registerControlTools(
   mcp: McpServer,
   api: SaiApi,
   run: (fn: () => Promise<unknown>) => Promise<CallToolResult>,
@@ -148,8 +147,8 @@ export function registerSessionTools(
     'simulang-reference',
     'sai://simulang/reference',
     {
-      title: 'Simulang reference (sessions)',
-      description: 'The core Simulang API a Sai API session runs.',
+      title: 'Simulang reference (direct control)',
+      description: 'The core Simulang API Sai direct control runs.',
       mimeType: 'text/markdown',
     },
     async (uri) => ({
@@ -157,50 +156,49 @@ export function registerSessionTools(
     }),
   )
   mcp.registerTool(
-    'sai_session_open',
+    'sai_control_open',
     {
-      description: sessionToolDescriptions.sai_session_open,
-      inputSchema: sessionToolSchemas.sai_session_open,
+      description: controlToolDescriptions.sai_control_open,
+      inputSchema: controlToolSchemas.sai_control_open,
     },
     (args) =>
       run(async () => {
-        const s = await api.sessionOpen(args.machine_id)
-        return {
-          session_id: s.sessionId,
-          machine_id: s.machineId,
-          expires_after_idle_s: s.expiresAfterIdleSec,
-        }
+        const c = await api.controlOpen(args.machine_id)
+        return { machine_id: c.machineId, expires_after_idle_s: c.expiresAfterIdleSec }
       }),
   )
   mcp.registerTool(
-    'sai_exec',
-    { description: sessionToolDescriptions.sai_exec, inputSchema: sessionToolSchemas.sai_exec },
+    'sai_control_exec',
+    {
+      description: controlToolDescriptions.sai_control_exec,
+      inputSchema: controlToolSchemas.sai_control_exec,
+    },
     async (args) => {
       try {
         const timeoutMs = (args.timeout_s ?? EXEC_DEFAULT_S) * 1000
-        return execToolResult(await api.sessionExec(args.session_id, args.code, timeoutMs))
+        return execToolResult(await api.controlExec(args.machine_id, args.code, timeoutMs))
       } catch (err) {
         return fail(err)
       }
     },
   )
   mcp.registerTool(
-    'sai_interrupt',
+    'sai_control_interrupt',
     {
-      description: sessionToolDescriptions.sai_interrupt,
-      inputSchema: sessionToolSchemas.sai_interrupt,
+      description: controlToolDescriptions.sai_control_interrupt,
+      inputSchema: controlToolSchemas.sai_control_interrupt,
     },
-    (args) => run(() => api.sessionInterrupt(args.session_id)),
+    (args) => run(() => api.controlInterrupt(args.machine_id)),
   )
   mcp.registerTool(
-    'sai_session_close',
+    'sai_control_close',
     {
-      description: sessionToolDescriptions.sai_session_close,
-      inputSchema: sessionToolSchemas.sai_session_close,
+      description: controlToolDescriptions.sai_control_close,
+      inputSchema: controlToolSchemas.sai_control_close,
     },
     (args) =>
       run(async () => {
-        await api.sessionClose(args.session_id)
+        await api.controlClose(args.machine_id)
         return { ok: true }
       }),
   )

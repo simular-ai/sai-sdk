@@ -21,16 +21,16 @@ const ATTEMPT = {
 }
 
 describe('osworld tools', () => {
-  it('are off unless SAI_OSWORLD is set, and SAI_OSWORLD brings the session tools', () => {
-    expect(readConfig({ SAI_API_KEY: 'k' })).toMatchObject({ osworld: false, sessions: false })
+  it('are off unless SAI_OSWORLD is set, and SAI_OSWORLD brings the control tools', () => {
+    expect(readConfig({ SAI_API_KEY: 'k' })).toMatchObject({ osworld: false, control: false })
     expect(readConfig({ SAI_API_KEY: 'k', SAI_OSWORLD: '1' })).toMatchObject({
       osworld: true,
-      sessions: true,
+      control: true,
     })
   })
 
-  it('point the agent at a session on the returned machine, and away from task assets', () => {
-    expect(osworldToolDescriptions.osworld_start).toContain('sai_session_open')
+  it('point the agent at direct control of the returned machine, and away from task assets', () => {
+    expect(osworldToolDescriptions.osworld_start).toContain('sai_control_open')
     expect(osworldToolDescriptions.osworld_start).toMatch(/do not look for the task’s files/)
   })
 

@@ -14,7 +14,7 @@ import { SaiApi } from './api.js'
 import { readConfig } from './config.js'
 import { EventsPoller, StreamCollector, type SessionSource } from './session-source.js'
 import { SaiTools, serverInstructions, toolDescriptions, toolSchemas } from './tools.js'
-import { registerSessionTools, sessionInstructions } from './sessions.js'
+import { registerControlTools, controlInstructions } from './control.js'
 import { osworldInstructions, registerOsworldTools } from './osworld.js'
 import { watchSession, type ChannelNotification } from './watcher.js'
 import { registerTaskView, TASK_VIEW_TOOL_META, taskViewHtml, taskViewTools } from './app-view.js'
@@ -70,7 +70,7 @@ export function createServer(): McpServer {
       },
       instructions:
         serverInstructions +
-        (config.sessions ? sessionInstructions : '') +
+        (config.control ? controlInstructions : '') +
         (config.osworld ? osworldInstructions : ''),
     },
   )
@@ -189,7 +189,7 @@ export function createServer(): McpServer {
   )
 
   registerTaskView(mcp, viewDeps)
-  if (config.sessions) registerSessionTools(mcp, api, run, fail)
+  if (config.control) registerControlTools(mcp, api, run, fail)
   if (config.osworld) registerOsworldTools(mcp, api, run)
 
   return mcp

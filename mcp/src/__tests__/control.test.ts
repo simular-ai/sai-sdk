@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SaiApi } from '../api.js'
 import { readConfig } from '../config.js'
-import { execToolResult, SIMULANG_REFERENCE } from '../sessions.js'
+import { execToolResult, SIMULANG_REFERENCE } from '../control.js'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -10,10 +10,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-describe('session tools', () => {
-  it('are off unless SAI_SESSIONS is set', () => {
-    expect(readConfig({ SAI_API_KEY: 'k' }).sessions).toBe(false)
-    expect(readConfig({ SAI_API_KEY: 'k', SAI_SESSIONS: '1' }).sessions).toBe(true)
+describe('control tools', () => {
+  it('are off unless SAI_CONTROL is set', () => {
+    expect(readConfig({ SAI_API_KEY: 'k' }).control).toBe(false)
+    expect(readConfig({ SAI_API_KEY: 'k', SAI_CONTROL: '1' }).control).toBe(true)
   })
 
   it('returns the screenshot as MCP image content, the rest as text', () => {
@@ -49,29 +49,34 @@ describe('session tools', () => {
     expect((out.content[0] as { text: string }).text).toContain('boom')
   })
 
-  it('calls the sessions API with the key', async () => {
+  it('calls the control API on the machine, with the key', async () => {
     const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) =>
-      jsonResponse({ sessionId: 'ses_1', machineId: 'm1', expiresAfterIdleSec: 600 }),
+      jsonResponse({ machineId: 'm1', expiresAfterIdleSec: 600 }),
     )
     const api = new SaiApi('https://api.test', 'sapi_k', fetchImpl)
-    await api.sessionOpen('m1')
+    await api.controlOpen('m1')
     const [url, init] = fetchImpl.mock.calls[0]!
-    expect(url).toBe('https://api.test/v1/sessions')
+    expect(url).toBe('https://api.test/v1/machines/m1/control')
     expect(init?.method).toBe('POST')
-    expect(JSON.parse(String(init?.body))).toEqual({ machineId: 'm1' })
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer sapi_k')
 
     fetchImpl.mockResolvedValueOnce(
       jsonResponse({ logs: [], observations: {}, variables: [], durationMs: 1 }),
     )
-    await api.sessionExec('ses_1', '1 + 1', 5_000)
+    await api.controlExec('m1', '1 + 1', 5_000)
     const [execUrl, execInit] = fetchImpl.mock.calls[1]!
-    expect(execUrl).toBe('https://api.test/v1/sessions/ses_1/exec')
+    expect(execUrl).toBe('https://api.test/v1/machines/m1/control/exec')
     expect(JSON.parse(String(execInit?.body))).toEqual({ code: '1 + 1', timeoutMs: 5_000 })
+
+    fetchImpl.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    await api.controlClose('m1')
+    const [closeUrl, closeInit] = fetchImpl.mock.calls[2]!
+    expect(closeUrl).toBe('https://api.test/v1/machines/m1/control')
+    expect(closeInit?.method).toBe('DELETE')
   })
 
-  it('the reference names what a session cannot do', () => {
-    expect(SIMULANG_REFERENCE).toContain('Not available in a session')
+  it('the reference names what direct control cannot do', () => {
+    expect(SIMULANG_REFERENCE).toContain('Not available in direct control')
     expect(SIMULANG_REFERENCE).toContain('machine.browser.newtab')
   })
 })

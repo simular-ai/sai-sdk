@@ -40,7 +40,11 @@ export class PermissionDeniedError extends SaiError {}
 export class NotFoundError extends SaiError {}
 /** 409: e.g. `machine_busy`, `link_only`, approval no longer pending. */
 export class ConflictError extends SaiError {}
-/** 410: the control session was closed or sat idle. Open a new one. */
+/**
+ * 410 `control_closed`: the control lease has ended (closed, sat idle, lost
+ * the computer to a Sai task, or the computer stopped answering). `body.reason`
+ * says which. Open a new one.
+ */
 export class GoneError extends SaiError {}
 /** 429: a rate limit, or a free-plan budget that resets daily. */
 export class RateLimitError extends SaiError {}
@@ -48,7 +52,7 @@ export class RateLimitError extends SaiError {}
 export class ServiceUnavailableError extends SaiError {}
 
 /**
- * A control-session helper's Simulang block failed on the computer. `kind` is
+ * A control helper's Simulang block failed on the computer. `kind` is
  * `exception`, `timeout` or `interrupted`.
  */
 export class BlockError extends SaiError {
@@ -86,7 +90,7 @@ export function errorFor(
   const err = body.error
   const detail = body.message
   // Two body shapes: `{ error: "<human text>" }` (/v1/agents) and
-  // `{ error: "<code>", message: "<human text>" }` (/v1/sessions, newer errors).
+  // `{ error: "<code>", message: "<human text>" }` (/v1/machines/{id}/control, newer errors).
   const code =
     typeof err === 'string' && (detail !== undefined || looksLikeCode(err)) ? err : undefined
   let message =
