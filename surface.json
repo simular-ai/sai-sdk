@@ -1,11 +1,10 @@
 {
   "$comment": "The public SDK surface, shared by every language. Names are snake_case; TypeScript uses camelCase. Each SDK's tests fail if its public methods differ from this file. Change this file and every SDK in the same PR. See AGENTS.md.",
   "resources": {
-    "client": ["machines", "sessions", "runs", "control_sessions", "models", "files", "account"],
+    "client": ["machines", "sessions", "control", "models", "files", "account"],
     "machines": ["list", "get", "live"],
     "sessions": ["create", "resume"],
-    "runs": ["create", "get", "wait", "trajectory", "screenshot"],
-    "control_sessions": ["open"],
+    "control": ["open"],
     "models": ["list"],
     "files": ["upload"],
     "account": ["get"]
@@ -13,7 +12,7 @@
   "objects": {
     "Session": ["send", "run", "abort", "respond"],
     "Turn": ["events", "wait", "respond", "abort"],
-    "ControlSession": [
+    "ControlLease": [
       "exec",
       "shell",
       "read_file",

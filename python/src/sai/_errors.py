@@ -56,7 +56,11 @@ class ConflictError(SaiError):
 
 
 class GoneError(SaiError):
-    """410: the control session was closed or sat idle. Open a new one."""
+    """410 `control_closed`: the control lease has ended. Open a new one.
+
+    `body["reason"]` says why: `closed`, `idle_timeout`, `lock_lost` (a Sai task
+    took the computer) or `unresponsive` (the computer stopped answering).
+    """
 
 
 class RateLimitError(SaiError):
@@ -68,7 +72,7 @@ class ServiceUnavailableError(SaiError):
 
 
 class BlockError(SaiError):
-    """A control-session helper's Simulang block failed on the computer. `kind` is
+    """A control helper's Simulang block failed on the computer. `kind` is
     `exception`, `timeout` or `interrupted`."""
 
     def __init__(self, kind: str, message: str) -> None:
@@ -100,7 +104,7 @@ def error_for(status: int, body: dict[str, Any], retry_after: Optional[float]) -
     err = body.get("error")
     detail = body.get("message")
     # Two body shapes: `{ error: "<human text>" }` (/v1/agents) and
-    # `{ error: "<code>", message: "<human text>" }` (/v1/sessions, newer errors).
+    # `{ error: "<code>", message: "<human text>" }` (/v1/machines/{id}/control, newer errors).
     code = err if isinstance(err, str) and (detail is not None or _looks_like_code(err)) else None
     message = detail if isinstance(detail, str) else (err if isinstance(err, str) else f"HTTP {status}")
     if status == 401:

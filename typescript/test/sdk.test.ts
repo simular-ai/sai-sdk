@@ -7,6 +7,7 @@ import {
   AuthenticationError,
   BadRequestError,
   ConflictError,
+  GoneError,
   LinkOnlyApprovalError,
   Sai,
   type Event,
@@ -88,9 +89,9 @@ describe('sai typescript sdk', () => {
     ).rejects.toBeInstanceOf(AuthenticationError)
 
     const err = await client({
-      'POST /v1/sessions': [409, { error: 'machine_busy', message: 'A task holds it' }],
+      'POST /v1/machines/m_1/control': [409, { error: 'machine_busy', message: 'A task holds it' }],
     })
-      .controlSessions.open({ machine: 'm_1' })
+      .control.open({ machine: 'm_1' })
       .catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ConflictError)
     expect((err as ConflictError).code).toBe('machine_busy')
@@ -238,7 +239,7 @@ describe('sai typescript sdk', () => {
     expect([r.status, r.errorCode]).toEqual(['error', 'insufficient_credits'])
   })
 
-  it('runs a control session and closes it', async () => {
+  it('runs a control lease and closes it', async () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
     const calls: Call[] = []
     const exec = (over: Record<string, unknown>) => ({
@@ -250,8 +251,8 @@ describe('sai typescript sdk', () => {
     })
     const sai = client(
       {
-        'POST /v1/sessions': { sessionId: 'ses_1', machineId: 'm_1', expiresAfterIdleSec: 600 },
-        'POST /v1/sessions/ses_1/exec': [
+        'POST /v1/machines/m_1/control': { machineId: 'm_1', expiresAfterIdleSec: 600 },
+        'POST /v1/machines/m_1/control/exec': [
           exec({ result: { stdout: 'HOST\r\n', exitCode: 0 } }),
           exec({
             result: null,
@@ -261,12 +262,12 @@ describe('sai typescript sdk', () => {
           }),
           exec({ error: { kind: 'exception', message: 'boom' } }),
         ],
-        'DELETE /v1/sessions/ses_1': () => new Response(null, { status: 204 }),
+        'DELETE /v1/machines/m_1/control': () => new Response(null, { status: 204 }),
       },
       calls,
     )
     {
-      await using cs = await sai.controlSessions.open({ machine: 'm_1' })
+      await using cs = await sai.control.open({ machine: 'm_1' })
       expect((await cs.shell('hostname')).stdout.trim()).toBe('HOST')
       expect(await cs.screenshot()).toEqual(png)
       const r = await cs.exec("throw new Error('boom')")
@@ -276,6 +277,27 @@ describe('sai typescript sdk', () => {
     expect(calls.at(-1)!.method).toBe('DELETE')
     const first = calls.find((c) => c.path.endsWith('/exec'))!
     expect(JSON.parse(first.body).code).toBe('await machine.exec({"command":"hostname"})')
+  })
+
+  it('raises GoneError with the reason when the lease has lost its computer', async () => {
+    const sai = client({
+      'POST /v1/machines/m_1/control': { machineId: 'm_1', expiresAfterIdleSec: 600 },
+      'POST /v1/machines/m_1/control/exec': [
+        410,
+        {
+          error: 'control_closed',
+          message: 'The computer stopped answering, so this control lease was closed.',
+          reason: 'unresponsive',
+        },
+      ],
+      'DELETE /v1/machines/m_1/control': () => new Response(null, { status: 204 }),
+    })
+    const cs = await sai.control.open({ machine: 'm_1' })
+    const err = await cs.exec('1').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(GoneError)
+    expect((err as GoneError).code).toBe('control_closed')
+    expect((err as GoneError).body.reason).toBe('unresponsive')
+    await cs.close()
   })
 
   it('uploads the raw body with the file name', async () => {

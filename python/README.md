@@ -6,11 +6,11 @@ computer yourself.
 
 Status: **alpha (0.1)**. The surface may still change before 1.0.
 
-| Layer                  | What it is                                    | Status           |
-| ---------------------- | --------------------------------------------- | ---------------- |
-| `sai.sessions`         | A conversation with Sai on one computer       | available        |
-| `sai.control_sessions` | Drive a cloud computer directly with Simulang | research preview |
-| `sai.runs`             | Typed tasks: inputs, output schema, evidence  | preview          |
+| Layer          | What it is                                    | Status           |
+| -------------- | --------------------------------------------- | ---------------- |
+| `sai.sessions` | A conversation with Sai on one computer       | available        |
+| `sai.control`  | Drive a cloud computer directly with Simulang | research preview |
+| `sai.runs`     | Typed tasks: inputs, output schema, evidence  | not yet          |
 
 ## Install
 
@@ -155,12 +155,12 @@ for step in sai.runs.trajectory(run_id):   # needs record_trajectory=True
 
 ## Drive a computer yourself
 
-Control sessions run [Simulang](https://platform.simular.ai/documentation/concepts/direct-control)
-blocks on a cloud computer. No agent, no model cost. While one is open, Sai's own tasks on that
+Direct control runs [Simulang](https://platform.simular.ai/documentation/concepts/direct-control)
+blocks on a cloud computer. No agent, no model cost. While the lease is open, Sai's own tasks on that
 computer wait, so always close it (a `with` block does).
 
 ```python
-with sai.control_sessions.open(machine=pc) as cs:
+with sai.control.open(machine=pc) as cs:
     print(cs.shell("hostname")["stdout"])
 
     r = cs.exec("""
@@ -182,16 +182,16 @@ off it raises `BlockError`, and a page or app snapshot is the way to get an imag
 
 Every non-2xx response raises a `SaiError` subclass with `status`, `code`, `message` and `retry_after`:
 
-| Exception                 | When                                                                 |
-| ------------------------- | -------------------------------------------------------------------- |
-| `AuthenticationError`     | 401: the key is missing, unknown or revoked                          |
-| `PermissionDeniedError`   | 403: plan or ownership (`model_not_allowed_for_plan`, ...)           |
-| `BadRequestError`         | 400: several computers and no `machine=`, `invalid_template`, ...    |
-| `ConflictError`           | 409: `machine_busy`, `session_busy`, approval no longer pending, ... |
-| `LinkOnlyApprovalError`   | the approval must be answered in a browser: `e.approval_url`         |
-| `GoneError`               | 410: the control session lost its computer; open a new one           |
-| `RateLimitError`          | 429: a rate limit, or the free plan's daily budget                   |
-| `ServiceUnavailableError` | 503: the computer did not come online; honor `retry_after`           |
+| Exception                 | When                                                          |
+| ------------------------- | ------------------------------------------------------------- |
+| `AuthenticationError`     | 401: the key is missing, unknown or revoked                   |
+| `PermissionDeniedError`   | 403: plan or ownership (`model_not_allowed_for_plan`, ...)    |
+| `BadRequestError`         | 400: e.g. several computers and no `machine=`                 |
+| `ConflictError`           | 409: `machine_busy`, approval no longer pending, ...          |
+| `LinkOnlyApprovalError`   | the approval must be answered in a browser: `e.approval_url`  |
+| `GoneError`               | 410: the control lease ended (`e.body["reason"]`); open again |
+| `RateLimitError`          | 429: a rate limit, or the free plan's daily budget            |
+| `ServiceUnavailableError` | 503: the computer did not come online; honor `retry_after`    |
 
 A task that ran out of credit ends with `result.status == "error"` and `result.error_code` set to
 `insufficient_credits` or `free_computer_time_exhausted`: stop retrying for today.

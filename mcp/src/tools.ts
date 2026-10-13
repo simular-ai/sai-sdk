@@ -8,9 +8,13 @@ import type { ApprovalRequest, MachineRow, UploadedFile, WaitResult } from './ty
 
 // ─── Schemas (§7) ─────────────────────────────────────────────────────────────
 
-export const WAIT_DEFAULT_S = 90
-/** Under Claude Code's 2-minute auto-background threshold with headroom for the HTTP round trip. */
-export const WAIT_MAX_S = 110
+export const WAIT_DEFAULT_S = 45
+/**
+ * Under the 60 s tool-call timeout most MCP clients default to (Codex, Cursor, pi, executor),
+ * with headroom for the HTTP round trip. A longer wait only saves a poll; past 60 s the client
+ * drops the call.
+ */
+export const WAIT_MAX_S = 55
 
 export const decisionSchema = z.enum(['approve', 'approve_for_task', 'deny'])
 export type Decision = z.infer<typeof decisionSchema>
@@ -108,7 +112,7 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
     'queued: true means Sai was busy and the message was parked as a steer for the running task. ' +
     NO_SCREENSHOT,
   sai_task_wait:
-    'Block up to timeout_s (default 90, max 110) for the task to leave the "running" state. ' +
+    `Block up to timeout_s (default ${WAIT_DEFAULT_S}, max ${WAIT_MAX_S}) for the task to leave the "running" state. ` +
     'Returns { status, events, text, approval?, usage?, sessionUsage?, cursor, error? }. usage is this task\'s model tokens and cost so far (inputTokens, outputTokens, cacheReadTokens, costUsd, byModel); sessionUsage is the same across the session\'s tasks.  status: "running" = timed out, call again passing the returned cursor; ' +
     '"needs_approval" = Sai is paused on `approval` — if approval.isLinkOnly is false decide with sai_task_approve, if true give approval.approvalUrl to the human and call sai_task_wait again; ' +
     '"idle" = done, `text` is Sai\'s answer; "error" = failed, see `error`. ' +

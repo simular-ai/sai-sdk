@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 import sai as sdk
-from sai import ControlSession, Sai, Session, Turn
-from sai.types import _KINDS, RUN_STATUSES
+from sai import ControlLease, Sai, Session, Turn
+from sai.types import _KINDS
 
 SURFACE = json.loads((Path(__file__).resolve().parents[2] / "surface.json").read_text())
 
@@ -34,7 +34,7 @@ def test_resource_methods(resource: str) -> None:
     assert public_methods(type(getattr(client, resource))) == sorted(SURFACE["resources"][resource])
 
 
-@pytest.mark.parametrize("name,cls", [("Session", Session), ("Turn", Turn), ("ControlSession", ControlSession)])
+@pytest.mark.parametrize("name,cls", [("Session", Session), ("Turn", Turn), ("ControlLease", ControlLease)])
 def test_object_methods(name: str, cls: type) -> None:
     assert public_methods(cls) == sorted(SURFACE["objects"][name])
 

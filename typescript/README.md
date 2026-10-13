@@ -7,11 +7,11 @@ cloud computer yourself.
 Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 [Python SDK](../python/README.md) method for method.
 
-| Layer                 | What it is                                    | Status           |
-| --------------------- | --------------------------------------------- | ---------------- |
-| `sai.sessions`        | A conversation with Sai on one computer       | available        |
-| `sai.controlSessions` | Drive a cloud computer directly with Simulang | research preview |
-| `sai.runs`            | Typed tasks: inputs, output schema, evidence  | preview          |
+| Layer          | What it is                                    | Status           |
+| -------------- | --------------------------------------------- | ---------------- |
+| `sai.sessions` | A conversation with Sai on one computer       | available        |
+| `sai.control`  | Drive a cloud computer directly with Simulang | research preview |
+| `sai.runs`     | Typed tasks: inputs, output schema, evidence  | not yet          |
 
 ## Install
 
@@ -175,11 +175,11 @@ for (const step of await sai.runs.trajectory(runId)) {
 
 ## Drive a computer yourself
 
-Control sessions run [Simulang](https://platform.simular.ai/documentation/concepts/direct-control)
-blocks on a cloud computer. While one is open, Sai's own tasks on that computer wait, so always close it.
+Direct control runs [Simulang](https://platform.simular.ai/documentation/concepts/direct-control)
+blocks on a cloud computer. While the lease is open, Sai's own tasks on that computer wait, so always close it.
 
 ```ts
-const cs = await sai.controlSessions.open({ machine: pc })
+const cs = await sai.control.open({ machine: pc })
 try {
   console.log((await cs.shell('hostname')).stdout)
 

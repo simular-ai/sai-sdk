@@ -87,8 +87,6 @@ Or in `~/.codex/config.toml`:
 [mcp_servers.sai]
 command = "npx"
 args = ["-y", "@simular-ai/sai-mcp"]
-# sai_task_wait holds for up to 110 s; Codex's default tool timeout is 60 s.
-tool_timeout_sec = 120
 
 [mcp_servers.sai.env]
 SAI_API_KEY = "sapi_YOUR_KEY"
@@ -161,8 +159,8 @@ the view says so and offers **Watch here**.
 | `SAI_API_KEY`    | yes      | Your Sai API key (`sapi_…`).                                         |
 | `SAI_PUSH`       | no       | `1` turns on Claude Code channels (below). Leave it unset otherwise. |
 | `SAI_LOCAL_VIEW` | no       | `0` turns off the local `watch_url` page.                            |
-| `SAI_SESSIONS`   | no       | `1` adds the direct-control session tools (below).                   |
-| `SAI_OSWORLD`    | no       | `1` adds the OSWorld tools (below); implies `SAI_SESSIONS`.          |
+| `SAI_CONTROL`    | no       | `1` adds the direct control tools (below).                           |
+| `SAI_OSWORLD`    | no       | `1` adds the OSWorld tools (below); implies `SAI_CONTROL`.           |
 
 ## Claude Code channels (research preview)
 
@@ -181,23 +179,23 @@ dropped and your agent is told not to poll.
 
 ## Direct control (research preview)
 
-With `SAI_SESSIONS=1`, your agent can also drive the computer itself instead of
-handing Sai a task: `sai_session_open`, then `sai_exec` blocks of Simulang
-(JavaScript) that run on the computer, then `sai_session_close`. Each block
+With `SAI_CONTROL=1`, your agent can also drive the computer itself instead of
+handing Sai a task: `sai_control_open`, then `sai_control_exec` blocks of Simulang
+(JavaScript) that run on the computer, then `sai_control_close`. Each block
 returns its value and console output, plus a screenshot as an image your
 agent's own model sees. The Simulang reference is the MCP resource
 `sai://simulang/reference`. Direct control must be enabled for your account.
 Docs: [Direct control](https://platform.simular.ai/documentation/concepts/direct-control).
 
 ```bash
-claude mcp add sai -e SAI_API_KEY=sapi_YOUR_KEY -e SAI_SESSIONS=1 -- npx -y @simular-ai/sai-mcp
+claude mcp add sai -e SAI_API_KEY=sapi_YOUR_KEY -e SAI_CONTROL=1 -- npx -y @simular-ai/sai-mcp
 ```
 
 ## OSWorld (research preview)
 
 With `SAI_OSWORLD=1`, your agent can run OSWorld V2.1 tasks: `osworld_start`
 sets a task up on a fresh cloud computer and returns its instruction, your agent
-does the task through a session on that computer, and `osworld_submit` grades
+does the task through direct control of that computer, and `osworld_submit` grades
 it (with `outcome: "fail"` when the agent concludes the task cannot be done; some
 tasks are infeasible on purpose). `osworld_ask_user` answers questions for tasks that have a user, and
 `osworld_abandon` ends an attempt without grading so you can start it again.

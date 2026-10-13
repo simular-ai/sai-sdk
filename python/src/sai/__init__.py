@@ -1,8 +1,7 @@
 """Python SDK for the Sai API.
 
 - `sai.sessions`: give Sai a task on a computer and get the answer back.
-- `sai.runs`: one message's result: typed output, evidence, trajectory.
-- `sai.control_sessions`: drive a cloud computer yourself with Simulang.
+- `sai.control`: drive a cloud computer yourself with Simulang.
 - `sai.machines`, `sai.models`, `sai.files`, `sai.account`.
 """
 
@@ -22,7 +21,7 @@ from ._errors import (
     ServiceUnavailableError,
 )
 from ._version import __version__
-from .control import ControlSession
+from .control import ControlLease
 from .machines import Machine
 from .sessions import Session, Turn
 from .types import (
@@ -46,7 +45,7 @@ __all__ = [
     "Sai",
     "Session",
     "Turn",
-    "ControlSession",
+    "ControlLease",
     "Machine",
     "Account",
     "Approval",
