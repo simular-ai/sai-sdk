@@ -23,6 +23,7 @@ export {
 } from './errors.js'
 export { ControlLease } from './control.js'
 export type { MachineRef } from './machines.js'
+export type { TurnRef } from './turns.js'
 export {
   Session,
   Turn,
@@ -33,17 +34,23 @@ export {
 } from './sessions.js'
 export {
   EVENT_KINDS,
+  TURN_RECORD_STATUSES,
   TURN_STATUSES,
   type Account,
   type Approval,
   type Attachment,
+  type Check,
   type Event,
+  type Evidence,
   type EventKind,
   type ExecError,
   type ExecResult,
   type LiveView,
   type Machine,
   type Model,
+  type TrajectoryStep,
+  type TurnRecord,
+  type TurnRecordStatus,
   type TurnResult,
   type TurnStatus,
   type Usage,

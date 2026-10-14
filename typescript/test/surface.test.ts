@@ -2,7 +2,15 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import * as sdk from '../src/index.js'
-import { ControlLease, EVENT_KINDS, Sai, Session, TURN_STATUSES, Turn } from '../src/index.js'
+import {
+  ControlLease,
+  EVENT_KINDS,
+  Sai,
+  Session,
+  TURN_RECORD_STATUSES,
+  TURN_STATUSES,
+  Turn,
+} from '../src/index.js'
 
 // surface.json is the contract every language's SDK implements (AGENTS.md).
 const surface = JSON.parse(
@@ -13,6 +21,7 @@ const surface = JSON.parse(
   errors: string[]
   event_kinds: string[]
   turn_statuses: string[]
+  turn_record_statuses: string[]
 }
 
 const camel = (s: string) => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
@@ -63,8 +72,9 @@ describe('surface parity with surface.json', () => {
     expect(exported).toEqual([...surface.errors].sort())
   })
 
-  it('event kinds and turn statuses', () => {
+  it('event kinds, turn statuses and turn record statuses', () => {
     expect([...EVENT_KINDS]).toEqual(surface.event_kinds)
     expect([...TURN_STATUSES]).toEqual(surface.turn_statuses)
+    expect([...TURN_RECORD_STATUSES]).toEqual(surface.turn_record_statuses)
   })
 })

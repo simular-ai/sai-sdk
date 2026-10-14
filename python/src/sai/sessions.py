@@ -1,17 +1,21 @@
 """Sessions: a conversation with Sai on one computer. Sai decides every click.
 
 Maps to `/v1/agents/*`: `new-session`, `message` (wait=false), `events`,
-`approve`, `abort`.
+`approve`, `abort`. Every message gets a turn id (`turn.id`, read with
+`sai.turns`); a message with `inputs`, `output_schema` or `success_criteria` is
+structured and its turn also returns a typed result.
 """
 
 from __future__ import annotations
 
+import json
 import time
+import urllib.parse
 from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from ._errors import ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError
-from .types import Approval, Attachment, Event, TurnResult, Usage
+from .types import Approval, Attachment, Check, Event, TurnRecord, TurnResult, Usage
 
 if TYPE_CHECKING:
     from ._client import Sai
@@ -25,6 +29,10 @@ ApprovalAnswer = Union[str, tuple[str, list[list[str]]], None]
 ApprovalHandler = Callable[[Approval], ApprovalAnswer]
 
 _POLL_WAIT = 30  # seconds the server may hold a poll; it caps at 60
+_RECORD_POLL_INTERVAL = 2  # seconds between turn reads; GET /v1/agents/turns/{id} never holds
+
+Inputs = dict[str, Union[str, int, float, bool]]
+SuccessCriteria = Union[str, Sequence[Union[Check, dict[str, Any]]]]
 
 
 class Sessions:
@@ -69,27 +77,69 @@ class Session:
         *,
         model: Optional[str] = None,
         attachments: Sequence[Attachment] = (),
+        inputs: Optional[Inputs] = None,
+        output_schema: Optional[dict[str, Any]] = None,
+        success_criteria: Optional[SuccessCriteria] = None,
+        idempotency_key: Optional[str] = None,
+        record_trajectory: bool = False,
     ) -> Turn:
         """Give Sai a task, or steer the running one. Returns at once.
 
         `model` is an id from `sai.models.list()` (or `auto`); it sticks to the
         session until changed. Sent while a turn is running, the message steers
         that turn (`turn.queued` is True) instead of starting a new one.
+
+        Any of `inputs`, `output_schema` or `success_criteria` makes the message
+        structured: `message` is a template whose `{{name}}` placeholders are
+        filled from `inputs`, the output must match `output_schema` (JSON Schema,
+        at most 32 KB), and the turn is checked against `success_criteria` (a
+        guideline for a judge, or a list of `Check`). `wait()` then also returns
+        the turn's record in `result.record`. A structured message is refused
+        with `ConflictError` (`session_busy`) while a turn is running.
+        The same `idempotency_key` again returns the earlier turn and sends nothing.
+        `record_trajectory` keeps a screenshot and the action for each step
+        (`sai.turns.trajectory()`). These go to the API as `options`.
         """
         body: dict[str, Any] = {"message": message, "wait": False}
         if self.machine_id:
             body["machineId"] = self.machine_id
+        if self.id:
+            body["sessionId"] = self.id
         if model:
             body["model"] = model
         if attachments:
             body["attachments"] = [a.raw for a in attachments]
+        options: dict[str, Any] = {}
+        if inputs is not None:
+            options["inputs"] = inputs
+        if output_schema is not None:
+            options["output_schema"] = output_schema
+        if success_criteria is not None:
+            options["success_criteria"] = (
+                success_criteria
+                if isinstance(success_criteria, str)
+                else [c.to_json() if isinstance(c, Check) else c for c in success_criteria]
+            )
+        if idempotency_key is not None:
+            options["idempotency_key"] = idempotency_key
+        if record_trajectory:
+            options["recordTrajectory"] = True
+        if options:
+            body["options"] = options
+        structured = any(v is not None for v in (inputs, output_schema, success_criteria))
         d = self._sai._http.json("POST", "/v1/agents/message", json=body)
+        if d.get("idempotent_replay"):
+            # The key was used before: this is that turn, and nothing was sent.
+            record = TurnRecord.parse(d)
+            self.id = record.session_id or self.id
+            self.machine_id = record.machine_id or self.machine_id
+            return Turn(self, turn_id=record.id, structured=structured, replay=record)
         if not d.get("sessionId"):
             # Handled without starting a task (e.g. a plain acknowledgement): the reply is in `error`.
             return Turn(self, done=_result(self.id or "", "idle", d.get("error", "")))
         self.id = d["sessionId"]
         self.machine_id = d.get("machineId", self.machine_id)
-        return Turn(self, queued=bool(d.get("queued")))
+        return Turn(self, queued=bool(d.get("queued")), turn_id=d.get("turnId"), structured=structured)
 
     def run(
         self,
@@ -97,13 +147,25 @@ class Session:
         *,
         model: Optional[str] = None,
         attachments: Sequence[Attachment] = (),
+        inputs: Optional[Inputs] = None,
+        output_schema: Optional[dict[str, Any]] = None,
+        success_criteria: Optional[SuccessCriteria] = None,
+        idempotency_key: Optional[str] = None,
+        record_trajectory: bool = False,
         on_approval: Optional[ApprovalHandler] = None,
         timeout: Optional[float] = None,
     ) -> TurnResult:
         """`send()` then `wait()`: the answer, or where it stopped."""
-        return self.send(message, model=model, attachments=attachments).wait(
-            on_approval=on_approval, timeout=timeout
-        )
+        return self.send(
+            message,
+            model=model,
+            attachments=attachments,
+            inputs=inputs,
+            output_schema=output_schema,
+            success_criteria=success_criteria,
+            idempotency_key=idempotency_key,
+            record_trajectory=record_trajectory,
+        ).wait(on_approval=on_approval, timeout=timeout)
 
     def abort(self) -> bool:
         """Stop the running turn. Pending approvals are denied. False if nothing was running."""
@@ -141,18 +203,34 @@ class Session:
 
 
 class Turn:
-    """One message's work. Iterate `events()` to watch it, or `wait()` for the result."""
+    """One message's work. Iterate `events()` to watch it, or `wait()` for the result.
 
-    def __init__(self, session: Session, *, queued: bool = False, done: Optional[TurnResult] = None) -> None:
+    `id` is the turn the message started, or the running turn it joined
+    (`sai.turns.get(turn)`); None when the message was answered without one.
+    """
+
+    def __init__(
+        self,
+        session: Session,
+        *,
+        queued: bool = False,
+        done: Optional[TurnResult] = None,
+        turn_id: Optional[str] = None,
+        structured: bool = False,
+        replay: Optional[TurnRecord] = None,
+    ) -> None:
         self.session = session
         self.queued = queued
+        self.id = turn_id
+        self._structured = structured
+        self._replay = replay
         self._cursor: Optional[str] = None
         self._result = done
-        # answered without starting a task: nothing to poll
-        self._local = done is not None
+        # answered without starting a task, or an idempotent replay: no events to poll
+        self._local = done is not None or replay is not None
 
     def __repr__(self) -> str:
-        return f"Turn(session_id={self.session.id!r}, status={self.status!r})"
+        return f"Turn(session_id={self.session.id!r}, id={self.id!r}, status={self.status!r})"
 
     @property
     def status(self) -> str:
@@ -195,11 +273,19 @@ class Turn:
         `approval` so the caller can decide. With it, the handler's answer is
         sent and waiting continues; a handler returning None leaves the approval
         to someone else (a link-only one to a human) and keeps waiting.
+        For a structured message, it then waits for the turn's record
+        (`result.record`: output, evidence), which is worked out after the turn.
         `timeout` (seconds) raises `TimeoutError` with the turn still running.
         """
+        deadline = None if timeout is None else time.monotonic() + timeout
+        if self._replay is not None:
+            record = self._replay
+            if not record.done:
+                record = _wait_record(self.session._sai, record.id, deadline=deadline)
+            self._result = _replay_result(record, record.session_id or self.session.id or "")
+            return self._result
         if self._local:
             return self._result  # type: ignore[return-value]
-        deadline = None if timeout is None else time.monotonic() + timeout
         answered: set[str] = set()
         while True:
             if deadline is not None:
@@ -210,6 +296,10 @@ class Turn:
             page = self._poll(poll_wait)
             status = page.get("status")
             if status in ("idle", "error"):
+                if self._structured and self.id:
+                    self._result.record = _wait_record(  # type: ignore[union-attr]
+                        self.session._sai, self.id, deadline=deadline
+                    )
                 return self._result  # type: ignore[return-value]
             if status == "needs_approval" and self._result and self._result.approval:
                 approval = self._result.approval
@@ -270,6 +360,51 @@ class Turn:
             session_usage=Usage.parse(page.get("sessionUsage")),
         )
         return page
+
+
+def _wait_record(
+    sai: Sai, turn_id: str, *, deadline: Optional[float], stop: tuple[str, ...] = ("succeeded", "failed")
+) -> TurnRecord:
+    """Read the turn's record until its status is in `stop`; `TimeoutError` past `deadline` (monotonic)."""
+    while True:
+        try:
+            record = TurnRecord.parse(
+                sai._http.json("GET", f"/v1/agents/turns/{urllib.parse.quote(turn_id, safe='')}")
+            )
+        except RateLimitError as e:
+            time.sleep(e.retry_after or 30)
+            continue
+        if record.status in stop:
+            return record
+        if deadline is not None and time.monotonic() + _RECORD_POLL_INTERVAL > deadline:
+            raise TimeoutError(f"Turn {turn_id} still {record.status}.")
+        time.sleep(_RECORD_POLL_INTERVAL)
+
+
+# A turn that failed for these reasons still has the agent's answer; the turn itself did not break.
+_ANSWERED_REASONS = ("output_invalid", "criteria_not_met", "criteria_unchecked")
+
+
+def _replay_result(record: TurnRecord, session_id: str) -> TurnResult:
+    """The result the live path would have returned for this finished turn, from its record."""
+    result = _result(session_id, "idle", record.raw_answer or _output_text(record.output))
+    if record.status == "failed" and record.reason_code not in _ANSWERED_REASONS:
+        result.status = "error"
+        result.text = ""
+        result.error = record.raw_answer or f"The turn failed ({record.reason_code or 'unknown'})."
+        result.error_code = record.error_code
+    result.usage = record.usage
+    result.record = record
+    return result
+
+
+def _output_text(output: Any) -> str:
+    """`output` as text: a plain message's answer as is, an `output_schema` object as JSON."""
+    if output is None:
+        return ""
+    if isinstance(output, str):
+        return output
+    return json.dumps(output, ensure_ascii=False, separators=(",", ":"))
 
 
 def _result(session_id: str, status: str, text: str) -> TurnResult:

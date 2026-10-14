@@ -2,7 +2,9 @@
  * Sessions: a conversation with Sai on one computer. Sai decides every click.
  *
  * Maps to `/v1/agents/*`: `new-session`, `message` (wait=false), `events`,
- * `approve`, `abort`.
+ * `approve`, `abort`. Every message gets a turn id (`turn.id`, read with
+ * `sai.turns`); a message with `inputs`, `outputSchema` or `successCriteria`
+ * is structured and its turn also returns a typed result.
  */
 
 import { ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError } from './errors.js'
@@ -11,10 +13,14 @@ import { idOf, type MachineRef, type Machines } from './machines.js'
 import {
   parseApproval,
   parseEvent,
+  parseTurnRecord,
   parseUsage,
   type Approval,
   type Attachment,
+  type Check,
   type Event,
+  type TurnRecord,
+  type TurnRecordStatus,
   type TurnResult,
   type TurnStatus,
 } from './types.js'
@@ -31,6 +37,19 @@ export interface SendOptions {
   /** An id from `sai.models.list()` (or `auto`); sticks to the session until changed. */
   model?: string
   attachments?: Attachment[]
+  /** Values for the `{{name}}` placeholders in the message. Makes the message structured. */
+  inputs?: Record<string, string | number | boolean>
+  /** JSON Schema (at most 32 KB) the turn's output must match. Makes the message structured. */
+  outputSchema?: Record<string, unknown>
+  /**
+   * A guideline for a judge, or yes/no checks, the turn is checked against.
+   * Makes the message structured.
+   */
+  successCriteria?: string | Check[]
+  /** The same key again returns the earlier turn and sends nothing. */
+  idempotencyKey?: string
+  /** Keep a screenshot and the action for each step (`sai.turns.trajectory()`). */
+  recordTrajectory?: boolean
 }
 
 export interface WaitOptions {
@@ -42,6 +61,8 @@ export interface WaitOptions {
 }
 
 const POLL_WAIT = 30
+/** Between turn reads; `GET /v1/agents/turns/{id}` never holds. */
+const RECORD_POLL_INTERVAL_MS = 2_000
 
 interface EventsPage {
   sessionId?: string
@@ -97,15 +118,41 @@ export class Session {
   /**
    * Give Sai a task, or steer the running one. Returns at once. Sent while a
    * turn is running, the message steers that turn (`turn.queued` is true).
+   *
+   * Any of `inputs`, `outputSchema` or `successCriteria` makes the message
+   * structured: the message is a template whose `{{name}}` placeholders are
+   * filled from `inputs`, the output must match `outputSchema`, and the turn
+   * is checked against `successCriteria`. `wait()` then also returns the
+   * turn's record in `result.record`. A structured message is refused with
+   * `ConflictError` (`session_busy`) while a turn is running. These go to the
+   * API as `options`.
    */
   async send(message: string, opts: SendOptions = {}): Promise<Turn> {
     const body: Record<string, unknown> = { message, wait: false }
     if (this.machineId) body.machineId = this.machineId
+    if (this.id) body.sessionId = this.id
     if (opts.model) body.model = opts.model
     if (opts.attachments?.length) body.attachments = opts.attachments.map((a) => a.raw)
+    const options: Record<string, unknown> = {}
+    if (opts.inputs !== undefined) options.inputs = opts.inputs
+    if (opts.outputSchema !== undefined) options.output_schema = opts.outputSchema
+    if (opts.successCriteria !== undefined) options.success_criteria = opts.successCriteria
+    if (opts.idempotencyKey !== undefined) options.idempotency_key = opts.idempotencyKey
+    if (opts.recordTrajectory) options.recordTrajectory = true
+    if (Object.keys(options).length) body.options = options
+    const structured = [opts.inputs, opts.outputSchema, opts.successCriteria].some(
+      (v) => v !== undefined,
+    )
     const d = await this.http.json<Record<string, unknown>>('POST', '/v1/agents/message', {
       json: body,
     })
+    if (d.idempotent_replay) {
+      // The key was used before: this is that turn, and nothing was sent.
+      const record = parseTurnRecord(d)
+      this.id = record.sessionId ?? this.id
+      this.machineId = record.machineId || this.machineId
+      return new Turn(this, this.http, false, null, { id: record.id, structured, replay: record })
+    }
     if (typeof d.sessionId !== 'string' || !d.sessionId) {
       // Handled without starting a task (e.g. a plain acknowledgement): the reply is in `error`.
       const text = typeof d.error === 'string' ? d.error : ''
@@ -113,7 +160,8 @@ export class Session {
     }
     this.id = d.sessionId
     if (typeof d.machineId === 'string') this.machineId = d.machineId
-    return new Turn(this, this.http, Boolean(d.queued))
+    const id = typeof d.turnId === 'string' ? d.turnId : null
+    return new Turn(this, this.http, Boolean(d.queued), null, { id, structured })
   }
 
   /** `send()` then `wait()`: the answer, or where it stopped. */
@@ -160,11 +208,18 @@ export class Session {
   }
 }
 
-/** One message's work. Iterate `events()` to watch it, or `wait()` for the result. */
+/**
+ * One message's work. Iterate `events()` to watch it, or `wait()` for the
+ * result. `id` is the turn the message started, or the running turn it joined
+ * (`sai.turns.get(turn)`); null when the message was answered without one.
+ */
 export class Turn {
+  readonly id: string | null
   private cursor: string | null = null
   private last: TurnResult | null
-  // answered without starting a task: nothing to poll
+  private readonly structured: boolean
+  private readonly replay: TurnRecord | null
+  // answered without starting a task, or an idempotent replay: no events to poll
   private readonly local: boolean
 
   constructor(
@@ -172,9 +227,16 @@ export class Turn {
     private readonly http: Http,
     readonly queued: boolean,
     done: TurnResult | null = null,
+    turn: { id: string | null; structured: boolean; replay?: TurnRecord } = {
+      id: null,
+      structured: false,
+    },
   ) {
     this.last = done
-    this.local = done !== null
+    this.id = turn.id
+    this.structured = turn.structured
+    this.replay = turn.replay ?? null
+    this.local = done !== null || this.replay !== null
   }
 
   get status(): TurnStatus {
@@ -209,11 +271,20 @@ export class Turn {
    * Without `onApproval`, resolves with `status === 'needs_approval'` and the
    * `approval` so the caller can decide. With it, the handler's answer is sent
    * and waiting continues; a handler returning null leaves the approval to
-   * someone else (a link-only one to a human) and keeps waiting.
+   * someone else (a link-only one to a human) and keeps waiting. For a
+   * structured message, it then waits for the turn's record (`result.record`:
+   * output, evidence), which is worked out after the turn.
    */
   async wait(opts: WaitOptions = {}): Promise<TurnResult> {
-    if (this.local) return this.last!
     const deadline = opts.timeoutMs === undefined ? null : Date.now() + opts.timeoutMs
+    if (this.replay) {
+      const record = this.replay.done
+        ? this.replay
+        : await waitTurnRecord(this.http, this.replay.id, deadline)
+      this.last = replayResult(record, record.sessionId ?? this.session.id ?? '')
+      return this.last
+    }
+    if (this.local) return this.last!
     const answered = new Set<string>()
     for (;;) {
       let pollWait = opts.pollWait ?? POLL_WAIT
@@ -228,7 +299,12 @@ export class Turn {
         pollWait = Math.max(1, Math.min(pollWait, Math.floor(left / 1000)))
       }
       const page = await this.#poll(pollWait)
-      if (page.status === 'idle' || page.status === 'error') return this.last!
+      if (page.status === 'idle' || page.status === 'error') {
+        if (this.structured && this.id) {
+          this.last = withRecord(this.last!, await waitTurnRecord(this.http, this.id, deadline))
+        }
+        return this.last!
+      }
       const approval = this.last?.approval
       if (page.status !== 'needs_approval' || !approval) continue
       if (!opts.onApproval) return this.last!
@@ -291,10 +367,68 @@ export class Turn {
       errorCode,
       usage: parseUsage(page.usage),
       sessionUsage: parseUsage(page.sessionUsage),
+      record: null,
       ok: status === 'idle',
     }
     return page
   }
+}
+
+/**
+ * Read the turn's record until its status is in `stop`. Throws a `TimeoutError`
+ * (DOMException) past `deadline` (epoch ms).
+ */
+export async function waitTurnRecord(
+  http: Http,
+  turnId: string,
+  deadline: number | null,
+  stop: readonly TurnRecordStatus[] = ['succeeded', 'failed'],
+): Promise<TurnRecord> {
+  for (;;) {
+    let record: TurnRecord
+    try {
+      record = parseTurnRecord(
+        await http.json('GET', `/v1/agents/turns/${encodeURIComponent(turnId)}`),
+      )
+    } catch (err) {
+      if (!(err instanceof RateLimitError)) throw err
+      await sleep((err.retryAfter ?? 30) * 1000)
+      continue
+    }
+    if (stop.includes(record.status)) return record
+    if (deadline !== null && Date.now() + RECORD_POLL_INTERVAL_MS > deadline) {
+      throw new DOMException(`Turn ${turnId} still ${record.status}.`, 'TimeoutError')
+    }
+    await sleep(RECORD_POLL_INTERVAL_MS)
+  }
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+function withRecord(result: TurnResult, record: TurnRecord): TurnResult {
+  return { ...result, record, ok: result.status === 'idle' && record.ok }
+}
+
+// A turn that failed for these reasons still has the agent's answer; the turn itself did not break.
+const ANSWERED_REASONS = ['output_invalid', 'criteria_not_met', 'criteria_unchecked']
+
+/** The result the live path would have returned for this finished turn, from its record. */
+function replayResult(record: TurnRecord, sessionId: string): TurnResult {
+  const result = localResult(sessionId, record.rawAnswer || outputText(record.output))
+  if (record.status === 'failed' && !ANSWERED_REASONS.includes(record.reasonCode ?? '')) {
+    result.status = 'error'
+    result.text = ''
+    result.error = record.rawAnswer || `The turn failed (${record.reasonCode ?? 'unknown'}).`
+    result.errorCode = record.errorCode
+  }
+  result.usage = record.usage
+  return withRecord(result, record)
+}
+
+/** `output` as text: a plain message's answer as is, an `outputSchema` object as JSON. */
+function outputText(output: unknown): string {
+  if (output === null || output === undefined) return ''
+  return typeof output === 'string' ? output : JSON.stringify(output)
 }
 
 function localResult(sessionId: string, text: string): TurnResult {
@@ -307,6 +441,7 @@ function localResult(sessionId: string, text: string): TurnResult {
     errorCode: null,
     usage: null,
     sessionUsage: null,
+    record: null,
     ok: true,
   }
 }

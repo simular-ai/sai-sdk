@@ -11,6 +11,7 @@ from ._http import DEFAULT_BASE_URL, HTTP
 from .control import Control
 from .machines import Machines
 from .sessions import Sessions
+from .turns import Turns
 from .types import Account, Attachment, Model
 
 
@@ -45,6 +46,7 @@ class Sai:
         )
         self.machines = Machines(self)
         self.sessions = Sessions(self)
+        self.turns = Turns(self)
         self.control = Control(self)
         self.models = _Models(self)
         self.files = _Files(self)

@@ -10,7 +10,7 @@ Status: **alpha (0.1)**. The surface may still change before 1.0.
 | -------------- | --------------------------------------------- | ---------------- |
 | `sai.sessions` | A conversation with Sai on one computer       | available        |
 | `sai.control`  | Drive a cloud computer directly with Simulang | research preview |
-| `sai.runs`     | Typed tasks: inputs, output schema, evidence  | not yet          |
+| `sai.turns`    | A turn's record: typed output, evidence       | available        |
 
 ## Install
 
@@ -85,6 +85,74 @@ session.run("...", model="anthropic/claude-opus-5-5")   # sticks to the session
 turn = session.send("...")
 turn.abort()
 ```
+
+## Get typed results
+
+Any message can also return structured data. Pass `output_schema` and the turn's record comes back in
+`result.record`, with `output` matching the schema:
+
+```python
+session = sai.sessions.create(machine=pc)
+result = session.run(
+    "Open Notepad, type \"hello\" and save it on the Desktop as hello.txt. Return the saved file's path.",
+    output_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+)
+if result.ok:
+    print(result.record.output["path"])   # C:\Users\...\Desktop\hello.txt
+else:
+    print(result.record.reason_code)      # e.g. output_invalid, with result.record.raw_answer
+```
+
+More options, all optional (the SDK sends them to the API as `options`):
+
+| Argument            | What it does                                                                 |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `inputs`            | Fill `{{name}}` placeholders in the message; every placeholder needs a value |
+| `output_schema`     | JSON Schema (at most 32 KB) the output must match                            |
+| `success_criteria`  | A guideline for a judge, or a list of `Check` yes/no checks                  |
+| `idempotency_key`   | The same key again returns the earlier turn and sends nothing                |
+| `record_trajectory` | Keep a screenshot and the action for each step                               |
+
+`inputs`, `output_schema` or `success_criteria` make the message _structured_. A structured message
+behaves like any other (same session, same computer); it only adds the typed result. It is refused with
+`ConflictError` (`code == "session_busy"`) while the session is working, because it starts a turn of its
+own. A plain message sent then joins the running turn instead.
+
+```python
+from sai import Check
+
+result = session.run(
+    "Save \"Invoice {{invoice_number}}: {{amount}} USD\" on the Desktop as {{file_name}}. Return its path.",
+    inputs={"invoice_number": "INV-1001", "amount": "42.50", "file_name": "inv-1001.txt"},
+    output_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+    success_criteria=[Check("saved", "The file is saved and contains the invoice line", return_evidence=True)],
+    idempotency_key="inv-1001",   # a retry returns this turn and sends nothing
+    record_trajectory=True,
+)
+record = result.record
+print(record.status)      # succeeded | failed
+print(record.evidence)    # [Evidence(id="saved", passed=True, score=0.94, evidence="...")]
+print(record.usage)       # tokens of the agent's model calls in this turn
+```
+
+`result.ok` is True only when the turn succeeded. On `failed`, `record.reason_code` says why
+(`agent_error`, `output_invalid`, `criteria_not_met`, ...); the output is never a partial object.
+
+**Reading a turn later.** Every message gets a turn id, `turn.id` (plain messages too):
+
+```python
+turn = session.send("...")
+record = sai.turns.get(turn)                 # never waits; `finalizing` while the result is worked out
+record = sai.turns.wait(turn, timeout=600)   # until succeeded, failed or needs_input
+for step in sai.turns.trajectory(turn):      # needs record_trajectory=True
+    print(step.index, step.title, step.code)
+    if step.has_screenshot:
+        open(f"step{step.index}.jpg", "wb").write(sai.turns.screenshot(turn, step.index))
+```
+
+Each takes a `Turn`, a `TurnRecord` or the id string. `record.status` is `running`, `needs_input` (an
+approval is pending: answer it on `sai.sessions.resume(record.session_id)`), `finalizing`, `succeeded` or
+`failed`.
 
 ## Drive a computer yourself
 

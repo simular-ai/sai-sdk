@@ -11,7 +11,7 @@ Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 | -------------- | --------------------------------------------- | ---------------- |
 | `sai.sessions` | A conversation with Sai on one computer       | available        |
 | `sai.control`  | Drive a cloud computer directly with Simulang | research preview |
-| `sai.runs`     | Typed tasks: inputs, output schema, evidence  | not yet          |
+| `sai.turns`    | A turn's record: typed output, evidence       | available        |
 
 ## Install
 
@@ -84,6 +84,90 @@ await session.run('...', { model: 'anthropic/claude-opus-5-5' }) // sticks to th
 const turn = await session.send('...')
 await turn.abort()
 ```
+
+## Get typed results
+
+Any message can also return structured data. Pass `outputSchema` and the turn's record comes back in
+`result.record`, with `output` matching the schema:
+
+```ts
+const session = await sai.sessions.create({ machine: pc })
+const result = await session.run(
+  'Open Notepad, type "hello" and save it on the Desktop as hello.txt. Return the saved file\'s path.',
+  {
+    outputSchema: {
+      type: 'object',
+      properties: { path: { type: 'string' } },
+      required: ['path'],
+    },
+  },
+)
+if (result.ok) console.log((result.record?.output as { path: string }).path)
+else console.log(result.record?.reasonCode) // e.g. output_invalid, with result.record.rawAnswer
+```
+
+More options, all optional (the SDK sends them to the API as `options`):
+
+| Option             | What it does                                                                 |
+| ------------------ | ---------------------------------------------------------------------------- |
+| `inputs`           | Fill `{{name}}` placeholders in the message; every placeholder needs a value |
+| `outputSchema`     | JSON Schema (at most 32 KB) the output must match                            |
+| `successCriteria`  | A guideline for a judge, or `{ id, check, returnEvidence? }` yes/no checks   |
+| `idempotencyKey`   | The same key again returns the earlier turn and sends nothing                |
+| `recordTrajectory` | Keep a screenshot and the action for each step                               |
+
+`inputs`, `outputSchema` or `successCriteria` make the message _structured_. A structured message
+behaves like any other (same session, same computer); it only adds the typed result. It is rejected with
+`ConflictError` (`code === 'session_busy'`) while the session is working, because it starts a turn of
+its own. A plain message sent then joins the running turn instead.
+
+```ts
+const result = await session.run(
+  'Save "Invoice {{invoice_number}}: {{amount}} USD" on the Desktop as {{file_name}}. Return its path.',
+  {
+    inputs: { invoice_number: 'INV-1001', amount: '42.50', file_name: 'inv-1001.txt' },
+    outputSchema: {
+      type: 'object',
+      properties: { path: { type: 'string' } },
+      required: ['path'],
+    },
+    successCriteria: [
+      {
+        id: 'saved',
+        check: 'The file is saved and contains the invoice line',
+        returnEvidence: true,
+      },
+    ],
+    idempotencyKey: 'inv-1001', // a retry returns this turn and sends nothing
+    recordTrajectory: true,
+  },
+)
+const record = result.record
+console.log(record?.status) // succeeded | failed
+console.log(record?.evidence) // [{ id: 'saved', passed: true, score: 0.94, evidence: '...' }]
+console.log(record?.usage) // tokens of the agent's model calls in this turn
+```
+
+`result.ok` is true only when the turn succeeded. On `failed`, `record.reasonCode` says why
+(`agent_error`, `output_invalid`, `criteria_not_met`, ...); the output is never a partial object.
+
+**Reading a turn later.** Every message gets a turn id, `turn.id` (plain messages too):
+
+```ts
+const turn = await session.send('...')
+let record = await sai.turns.get(turn) // never waits; `finalizing` while the result is worked out
+record = await sai.turns.wait(turn, { timeoutMs: 600_000 }) // until succeeded, failed or needs_input
+for (const step of await sai.turns.trajectory(turn)) {
+  // needs recordTrajectory: true
+  console.log(step.index, step.title, step.code)
+  if (step.hasScreenshot)
+    await writeFile(`step${step.index}.jpg`, await sai.turns.screenshot(turn, step.index))
+}
+```
+
+Each takes a `Turn`, a `TurnRecord` or the id string. `record.status` is `running`, `needs_input` (an
+approval is pending: answer it on `sai.sessions.resume(record.sessionId)`), `finalizing`, `succeeded` or
+`failed`.
 
 ## Drive a computer yourself
 
