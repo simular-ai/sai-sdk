@@ -11,9 +11,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe('control tools', () => {
-  it('are off unless SAI_CONTROL is set', () => {
-    expect(readConfig({ SAI_API_KEY: 'k' }).control).toBe(false)
+  it('are on by default, and off with SAI_CONTROL=0 unless SAI_OSWORLD needs them', () => {
+    expect(readConfig({ SAI_API_KEY: 'k' }).control).toBe(true)
     expect(readConfig({ SAI_API_KEY: 'k', SAI_CONTROL: '1' }).control).toBe(true)
+    expect(readConfig({ SAI_API_KEY: 'k', SAI_CONTROL: '0' }).control).toBe(false)
+    expect(readConfig({ SAI_API_KEY: 'k', SAI_CONTROL: '0', SAI_OSWORLD: '1' }).control).toBe(true)
   })
 
   it('returns the screenshot as MCP image content, the rest as text', () => {

@@ -22,7 +22,8 @@ const ATTEMPT = {
 
 describe('osworld tools', () => {
   it('are off unless SAI_OSWORLD is set, and SAI_OSWORLD brings the control tools', () => {
-    expect(readConfig({ SAI_API_KEY: 'k' })).toMatchObject({ osworld: false, control: false })
+    // Direct control is on by default for every account; the OSWorld tools are not.
+    expect(readConfig({ SAI_API_KEY: 'k' })).toMatchObject({ osworld: false, control: true })
     expect(readConfig({ SAI_API_KEY: 'k', SAI_OSWORLD: '1' })).toMatchObject({
       osworld: true,
       control: true,
