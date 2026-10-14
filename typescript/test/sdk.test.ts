@@ -9,6 +9,8 @@ import {
   ConflictError,
   GoneError,
   LinkOnlyApprovalError,
+  PermissionDeniedError,
+  SpendCapReachedError,
   Sai,
   type Event,
   type TurnResult,
@@ -97,6 +99,27 @@ describe('sai typescript sdk', () => {
     expect(err).toBeInstanceOf(ConflictError)
     expect((err as ConflictError).code).toBe('machine_busy')
     expect((err as ConflictError).message).toBe('A task holds it')
+  })
+
+  it('gives a reached spend cap its own error', async () => {
+    const err = await client({
+      'POST /v1/agents/message': [
+        403,
+        {
+          error: 'spend_cap_reached',
+          message: 'This key reached its limit.',
+          resetsAt: '2026-11-01T00:00:00.000Z',
+        },
+      ],
+    })
+      .sessions.resume('cs_1', { machine: 'm_1' })
+      .send('hello')
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(SpendCapReachedError)
+    expect(err).toBeInstanceOf(PermissionDeniedError)
+    expect((err as SpendCapReachedError).status).toBe(403)
+    expect((err as SpendCapReachedError).code).toBe('spend_cap_reached')
+    expect((err as SpendCapReachedError).resetsAt).toBe('2026-11-01T00:00:00.000Z')
   })
 
   it('resolves the machine', async () => {

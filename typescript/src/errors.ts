@@ -71,6 +71,23 @@ export class LinkOnlyApprovalError extends ConflictError {
   }
 }
 
+/**
+ * 403 `spend_cap_reached`: the key reached its monthly spend limit. Not
+ * retryable: the limit resets at `resetsAt` (ISO 8601, 00:00 UTC on the 1st),
+ * or raise it for the key in the portal.
+ */
+export class SpendCapReachedError extends PermissionDeniedError {
+  get resetsAt(): string | undefined {
+    const at = this.body.resetsAt
+    return typeof at === 'string' ? at : undefined
+  }
+}
+
+const BY_CODE: Partial<Record<string, typeof SaiError>> = {
+  link_only: LinkOnlyApprovalError,
+  spend_cap_reached: SpendCapReachedError,
+}
+
 const BY_STATUS: Record<number, typeof SaiError> = {
   400: BadRequestError,
   401: AuthenticationError,
@@ -96,7 +113,10 @@ export function errorFor(
   let message =
     typeof detail === 'string' ? detail : typeof err === 'string' ? err : `HTTP ${status}`
   if (status === 401) message += ' (SAI_API_KEY was rejected: it may be revoked.)'
-  const Cls = code === 'link_only' ? LinkOnlyApprovalError : (BY_STATUS[status] ?? SaiError)
+  const Cls =
+    (code !== undefined && Object.hasOwn(BY_CODE, code) ? BY_CODE[code] : undefined) ??
+    BY_STATUS[status] ??
+    SaiError
   return new Cls(message, { status, code, body, retryAfter })
 }
 
