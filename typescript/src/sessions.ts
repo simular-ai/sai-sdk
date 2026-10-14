@@ -281,7 +281,7 @@ export class Turn {
       const record = this.replay.done
         ? this.replay
         : await waitTurnRecord(this.http, this.replay.id, deadline)
-      this.last = withRecord(localResult(record.sessionId ?? this.session.id ?? '', ''), record)
+      this.last = replayResult(record, record.sessionId ?? this.session.id ?? '')
       return this.last
     }
     if (this.local) return this.last!
@@ -407,6 +407,28 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 function withRecord(result: TurnResult, record: TurnRecord): TurnResult {
   return { ...result, record, ok: result.status === 'idle' && record.ok }
+}
+
+// A turn that failed for these reasons still has the agent's answer; the turn itself did not break.
+const ANSWERED_REASONS = ['output_invalid', 'criteria_not_met', 'criteria_unchecked']
+
+/** The result the live path would have returned for this finished turn, from its record. */
+function replayResult(record: TurnRecord, sessionId: string): TurnResult {
+  const result = localResult(sessionId, record.rawAnswer || outputText(record.output))
+  if (record.status === 'failed' && !ANSWERED_REASONS.includes(record.reasonCode ?? '')) {
+    result.status = 'error'
+    result.text = ''
+    result.error = record.rawAnswer || `The turn failed (${record.reasonCode ?? 'unknown'}).`
+    result.errorCode = record.errorCode
+  }
+  result.usage = record.usage
+  return withRecord(result, record)
+}
+
+/** `output` as text: a plain message's answer as is, an `outputSchema` object as JSON. */
+function outputText(output: unknown): string {
+  if (output === null || output === undefined) return ''
+  return typeof output === 'string' ? output : JSON.stringify(output)
 }
 
 function localResult(sessionId: string, text: string): TurnResult {

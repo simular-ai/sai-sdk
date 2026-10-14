@@ -8,6 +8,7 @@ structured and its turn also returns a typed result.
 
 from __future__ import annotations
 
+import json
 import time
 import urllib.parse
 from collections.abc import Iterator, Sequence
@@ -281,8 +282,7 @@ class Turn:
             record = self._replay
             if not record.done:
                 record = _wait_record(self.session._sai, record.id, deadline=deadline)
-            self._result = _result(record.session_id or self.session.id or "", "idle", "")
-            self._result.record = record
+            self._result = _replay_result(record, record.session_id or self.session.id or "")
             return self._result
         if self._local:
             return self._result  # type: ignore[return-value]
@@ -379,6 +379,32 @@ def _wait_record(
         if deadline is not None and time.monotonic() + _RECORD_POLL_INTERVAL > deadline:
             raise TimeoutError(f"Turn {turn_id} still {record.status}.")
         time.sleep(_RECORD_POLL_INTERVAL)
+
+
+# A turn that failed for these reasons still has the agent's answer; the turn itself did not break.
+_ANSWERED_REASONS = ("output_invalid", "criteria_not_met", "criteria_unchecked")
+
+
+def _replay_result(record: TurnRecord, session_id: str) -> TurnResult:
+    """The result the live path would have returned for this finished turn, from its record."""
+    result = _result(session_id, "idle", record.raw_answer or _output_text(record.output))
+    if record.status == "failed" and record.reason_code not in _ANSWERED_REASONS:
+        result.status = "error"
+        result.text = ""
+        result.error = record.raw_answer or f"The turn failed ({record.reason_code or 'unknown'})."
+        result.error_code = record.error_code
+    result.usage = record.usage
+    result.record = record
+    return result
+
+
+def _output_text(output: Any) -> str:
+    """`output` as text: a plain message's answer as is, an `output_schema` object as JSON."""
+    if output is None:
+        return ""
+    if isinstance(output, str):
+        return output
+    return json.dumps(output, ensure_ascii=False, separators=(",", ":"))
 
 
 def _result(session_id: str, status: str, text: str) -> TurnResult:
