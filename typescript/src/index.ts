@@ -2,6 +2,7 @@
  * TypeScript SDK for the Sai API.
  *
  * - `sai.sessions`: give Sai a task on a computer and get the answer back.
+ * - `sai.learn`, `sai.judge`: turn recorded turns into Simulang code, repair it, judge turns.
  * - `sai.control`: drive a cloud computer yourself with Simulang.
  * - `sai.machines`, `sai.models`, `sai.files`, `sai.account`.
  */
@@ -24,6 +25,7 @@ export {
 export { ControlLease } from './control.js'
 export type { MachineRef } from './machines.js'
 export type { TurnRef } from './turns.js'
+export type { JudgeOptions, LearnOptions } from './learn.js'
 export {
   Session,
   Turn,
@@ -40,11 +42,16 @@ export {
   type Approval,
   type Attachment,
   type Check,
+  type CriterionResult,
+  type Evaluation,
   type Event,
   type Evidence,
   type EventKind,
   type ExecError,
   type ExecResult,
+  type Judgement,
+  type LearnParameter,
+  type LearnResult,
   type LiveView,
   type Machine,
   type Model,

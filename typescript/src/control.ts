@@ -9,7 +9,7 @@
 import { BlockError, GoneError } from './errors.js'
 import type { Http } from './http.js'
 import { idOf, type MachineRef } from './machines.js'
-import { parseExecResult, type ExecResult } from './types.js'
+import { parseExecResult, type ExecResult, type LearnResult } from './types.js'
 
 function controlPath(machineId: string): string {
   return `/v1/machines/${encodeURIComponent(machineId)}/control`
@@ -63,6 +63,24 @@ export class ControlLease {
       timeoutMs: (opts.timeoutMs ?? 120_000) + 45_000,
     })
     return parseExecResult(d)
+  }
+
+  /**
+   * Run code from `sai.learn.create()`: its `main` with `inputs` over the parameters' defaults
+   * (an argument to `main` replaces its whole default object, so missing inputs keep their
+   * defaults). `main`'s return value is `result.result`. A string runs as code with `inputs` as is.
+   */
+  async run(
+    learned: LearnResult | string,
+    inputs: Record<string, string | number | boolean> = {},
+    opts: { timeoutMs?: number } = {},
+  ): Promise<ExecResult> {
+    const code = typeof learned === 'string' ? learned : learned.code
+    const defaults =
+      typeof learned === 'string'
+        ? {}
+        : Object.fromEntries(learned.parameters.map((p) => [p.name, p.defaultValue]))
+    return this.exec(`${code}\nawait main(${JSON.stringify({ ...defaults, ...inputs })})`, opts)
   }
 
   /** Run a shell command: `{ stdout, stderr, exitCode, timedOut }`. */

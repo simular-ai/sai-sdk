@@ -199,6 +199,47 @@ closes it for you.
 `cs.screenshot()` grabs the whole screen; it needs the computer's screen-capture service, and where that is
 off it throws `BlockError`.
 
+## Learn code from turns (research preview)
+
+`sai.learn` turns what the agent did into Simulang code you own, and repairs that code when it breaks.
+`sai.judge` checks recorded turns against criteria you choose afterwards. The turns must be sent with
+`recordTrajectory: true`.
+
+```ts
+const turn = await session.send('Open {{site}} and read the title of the top story', {
+  inputs: { site: 'https://news.ycombinator.com' },
+  recordTrajectory: true,
+})
+await sai.turns.wait(turn)
+
+const learned = await sai.learn.create([turn]) // about two minutes
+console.log(
+  learned.template,
+  learned.parameters.map((p) => p.name),
+)
+console.log(learned.code) // async function main(params = { site: "..." }) { ... }
+
+await using cs = await sai.control.open({ machine: pc })
+const r = await cs.run(learned, { site: 'https://lobste.rs' }) // inputs over the defaults
+console.log(r.result) // what main returned
+
+// It broke on a new site: repair it from the run (or from feedback, or a new turn that solved it)
+const fixed = await sai.learn.create([], {
+  initialCode: learned.code,
+  evaluations: [{ inputs: { site: 'https://lobste.rs' }, result: r, passed: false }],
+})
+console.log(fixed.changes)
+
+const judgement = await sai.judge.create(
+  [turn],
+  [{ id: 'title', check: 'The agent reported a story title' }],
+)
+console.log(judgement.verdict, judgement.criteria[0]?.score)
+```
+
+`learned.status` is `failed` when the code still has `learned.validation.errors` after one retry.
+Pass a judgement as `{ ..., judgement }` in an evaluation to repair code from its evidence.
+
 ## Errors
 
 Every non-2xx response throws a `SaiError` subclass with `status`, `code`, `message` and `retryAfter`:
