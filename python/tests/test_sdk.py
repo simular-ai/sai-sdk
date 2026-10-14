@@ -15,6 +15,7 @@ from sai import (
     GoneError,
     LinkOnlyApprovalError,
     Sai,
+    TurnResult,
 )
 
 Handler = Callable[[httpx.Request], httpx.Response]
@@ -424,6 +425,46 @@ def test_idempotent_replay_returns_the_earlier_turn() -> None:
     assert turn.id == "turn_1"
     assert result.record is not None and result.record.replayed and result.record.id == "turn_1"
     assert [c.url.path for c in calls] == ["/v1/agents/new-session", "/v1/agents/message"]
+    # The same result the live path returned: the answer, its usage, and ok.
+    assert result.status == "idle" and result.ok
+    assert result.text == '{"path":"C:\\\\Users\\\\me\\\\Desktop\\\\inv-1001.txt"}'
+    assert result.usage is not None and result.usage.input_tokens == 120
+
+
+def replay(record: dict[str, Any]) -> TurnResult:
+    sai = client(
+        {
+            "POST /v1/agents/new-session": {"sessionId": "cs_1"},
+            "POST /v1/agents/message": {**record, "idempotent_replay": True},
+        }
+    )
+    return sai.sessions.create("m_1").send("x", idempotency_key="k").wait()
+
+
+def test_replay_of_a_plain_turn_returns_its_answer() -> None:
+    result = replay({**DONE, "output": "Saved it."})
+    assert result.status == "idle" and result.text == "Saved it." and result.ok
+
+
+def test_replay_of_a_broken_turn_is_an_error() -> None:
+    result = replay(
+        {
+            **DONE,
+            "status": "failed",
+            "output": None,
+            "reason_code": "agent_error",
+            "raw_answer": "You are out of credits.",
+            "error_code": "insufficient_credits",
+        }
+    )
+    assert result.status == "error" and not result.ok and result.text == ""
+    assert result.error == "You are out of credits." and result.error_code == "insufficient_credits"
+
+
+def test_replay_of_a_turn_that_failed_its_checks_keeps_the_answer() -> None:
+    result = replay({**DONE, "status": "failed", "output": None, "reason_code": "output_invalid", "raw_answer": "No path."})
+    assert result.status == "idle" and not result.ok and result.text == "No path."
+    assert result.record is not None and result.record.reason_code == "output_invalid"
 
 
 def test_structured_message_to_a_busy_session_is_a_conflict() -> None:

@@ -11,6 +11,7 @@ import {
   LinkOnlyApprovalError,
   Sai,
   type Event,
+  type TurnResult,
 } from '../src/index.js'
 
 type Reply = unknown | [number, unknown] | ((req: Request) => Response)
@@ -526,6 +527,55 @@ describe('sai typescript sdk', () => {
       expect(result.record?.replayed).toBe(true)
       expect(result.record?.id).toBe('turn_1')
       expect(calls.map((c) => c.path)).toEqual(['/v1/agents/new-session', '/v1/agents/message'])
+      // The same result the live path returned: the answer, its usage, and ok.
+      expect(result.status).toBe('idle')
+      expect(result.ok).toBe(true)
+      expect(result.text).toBe('{"path":"C:\\\\Users\\\\me\\\\Desktop\\\\inv-1001.txt"}')
+      expect(result.usage?.inputTokens).toBe(120)
+    })
+
+    const replay = async (record: Record<string, unknown>): Promise<TurnResult> => {
+      const sai = client({
+        'POST /v1/agents/new-session': { sessionId: 'cs_1' },
+        'POST /v1/agents/message': { ...record, idempotent_replay: true },
+      })
+      const session = await sai.sessions.create({ machine: 'm_1' })
+      return (await session.send('x', { idempotencyKey: 'k' })).wait()
+    }
+
+    it('a replay of a plain turn returns its answer', async () => {
+      const result = await replay({ ...DONE, output: 'Saved it.' })
+      expect(result).toMatchObject({ status: 'idle', text: 'Saved it.', ok: true })
+    })
+
+    it('a replay of a broken turn is an error', async () => {
+      const result = await replay({
+        ...DONE,
+        status: 'failed',
+        output: null,
+        reason_code: 'agent_error',
+        raw_answer: 'You are out of credits.',
+        error_code: 'insufficient_credits',
+      })
+      expect(result).toMatchObject({
+        status: 'error',
+        ok: false,
+        text: '',
+        error: 'You are out of credits.',
+        errorCode: 'insufficient_credits',
+      })
+    })
+
+    it('a replay of a turn that failed its checks keeps the answer', async () => {
+      const result = await replay({
+        ...DONE,
+        status: 'failed',
+        output: null,
+        reason_code: 'output_invalid',
+        raw_answer: 'No path.',
+      })
+      expect(result).toMatchObject({ status: 'idle', ok: false, text: 'No path.' })
+      expect(result.record?.reasonCode).toBe('output_invalid')
     })
 
     it('a structured message to a busy session is a conflict', async () => {
