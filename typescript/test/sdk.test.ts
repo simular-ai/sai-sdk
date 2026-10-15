@@ -496,6 +496,30 @@ describe('sai typescript sdk', () => {
       expect(body.options).toBeUndefined()
     })
 
+    it('autonomous goes on the message, not in options', async () => {
+      const calls: Call[] = []
+      const sai = client(
+        {
+          'POST /v1/agents/new-session': { sessionId: 'cs_1' },
+          'POST /v1/agents/message': [
+            202,
+            { sessionId: 'cs_1', machineId: 'm_1', turnId: 'turn_4' },
+          ],
+          'GET /v1/agents/events': { sessionId: 'cs_1', status: 'idle', events: [], text: 'Done.' },
+        },
+        calls,
+      )
+      const session = await sai.sessions.create({ machine: 'm_1' })
+      await session.run('hello', { autonomous: true })
+      await session.run('again')
+      const bodies = calls
+        .filter((c) => c.path === '/v1/agents/message')
+        .map((c) => JSON.parse(c.body) as Record<string, unknown>)
+      expect(bodies[0]?.autonomous).toBe(true)
+      expect(bodies[0]?.options).toBeUndefined()
+      expect(bodies[1]).not.toHaveProperty('autonomous')
+    })
+
     it('an idempotency key alone keeps the message plain', async () => {
       const calls: Call[] = []
       const sai = client(

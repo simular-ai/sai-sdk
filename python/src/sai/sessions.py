@@ -82,6 +82,7 @@ class Session:
         success_criteria: Optional[SuccessCriteria] = None,
         idempotency_key: Optional[str] = None,
         record_trajectory: bool = False,
+        autonomous: bool = False,
     ) -> Turn:
         """Give Sai a task, or steer the running one. Returns at once.
 
@@ -99,6 +100,10 @@ class Session:
         The same `idempotency_key` again returns the earlier turn and sends nothing.
         `record_trajectory` keeps a screenshot and the action for each step
         (`sai.turns.trajectory()`). These go to the API as `options`.
+
+        `autonomous=True` runs the turn this message starts without approval
+        cards, as if "Trust for this task" had been answered; the grant ends
+        with the turn. A message that steers a running turn changes nothing.
         """
         body: dict[str, Any] = {"message": message, "wait": False}
         if self.machine_id:
@@ -109,6 +114,8 @@ class Session:
             body["model"] = model
         if attachments:
             body["attachments"] = [a.raw for a in attachments]
+        if autonomous:
+            body["autonomous"] = True
         options: dict[str, Any] = {}
         if inputs is not None:
             options["inputs"] = inputs
@@ -152,6 +159,7 @@ class Session:
         success_criteria: Optional[SuccessCriteria] = None,
         idempotency_key: Optional[str] = None,
         record_trajectory: bool = False,
+        autonomous: bool = False,
         on_approval: Optional[ApprovalHandler] = None,
         timeout: Optional[float] = None,
     ) -> TurnResult:
@@ -165,6 +173,7 @@ class Session:
             success_criteria=success_criteria,
             idempotency_key=idempotency_key,
             record_trajectory=record_trajectory,
+            autonomous=autonomous,
         ).wait(on_approval=on_approval, timeout=timeout)
 
     def abort(self) -> bool:

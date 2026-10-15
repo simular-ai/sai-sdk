@@ -271,6 +271,25 @@ describe('SaiTools.start', () => {
     expect(started).toEqual(['sess-1'])
   })
 
+  it('passes autonomous through only when asked', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ machines: [{ machineId: 'm1' }] }))
+    const source = fakeSource()
+    const tools = new SaiTools({
+      api: new SaiApi('https://api.test', 'k', fetchImpl),
+      source,
+      push: false,
+      userId: async () => 'uid1',
+    })
+    await tools.start({ task: 'ping', autonomous: true })
+    await tools.start({ task: 'pong', autonomous: false })
+    expect(source.start).toHaveBeenNthCalledWith(1, {
+      machineId: 'm1',
+      message: 'ping',
+      autonomous: true,
+    })
+    expect(source.start).toHaveBeenNthCalledWith(2, { machineId: 'm1', message: 'pong' })
+  })
+
   it('refuses to guess between two machines', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ machines: [{ machineId: 'a', name: 'A' }, { machineId: 'b' }] }),

@@ -73,6 +73,14 @@ def decide(approval):
 result = session.run("Clean up the temp folder", on_approval=decide)
 ```
 
+For an unattended run with nobody to answer, `autonomous=True` runs the turn without approval cards,
+as if "task" (trust for the rest of the task) had been answered up front. The grant ends with the turn.
+Approvals that only a person can complete in a browser (`is_link_only`) still stop the turn.
+
+```python
+session.run("Export last month's invoices to CSV", autonomous=True)
+```
+
 ### Files, models, stopping
 
 ```python

@@ -398,6 +398,24 @@ def test_plain_message_has_a_turn_id_but_does_not_wait_for_the_record() -> None:
     assert "options" not in json.loads(next(c for c in calls if c.url.path == "/v1/agents/message").content)
 
 
+def test_autonomous_goes_on_the_message_not_in_options() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/agents/new-session": {"sessionId": "cs_1"},
+            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_4"}),
+            "GET /v1/agents/events": {"sessionId": "cs_1", "status": "idle", "events": [], "text": "Done."},
+        },
+        calls,
+    )
+    session = sai.sessions.create("m_1")
+    session.run("hello", autonomous=True)
+    session.run("again")
+    bodies = [json.loads(c.content) for c in calls if c.url.path == "/v1/agents/message"]
+    assert bodies[0]["autonomous"] is True and "options" not in bodies[0]
+    assert "autonomous" not in bodies[1]
+
+
 def test_idempotency_key_alone_keeps_the_message_plain() -> None:
     calls: list[httpx.Request] = []
     sai = client(
