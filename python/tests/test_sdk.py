@@ -509,3 +509,95 @@ def test_turns_get_wait_trajectory_and_screenshot(monkeypatch: pytest.MonkeyPatc
         (1, None, False, True),
     ]
     assert sai.turns.screenshot("turn_1", 0) == jpeg
+
+
+LEARNED = {
+    "learnId": "learn_1",
+    "mode": "convert",
+    "status": "succeeded",
+    "title": "Read the top story",
+    "template": "Open {{site}} and read the top story",
+    "parameters": [
+        {"name": "site", "defaultValue": "https://news.ycombinator.com"},
+        {"name": "n", "defaultValue": "1"},
+    ],
+    "code": 'async function main(params = { site: "x", n: "1" }) { return params.site }',
+    "validation": {"errors": [], "warnings": ["w"]},
+    "sourceTurns": ["turn_1"],
+    "usage": {"inputTokens": 100, "outputTokens": 20},
+}
+
+
+def test_learn_converts_and_repairs_with_trimmed_evaluations() -> None:
+    from sai import Evaluation, ExecError, ExecResult
+
+    calls: list[httpx.Request] = []
+    sai = client({"POST /v1/agents/learn": LEARNED, "GET /v1/agents/learn/learn_1": LEARNED}, calls)
+    r = sai.learn.create(["turn_1"], template="Open {{site}} and read the top story", idempotency_key="k1")
+    assert json.loads(calls[0].content) == {
+        "turns": ["turn_1"],
+        "template": "Open {{site}} and read the top story",
+        "idempotency_key": "k1",
+    }
+    assert (r.id, r.mode, r.ok, r.source_turns) == ("learn_1", "convert", True, ["turn_1"])
+    assert r.parameters[0].default_value == "https://news.ycombinator.com"
+    assert r.validation["warnings"] == ["w"]
+
+    logs = [f"line {i}" for i in range(40)]
+    result = ExecResult(None, logs, ExecError("exception", "boom", "st"), b"x", False, [], 5, {})
+    sai.learn.create(
+        initial_code="code",
+        evaluations=[Evaluation(inputs={"site": "a"}, result=result, judgement="judgement_1", passed=False)],
+    )
+    assert json.loads(calls[1].content) == {
+        "turns": [],
+        "initialCode": "code",
+        "evaluations": [
+            {
+                "inputs": {"site": "a"},
+                "result": {"result": None, "logs": logs[-30:], "error": {"kind": "exception", "message": "boom"}},
+                "judgement": "judgement_1",
+                "passed": False,
+            }
+        ],
+    }
+    assert sai.learn.get("learn_1").id == "learn_1"
+
+
+def test_judge_checks_turns() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/agents/judge": {
+                "judgementId": "judgement_1",
+                "verdict": "failed",
+                "summary": "0 of 1 checks passed.",
+                "criteria": [{"id": "title", "check": "A title", "verdict": "failed", "score": 0.1}],
+                "turns": ["turn_1"],
+            }
+        },
+        calls,
+    )
+    j = sai.judge.create(["turn_1"], [Check("title", "A title")])
+    assert json.loads(calls[0].content) == {"turns": ["turn_1"], "criteria": [{"id": "title", "check": "A title"}]}
+    assert (j.id, j.verdict, j.ok) == ("judgement_1", "failed", False)
+    assert (j.criteria[0].verdict, j.criteria[0].score, j.criteria[0].evidence) == ("failed", 0.1, None)
+
+
+def test_lease_runs_learned_code_with_inputs_over_defaults() -> None:
+    from sai import LearnResult
+
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/machines/m_1/control": {"machineId": "m_1", "expiresAfterIdleSec": 600},
+            "POST /v1/machines/m_1/control/exec": {"result": "ok", "logs": [], "durationMs": 1},
+        },
+        calls,
+    )
+    cs = sai.control.open("m_1")
+    r = cs.run(LearnResult.parse(LEARNED), {"n": 3})
+    assert r.result == "ok"
+    assert json.loads(calls[1].content)["code"] == (
+        f'{LEARNED["code"]}\nawait main({{"site": "https://news.ycombinator.com", "n": 3}})'
+    )

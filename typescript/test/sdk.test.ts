@@ -627,3 +627,139 @@ describe('sai typescript sdk', () => {
     })
   })
 })
+
+describe('learn and judge', () => {
+  const learned = {
+    learnId: 'learn_1',
+    mode: 'convert',
+    status: 'succeeded',
+    title: 'Read the top story',
+    template: 'Open {{site}} and read the top story',
+    parameters: [
+      { name: 'site', defaultValue: 'https://news.ycombinator.com' },
+      { name: 'n', defaultValue: '1' },
+    ],
+    code: 'async function main(params = { site: "x", n: "1" }) { return params.site }',
+    validation: { errors: [], warnings: ['w'] },
+    sourceTurns: ['turn_1'],
+    usage: { inputTokens: 100, outputTokens: 20 },
+  }
+
+  it('converts turns, and repairs code with trimmed evaluations', async () => {
+    const calls: Call[] = []
+    const sai = client(
+      { 'POST /v1/agents/learn': learned, 'GET /v1/agents/learn/learn_1': learned },
+      calls,
+    )
+    const r = await sai.learn.create(['turn_1', { id: 'turn_2' }], {
+      template: 'Open {{site}} and read the top story',
+      idempotencyKey: 'k1',
+    })
+    expect(JSON.parse(calls[0]!.body)).toEqual({
+      turns: ['turn_1', 'turn_2'],
+      template: 'Open {{site}} and read the top story',
+      idempotency_key: 'k1',
+    })
+    expect(r).toMatchObject({ id: 'learn_1', mode: 'convert', ok: true, sourceTurns: ['turn_1'] })
+    expect(r.parameters[0]).toEqual({
+      name: 'site',
+      defaultValue: 'https://news.ycombinator.com',
+      description: null,
+    })
+    expect(r.validation.warnings).toEqual(['w'])
+
+    const logs = Array.from({ length: 40 }, (_, i) => `line ${i}`)
+    await sai.learn.create([], {
+      initialCode: 'code',
+      evaluations: [
+        {
+          inputs: { site: 'a' },
+          result: {
+            result: null,
+            logs,
+            error: { kind: 'exception', message: 'boom', stack: 'st' },
+            screenshotPng: new Uint8Array([1]),
+            screenshotOmitted: false,
+            variables: [],
+            durationMs: 5,
+            ok: false,
+            raw: {},
+          },
+          judgement: { id: 'judgement_1' } as never,
+          passed: false,
+        },
+      ],
+    })
+    expect(JSON.parse(calls[1]!.body)).toEqual({
+      turns: [],
+      initialCode: 'code',
+      evaluations: [
+        {
+          inputs: { site: 'a' },
+          result: {
+            result: null,
+            logs: logs.slice(-30),
+            error: { kind: 'exception', message: 'boom' },
+          },
+          judgement: 'judgement_1',
+          passed: false,
+        },
+      ],
+    })
+    expect((await sai.learn.get('learn_1')).id).toBe('learn_1')
+  })
+
+  it('judges turns against checks', async () => {
+    const calls: Call[] = []
+    const sai = client(
+      {
+        'POST /v1/agents/judge': {
+          judgementId: 'judgement_1',
+          verdict: 'failed',
+          summary: '0 of 1 checks passed.',
+          criteria: [{ id: 'title', check: 'A title', verdict: 'failed', score: 0.1 }],
+          turns: ['turn_1'],
+        },
+      },
+      calls,
+    )
+    const j = await sai.judge.create(['turn_1'], [{ id: 'title', check: 'A title' }])
+    expect(JSON.parse(calls[0]!.body)).toEqual({
+      turns: ['turn_1'],
+      criteria: [{ id: 'title', check: 'A title' }],
+    })
+    expect(j).toMatchObject({ id: 'judgement_1', verdict: 'failed', ok: false })
+    expect(j.criteria[0]).toEqual({
+      id: 'title',
+      check: 'A title',
+      verdict: 'failed',
+      score: 0.1,
+      evidence: null,
+    })
+  })
+
+  it('runs learned code with inputs over the defaults', async () => {
+    const calls: Call[] = []
+    const sai = client(
+      {
+        'POST /v1/machines/m_1/control': { machineId: 'm_1', expiresAfterIdleSec: 600 },
+        'POST /v1/machines/m_1/control/exec': { result: 'ok', logs: [], durationMs: 1 },
+      },
+      calls,
+    )
+    const cs = await sai.control.open({ machine: 'm_1' })
+    const r = await cs.run(parseLearned(), { n: 3 })
+    expect(r.result).toBe('ok')
+    expect(JSON.parse(calls[1]!.body).code).toBe(
+      `${learned.code}\nawait main({"site":"https://news.ycombinator.com","n":3})`,
+    )
+  })
+
+  function parseLearned(): import('../src/index.js').LearnResult {
+    return {
+      ...learned,
+      id: 'learn_1',
+      parameters: learned.parameters.map((p) => ({ ...p, description: null })),
+    } as never
+  }
+})

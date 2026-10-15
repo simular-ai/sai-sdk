@@ -179,6 +179,44 @@ off it raises `BlockError`, and a page or app snapshot is the way to get an imag
 `exec()` returns an `ExecResult`; a block that threw is still a result, so check `r.error`
 (`exception`, `timeout`, `interrupted`). Use `var`, not `let`/`const`, for values the next block needs.
 
+## Learn code from turns (research preview)
+
+`sai.learn` turns what the agent did into Simulang code you own, and repairs that code when it breaks.
+`sai.judge` checks recorded turns against criteria you choose afterwards. The turns must be sent with
+`record_trajectory=True`.
+
+```python
+from sai import Check, Evaluation
+
+turn = session.send(
+    "Open {{site}} and read the title of the top story",
+    inputs={"site": "https://news.ycombinator.com"},
+    record_trajectory=True,
+)
+sai.turns.wait(turn)
+
+learned = sai.learn.create([turn])        # about two minutes
+print(learned.template, [p.name for p in learned.parameters])
+print(learned.code)                       # async function main(params = { site: "..." }) { ... }
+
+with sai.control.open(machine=pc) as cs:
+    r = cs.run(learned, {"site": "https://lobste.rs"})   # inputs over the defaults
+    print(r.result)                                      # what main returned
+
+# It broke on a new site: repair it from the run (or from feedback, or a new turn that solved it)
+fixed = sai.learn.create(
+    initial_code=learned.code,
+    evaluations=[Evaluation(inputs={"site": "https://lobste.rs"}, result=r, passed=False)],
+)
+print(fixed.changes)
+
+judgement = sai.judge.create([turn], [Check("title", "The agent reported a story title")])
+print(judgement.verdict, judgement.criteria[0].score)
+```
+
+`learned.status` is `failed` when the code still has `learned.validation["errors"]` after one retry.
+Pass a judgement as `Evaluation(..., judgement=judgement)` to repair code from its evidence.
+
 ## Errors
 
 Every non-2xx response raises a `SaiError` subclass with `status`, `code`, `message` and `retry_after`:

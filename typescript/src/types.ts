@@ -404,3 +404,128 @@ export function parseExecResult(d: Json): ExecResult {
     raw: d,
   }
 }
+
+/** One input of learned code: a `{{name}}` in the template and a key of `main`'s `params`. */
+export interface LearnParameter {
+  name: string
+  defaultValue: string
+  description: string | null
+}
+
+/** How learned code did on one run, for `sai.learn.create(..., { initialCode, evaluations })`. */
+export interface Evaluation {
+  inputs: Record<string, string | number | boolean>
+  /** The run's result from `lease.exec()` / `lease.run()`; its screenshot is not sent. */
+  result?: ExecResult
+  /** A judgement of the run, or its id. */
+  judgement?: Judgement | string
+  passed?: boolean
+  note?: string
+}
+
+/**
+ * The result of `sai.learn.create()`: Simulang code made from recorded turns, or a repair of
+ * code you sent. Run it with `lease.run(learned, inputs)`. Research preview.
+ */
+export interface LearnResult {
+  id: string
+  /** `convert` (code from turns) or `heal` (a repair of `initialCode`). */
+  mode: 'convert' | 'heal'
+  /** `failed` when the code still has `validation.errors`, or the request failed (`error`). */
+  status: 'succeeded' | 'failed' | 'running'
+  title: string | null
+  /** The task with `{{name}}` placeholders: send it to `session.send()` with `inputs` to run it with the agent. */
+  template: string | null
+  parameters: LearnParameter[]
+  /** `async function main(params = { ... })`. */
+  code: string
+  outputSchema: Json | null
+  validation: { errors: string[]; warnings: string[] }
+  /** For `heal`: what changed and why. */
+  changes: string | null
+  sourceTurns: string[]
+  usage: Usage | null
+  /** The error code when the request failed, e.g. `trajectory_not_recorded`. */
+  error: string | null
+  /** True when `idempotencyKey` matched an earlier call: this is that call's result. */
+  replayed: boolean
+  ok: boolean
+  raw: Json
+}
+
+export function parseLearnResult(d: Json): LearnResult {
+  const v = obj(d.validation)
+  const status = (str(d.status) ?? 'running') as LearnResult['status']
+  return {
+    id: str(d.learnId) ?? '',
+    mode: str(d.mode) === 'heal' ? 'heal' : 'convert',
+    status,
+    title: str(d.title) ?? null,
+    template: str(d.template) ?? null,
+    parameters: (Array.isArray(d.parameters) ? (d.parameters as Json[]) : []).map((p) => ({
+      name: str(p.name) ?? '',
+      defaultValue: str(p.defaultValue) ?? '',
+      description: str(p.description) ?? null,
+    })),
+    code: str(d.code) ?? '',
+    outputSchema: d.outputSchema ? obj(d.outputSchema) : null,
+    validation: {
+      errors: Array.isArray(v.errors) ? (v.errors as string[]) : [],
+      warnings: Array.isArray(v.warnings) ? (v.warnings as string[]) : [],
+    },
+    changes: str(d.changes) ?? null,
+    sourceTurns: Array.isArray(d.sourceTurns) ? (d.sourceTurns as string[]) : [],
+    usage: parseUsage(d.usage),
+    error: str(d.error) ?? null,
+    replayed: Boolean(d.idempotent_replay),
+    ok: status === 'succeeded',
+    raw: d,
+  }
+}
+
+/** The verdict on one criterion of a judgement. */
+export interface CriterionResult {
+  /** The check's id; null for a natural-language criteria. */
+  id: string | null
+  check: string
+  /** `unverifiable` when the record cannot show it. */
+  verdict: 'passed' | 'failed' | 'unverifiable'
+  score: number | null
+  evidence: string | null
+}
+
+/** The result of `sai.judge.create()`. It never changes the turns it judged. Research preview. */
+export interface Judgement {
+  id: string
+  verdict: 'passed' | 'failed' | 'unverifiable' | null
+  summary: string | null
+  task: string | null
+  criteria: CriterionResult[]
+  turns: string[]
+  usage: Usage | null
+  replayed: boolean
+  ok: boolean
+  raw: Json
+}
+
+export function parseJudgement(d: Json): Judgement {
+  const verdict = (str(d.verdict) ?? null) as Judgement['verdict']
+  return {
+    id: str(d.judgementId) ?? '',
+    verdict,
+    summary: str(d.summary) ?? null,
+    task: str(d.task) ?? null,
+    criteria: (Array.isArray(d.criteria) ? (d.criteria as Json[]) : []).map((c) => ({
+      id: str(c.id) ?? null,
+      check: str(c.check) ?? '',
+      verdict: (str(c.verdict) ?? 'unverifiable') as CriterionResult['verdict'],
+      score: typeof c.score === 'number' ? c.score : null,
+      evidence: str(c.evidence) ?? null,
+    })),
+    turns: Array.isArray(d.turns) ? (d.turns as string[]) : [],
+    usage: parseUsage(d.usage),
+    replayed: Boolean(d.idempotent_replay),
+    ok: verdict === 'passed',
+    raw: d,
+  }
+}

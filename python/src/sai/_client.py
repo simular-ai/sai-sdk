@@ -12,6 +12,7 @@ from .control import Control
 from .machines import Machines
 from .sessions import Sessions
 from .turns import Turns
+from .learn import Judge, Learn
 from .types import Account, Attachment, Model
 
 
@@ -47,6 +48,10 @@ class Sai:
         self.machines = Machines(self)
         self.sessions = Sessions(self)
         self.turns = Turns(self)
+        self.learn = Learn(self)
+        """Recorded turns → Simulang code, and code repair (research preview)."""
+        self.judge = Judge(self)
+        """Judge recorded turns against new criteria (research preview)."""
         self.control = Control(self)
         self.models = _Models(self)
         self.files = _Files(self)

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 
 @dataclass
@@ -398,5 +398,150 @@ class ExecResult:
             screenshot_omitted=bool(obs.get("screenshotOmitted")),
             variables=d.get("variables") or [],
             duration_ms=int(d.get("durationMs", 0)),
+            raw=d,
+        )
+
+
+@dataclass
+class LearnParameter:
+    """One input of learned code: a `{{name}}` in the template and a key of `main`'s `params`."""
+
+    name: str
+    default_value: str
+    description: Optional[str]
+
+
+@dataclass
+class Evaluation:
+    """How learned code did on one run, for `sai.learn.create(..., initial_code=..., evaluations=[...])`."""
+
+    inputs: dict[str, Any]
+    result: Optional[ExecResult] = None
+    """The run's result from `lease.exec()` / `lease.run()`; its screenshot is not sent."""
+    judgement: Optional[Union[Judgement, str]] = None
+    """A judgement of the run, or its id."""
+    passed: Optional[bool] = None
+    note: Optional[str] = None
+
+    def to_json(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"inputs": self.inputs}
+        if self.result is not None:
+            r: dict[str, Any] = {"result": self.result.result, "logs": self.result.logs[-30:]}
+            if self.result.error:
+                r["error"] = {"kind": self.result.error.kind, "message": self.result.error.message}
+            d["result"] = r
+        if self.judgement is not None:
+            d["judgement"] = self.judgement if isinstance(self.judgement, str) else self.judgement.id
+        if self.passed is not None:
+            d["passed"] = self.passed
+        if self.note is not None:
+            d["note"] = self.note
+        return d
+
+
+@dataclass
+class LearnResult:
+    """The result of `sai.learn.create()`: Simulang code made from recorded turns, or a repair of
+    code you sent. Run it with `lease.run(learned, inputs)`. Research preview.
+
+    `status` is `failed` when the code still has `validation["errors"]`, or the request failed
+    (`error`, e.g. `trajectory_not_recorded`).
+    """
+
+    id: str
+    mode: str
+    """`convert` (code from turns) or `heal` (a repair of `initial_code`)."""
+    status: str
+    title: Optional[str]
+    template: Optional[str]
+    """The task with `{{name}}` placeholders: send it to `session.send()` with `inputs` to run it with the agent."""
+    parameters: list[LearnParameter]
+    code: str
+    """`async function main(params = { ... })`."""
+    output_schema: Optional[dict[str, Any]]
+    validation: dict[str, list[str]]
+    changes: Optional[str]
+    """For `heal`: what changed and why."""
+    source_turns: list[str]
+    usage: Optional[Usage]
+    error: Optional[str]
+    replayed: bool
+    """True when `idempotency_key` matched an earlier call: this is that call's result."""
+    raw: dict[str, Any] = field(repr=False)
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "succeeded"
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> LearnResult:
+        v = d.get("validation") or {}
+        return cls(
+            id=d.get("learnId", ""),
+            mode="heal" if d.get("mode") == "heal" else "convert",
+            status=d.get("status", "running"),
+            title=d.get("title"),
+            template=d.get("template"),
+            parameters=[
+                LearnParameter(p.get("name", ""), p.get("defaultValue", ""), p.get("description"))
+                for p in d.get("parameters") or []
+            ],
+            code=d.get("code", ""),
+            output_schema=d.get("outputSchema"),
+            validation={"errors": v.get("errors") or [], "warnings": v.get("warnings") or []},
+            changes=d.get("changes"),
+            source_turns=d.get("sourceTurns") or [],
+            usage=Usage.parse(d.get("usage")),
+            error=d.get("error"),
+            replayed=bool(d.get("idempotent_replay")),
+            raw=d,
+        )
+
+
+@dataclass
+class CriterionResult:
+    """The verdict on one criterion of a judgement: `passed`, `failed` or `unverifiable`."""
+
+    id: Optional[str]
+    """The check's id; None for a natural-language criteria."""
+    check: str
+    verdict: str
+    score: Optional[float]
+    evidence: Optional[str]
+
+
+@dataclass
+class Judgement:
+    """The result of `sai.judge.create()`. It never changes the turns it judged. Research preview."""
+
+    id: str
+    verdict: Optional[str]
+    """`passed`, `failed` or `unverifiable`."""
+    summary: Optional[str]
+    task: Optional[str]
+    criteria: list[CriterionResult]
+    turns: list[str]
+    usage: Optional[Usage]
+    replayed: bool
+    raw: dict[str, Any] = field(repr=False)
+
+    @property
+    def ok(self) -> bool:
+        return self.verdict == "passed"
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> Judgement:
+        return cls(
+            id=d.get("judgementId", ""),
+            verdict=d.get("verdict"),
+            summary=d.get("summary"),
+            task=d.get("task"),
+            criteria=[
+                CriterionResult(c.get("id"), c.get("check", ""), c.get("verdict", "unverifiable"), c.get("score"), c.get("evidence"))
+                for c in d.get("criteria") or []
+            ],
+            turns=d.get("turns") or [],
+            usage=Usage.parse(d.get("usage")),
+            replayed=bool(d.get("idempotent_replay")),
             raw=d,
         )

@@ -12,7 +12,7 @@ from urllib.parse import quote
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from ._errors import BlockError, GoneError
-from .types import ExecResult
+from .types import ExecResult, LearnResult
 
 if TYPE_CHECKING:
     from ._client import Sai
@@ -70,6 +70,24 @@ class ControlLease:
         )
         return ExecResult.parse(d)
 
+
+    def run(
+        self,
+        learned: Union[LearnResult, str],
+        inputs: Optional[dict[str, Any]] = None,
+        *,
+        timeout_ms: Optional[int] = None,
+    ) -> ExecResult:
+        """Run code from `sai.learn.create()`: its `main` with `inputs` over the parameters'
+        defaults (an argument to `main` replaces its whole default object, so missing inputs
+        keep their defaults). `main`'s return value is `result.result`. A string runs as
+        code with `inputs` as is."""
+        if isinstance(learned, str):
+            code, params = learned, dict(inputs or {})
+        else:
+            code = learned.code
+            params = {p.name: p.default_value for p in learned.parameters} | (inputs or {})
+        return self.exec(f"{code}\nawait main({json.dumps(params)})", timeout_ms=timeout_ms)
     def shell(self, command: str, *, cwd: Optional[str] = None, timeout_ms: Optional[int] = None) -> dict[str, Any]:
         """Run a shell command: `{stdout, stderr, exitCode, timedOut}`."""
         args: dict[str, Any] = {"command": command}
