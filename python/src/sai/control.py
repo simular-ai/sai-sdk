@@ -1,8 +1,8 @@
 """Direct control: drive a cloud computer with Simulang. No agent.
 
 Maps to `/v1/machines/{id}/control`, a lease on the machine: at most one per
-machine, so the machine id is the handle. Research preview: the account needs
-direct control enabled.
+machine, so the machine id is the handle. Research preview, open to every account;
+model calls the code makes (`callLLM`, `ground`, `stateSatisfies`) are billed as usual.
 """
 
 from __future__ import annotations

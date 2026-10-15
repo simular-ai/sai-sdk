@@ -154,13 +154,13 @@ the view says so and offers **Watch here**.
 
 ## Environment
 
-| Variable         | Required | Meaning                                                              |
-| ---------------- | -------- | -------------------------------------------------------------------- |
-| `SAI_API_KEY`    | yes      | Your Sai API key (`sapi_…`).                                         |
-| `SAI_PUSH`       | no       | `1` turns on Claude Code channels (below). Leave it unset otherwise. |
-| `SAI_LOCAL_VIEW` | no       | `0` turns off the local `watch_url` page.                            |
-| `SAI_CONTROL`    | no       | `1` adds the direct control tools (below).                           |
-| `SAI_OSWORLD`    | no       | `1` adds the OSWorld tools (below); implies `SAI_CONTROL`.           |
+| Variable         | Required | Meaning                                                                   |
+| ---------------- | -------- | ------------------------------------------------------------------------- |
+| `SAI_API_KEY`    | yes      | Your Sai API key (`sapi_…`).                                              |
+| `SAI_PUSH`       | no       | `1` turns on Claude Code channels (below). Leave it unset otherwise.      |
+| `SAI_LOCAL_VIEW` | no       | `0` turns off the local `watch_url` page.                                 |
+| `SAI_CONTROL`    | no       | `0` leaves out the direct control tools (below), which are on by default. |
+| `SAI_OSWORLD`    | no       | `1` adds the OSWorld tools (below); keeps the direct control tools on.    |
 
 ## Claude Code channels (research preview)
 
@@ -179,16 +179,18 @@ dropped and your agent is told not to poll.
 
 ## Direct control (research preview)
 
-With `SAI_CONTROL=1`, your agent can also drive the computer itself instead of
+Your agent can also drive the computer itself instead of
 handing Sai a task: `sai_control_open`, then `sai_control_exec` blocks of Simulang
 (JavaScript) that run on the computer, then `sai_control_close`. Each block
 returns its value and console output, plus a screenshot as an image your
 agent's own model sees. The Simulang reference is the MCP resource
-`sai://simulang/reference`. Direct control must be enabled for your account.
+`sai://simulang/reference`. Any account can use it; model calls the code makes
+(`callLLM`, `ground`, `stateSatisfies`) are billed to your account as usual. Set
+`SAI_CONTROL=0` to leave these tools out.
 Docs: [Direct control](https://platform.simular.ai/documentation/concepts/direct-control).
 
 ```bash
-claude mcp add sai -e SAI_API_KEY=sapi_YOUR_KEY -e SAI_CONTROL=1 -- npx -y @simular-ai/sai-mcp
+claude mcp add sai -e SAI_API_KEY=sapi_YOUR_KEY -- npx -y @simular-ai/sai-mcp
 ```
 
 ## OSWorld (research preview)

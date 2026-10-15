@@ -8,9 +8,9 @@
  * - SAI_PUSH      `1` → Claude Code channel mode: `sai_task_start` returns
  *                 `push: true` and the server watches the session itself.
  * - SAI_LOCAL_VIEW `0` → no local task page (`watch_url`) for hosts without MCP Apps.
- * - SAI_CONTROL   `1` → register the direct control tools (sai_control_open,
- *                 sai_control_exec, sai_control_interrupt, sai_control_close). Early access:
- *                 the API answers 403 for accounts outside the allowlist, so they are off by default.
+ * - SAI_CONTROL   `0` → leave out the direct control tools (sai_control_open,
+ *                 sai_control_exec, sai_control_interrupt, sai_control_close). On by default:
+ *                 any account can use direct control.
  * - SAI_OSWORLD  `1` → also register the OSWorld tools (osworld_start, osworld_ask_user,
  *                 osworld_submit, osworld_abandon), for accounts with Benchmarks access. Implies SAI_CONTROL:
  *                 the agent works the task through direct control.
@@ -61,7 +61,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // server predating A1/A2.
     eventsApi: env.SAI_EVENTS_API === undefined ? true : flag(env.SAI_EVENTS_API),
     localView: env.SAI_LOCAL_VIEW === undefined ? true : flag(env.SAI_LOCAL_VIEW),
-    control: flag(env.SAI_CONTROL) || flag(env.SAI_OSWORLD),
+    control:
+      (env.SAI_CONTROL === undefined ? true : flag(env.SAI_CONTROL)) || flag(env.SAI_OSWORLD),
     osworld: flag(env.SAI_OSWORLD),
     ...(env.SAI_API_VERSION_TAG?.trim() && { versionTag: env.SAI_API_VERSION_TAG.trim() }),
   }
