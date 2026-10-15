@@ -175,11 +175,11 @@ Direct control runs [Simulang](https://platform.simular.ai/documentation/concept
 blocks on a cloud computer. While the lease is open, Sai's own tasks on that computer wait, so always close it.
 
 ```ts
-const cs = await sai.control.open({ machine: pc })
+const lease = await sai.control.open({ machine: pc })
 try {
-  console.log((await cs.shell('hostname')).stdout)
+  console.log((await lease.shell('hostname')).stdout)
 
-  const r = await cs.exec(`
+  const r = await lease.exec(`
     var page = await machine.browser.newtab('https://example.com')
     var snap = await page.snapshot()
     snap.title
@@ -187,16 +187,16 @@ try {
   console.log(r.result) // Example Domain
   await writeFile('page.png', r.screenshotPng!)
 } finally {
-  await cs.close()
+  await lease.close()
 }
 ```
 
-With TypeScript 5.2+ and a runtime that supports explicit resource management, `await using cs = ...`
+With TypeScript 5.2+ and a runtime that supports explicit resource management, `await using lease = ...`
 closes it for you.
 
 `exec()` resolves with an `ExecResult`; a block that threw still resolves, so check `r.error`
 (`exception`, `timeout`, `interrupted`). Use `var`, not `let`/`const`, for values the next block needs.
-`cs.screenshot()` grabs the whole screen; it needs the computer's screen-capture service, and where that is
+`lease.screenshot()` grabs the whole screen; it needs the computer's screen-capture service, and where that is
 off it throws `BlockError`.
 
 ## Learn code from turns (research preview)
@@ -219,8 +219,8 @@ console.log(
 )
 console.log(learned.code) // async function main(params = { site: "..." }) { ... }
 
-await using cs = await sai.control.open({ machine: pc })
-const r = await cs.run(learned, { site: 'https://lobste.rs' }) // inputs over the defaults
+await using lease = await sai.control.open({ machine: pc })
+const r = await lease.run(learned, { site: 'https://lobste.rs' }) // inputs over the defaults
 console.log(r.result) // what main returned
 
 // It broke on a new site: repair it from the run (or from feedback, or a new turn that solved it)

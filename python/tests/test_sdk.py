@@ -236,10 +236,10 @@ def test_control_lease_exec_and_close() -> None:
         },
         calls,
     )
-    with sai.control.open("m_1") as cs:
-        assert cs.shell("hostname")["stdout"].strip() == "HOST"
-        assert cs.screenshot() == png
-        r = cs.exec("throw new Error('boom')")
+    with sai.control.open("m_1") as lease:
+        assert lease.shell("hostname")["stdout"].strip() == "HOST"
+        assert lease.screenshot() == png
+        r = lease.exec("throw new Error('boom')")
         assert not r.ok and r.error is not None and r.error.kind == "exception"
     assert calls[-1].method == "DELETE"
     first_exec = next(c for c in calls if c.url.path.endswith("/exec"))
@@ -261,12 +261,12 @@ def test_control_exec_raises_gone_with_reason_when_lease_lost() -> None:
             "DELETE /v1/machines/m_1/control": lambda req: httpx.Response(204),
         }
     )
-    cs = sai.control.open("m_1")
+    lease = sai.control.open("m_1")
     with pytest.raises(GoneError) as e:
-        cs.exec("1")
+        lease.exec("1")
     assert e.value.code == "control_closed"
     assert e.value.body["reason"] == "unresponsive"
-    cs.close()
+    lease.close()
 
 
 def test_upload_sends_raw_body_and_filename() -> None:
@@ -595,8 +595,8 @@ def test_lease_runs_learned_code_with_inputs_over_defaults() -> None:
         },
         calls,
     )
-    cs = sai.control.open("m_1")
-    r = cs.run(LearnResult.parse(LEARNED), {"n": 3})
+    lease = sai.control.open("m_1")
+    r = lease.run(LearnResult.parse(LEARNED), {"n": 3})
     assert r.result == "ok"
     assert json.loads(calls[1].content)["code"] == (
         f'{LEARNED["code"]}\nawait main({{"site": "https://news.ycombinator.com", "n": 3}})'
