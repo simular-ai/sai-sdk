@@ -1,6 +1,6 @@
 {
   "name": "@simular-ai/sai-mcp",
-  "version": "0.3.0-rc.1",
+  "version": "0.3.0-rc.2",
   "description": "Sai MCP server \u2014 drive your Sai computer-use agent from Claude Code, Codex, or Cursor.",
   "homepage": "https://platform.simular.ai",
   "keywords": [
