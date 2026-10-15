@@ -48,6 +48,7 @@
     "GoneError",
     "RateLimitError",
     "ServiceUnavailableError",
+    "SpendCapReachedError",
     "BlockError",
     "LinkOnlyApprovalError"
   ],

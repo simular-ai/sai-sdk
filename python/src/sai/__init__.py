@@ -20,6 +20,7 @@ from ._errors import (
     RateLimitError,
     SaiError,
     ServiceUnavailableError,
+    SpendCapReachedError,
 )
 from ._version import __version__
 from .control import ControlLease
@@ -84,5 +85,6 @@ __all__ = [
     "PermissionDeniedError",
     "RateLimitError",
     "ServiceUnavailableError",
+    "SpendCapReachedError",
     "__version__",
 ]

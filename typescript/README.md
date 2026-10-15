@@ -245,7 +245,8 @@ Pass a judgement as `{ ..., judgement }` in an evaluation to repair code from it
 Every non-2xx response throws a `SaiError` subclass with `status`, `code`, `message` and `retryAfter`:
 `AuthenticationError` (401), `BadRequestError` (400), `PermissionDeniedError` (403), `NotFoundError`
 (404), `ConflictError` (409), `LinkOnlyApprovalError` (`approvalUrl`), `GoneError` (410),
-`RateLimitError` (429), `ServiceUnavailableError` (503), `ConnectionError`, `BlockError`.
+`SpendCapReachedError` (403, the key reached its monthly limit; `resetsAt`), `RateLimitError` (429),
+`ServiceUnavailableError` (503), `ConnectionError`, `BlockError`.
 
 A task that ran out of credit ends with `result.status === 'error'` and `result.errorCode` set to
 `insufficient_credits` or `free_computer_time_exhausted`: stop retrying for today.

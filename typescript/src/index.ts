@@ -21,6 +21,7 @@ export {
   RateLimitError,
   SaiError,
   ServiceUnavailableError,
+  SpendCapReachedError,
 } from './errors.js'
 export { ControlLease } from './control.js'
 export type { MachineRef } from './machines.js'

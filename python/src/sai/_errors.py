@@ -88,6 +88,24 @@ class LinkOnlyApprovalError(ConflictError):
         return self.body.get("approvalUrl")
 
 
+class SpendCapReachedError(PermissionDeniedError):
+    """403 `spend_cap_reached`: the key reached its monthly spend limit.
+
+    Not retryable: the limit resets at `resets_at` (ISO 8601, 00:00 UTC on the
+    1st), or raise it for the key in the portal.
+    """
+
+    @property
+    def resets_at(self) -> Optional[str]:
+        at = self.body.get("resetsAt")
+        return at if isinstance(at, str) else None
+
+
+_BY_CODE: dict[str, type[SaiError]] = {
+    "link_only": LinkOnlyApprovalError,
+    "spend_cap_reached": SpendCapReachedError,
+}
+
 _BY_STATUS = {
     400: BadRequestError,
     401: AuthenticationError,
@@ -109,7 +127,7 @@ def error_for(status: int, body: dict[str, Any], retry_after: Optional[float]) -
     message = detail if isinstance(detail, str) else (err if isinstance(err, str) else f"HTTP {status}")
     if status == 401:
         message += " (SAI_API_KEY was rejected: it may be revoked.)"
-    cls = LinkOnlyApprovalError if code == "link_only" else _BY_STATUS.get(status, SaiError)
+    cls = _BY_CODE.get(code or "") or _BY_STATUS.get(status, SaiError)
     return cls(message, status=status, code=code, body=body, retry_after=retry_after)
 
 

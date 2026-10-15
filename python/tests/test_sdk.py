@@ -14,7 +14,9 @@ from sai import (
     ConflictError,
     GoneError,
     LinkOnlyApprovalError,
+    PermissionDeniedError,
     Sai,
+    SpendCapReachedError,
     TurnResult,
 )
 
@@ -63,6 +65,17 @@ def test_errors_map_status_and_code() -> None:
         sai.control.open("m_1")
     assert c.value.code == "machine_busy"
     assert c.value.message == "A task holds it"
+
+
+def test_spend_cap_reached_has_its_own_error() -> None:
+    body = {"error": "spend_cap_reached", "message": "This key reached its limit.", "resetsAt": "2026-11-01T00:00:00.000Z"}
+    sai = client({"POST /v1/agents/message": (403, body)})
+    with pytest.raises(SpendCapReachedError) as e:
+        sai.sessions.resume("cs_1", machine="m_1").send("hello")
+    assert isinstance(e.value, PermissionDeniedError)
+    assert e.value.status == 403
+    assert e.value.code == "spend_cap_reached"
+    assert e.value.resets_at == "2026-11-01T00:00:00.000Z"
 
 
 def test_machine_resolution() -> None:

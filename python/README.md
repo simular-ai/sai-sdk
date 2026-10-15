@@ -229,6 +229,7 @@ Every non-2xx response raises a `SaiError` subclass with `status`, `code`, `mess
 | `ConflictError`           | 409: `machine_busy`, approval no longer pending, ...          |
 | `LinkOnlyApprovalError`   | the approval must be answered in a browser: `e.approval_url`  |
 | `GoneError`               | 410: the control lease ended (`e.body["reason"]`); open again |
+| `SpendCapReachedError`    | 403: the key reached its monthly limit; `e.resets_at`         |
 | `RateLimitError`          | 429: a rate limit, or the free plan's daily budget            |
 | `ServiceUnavailableError` | 503: the computer did not come online; honor `retry_after`    |
 
