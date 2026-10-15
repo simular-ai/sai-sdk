@@ -161,10 +161,10 @@ blocks on a cloud computer. No agent, no model cost. While the lease is open, Sa
 computer wait, so always close it (a `with` block does).
 
 ```python
-with sai.control.open(machine=pc) as cs:
-    print(cs.shell("hostname")["stdout"])
+with sai.control.open(machine=pc) as lease:
+    print(lease.shell("hostname")["stdout"])
 
-    r = cs.exec("""
+    r = lease.exec("""
         var page = await machine.browser.newtab('https://news.ycombinator.com')
         var snap = await page.snapshot()
         snap.snapshot.grep('points')
@@ -173,7 +173,7 @@ with sai.control.open(machine=pc) as cs:
     open("hn.png", "wb").write(r.screenshot_png)   # a page or app snapshot carries a screenshot
 ```
 
-`cs.screenshot()` grabs the whole screen. It needs the computer's screen-capture service; where that is
+`lease.screenshot()` grabs the whole screen. It needs the computer's screen-capture service; where that is
 off it raises `BlockError`, and a page or app snapshot is the way to get an image.
 
 `exec()` returns an `ExecResult`; a block that threw is still a result, so check `r.error`
@@ -199,8 +199,8 @@ learned = sai.learn.create([turn])        # about two minutes
 print(learned.template, [p.name for p in learned.parameters])
 print(learned.code)                       # async function main(params = { site: "..." }) { ... }
 
-with sai.control.open(machine=pc) as cs:
-    r = cs.run(learned, {"site": "https://lobste.rs"})   # inputs over the defaults
+with sai.control.open(machine=pc) as lease:
+    r = lease.run(learned, {"site": "https://lobste.rs"})   # inputs over the defaults
     print(r.result)                                      # what main returned
 
 # It broke on a new site: repair it from the run (or from feedback, or a new turn that solved it)

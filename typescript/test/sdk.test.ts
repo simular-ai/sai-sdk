@@ -268,10 +268,10 @@ describe('sai typescript sdk', () => {
       calls,
     )
     {
-      await using cs = await sai.control.open({ machine: 'm_1' })
-      expect((await cs.shell('hostname')).stdout.trim()).toBe('HOST')
-      expect(await cs.screenshot()).toEqual(png)
-      const r = await cs.exec("throw new Error('boom')")
+      await using lease = await sai.control.open({ machine: 'm_1' })
+      expect((await lease.shell('hostname')).stdout.trim()).toBe('HOST')
+      expect(await lease.screenshot()).toEqual(png)
+      const r = await lease.exec("throw new Error('boom')")
       expect(r.ok).toBe(false)
       expect(r.error?.kind).toBe('exception')
     }
@@ -293,12 +293,12 @@ describe('sai typescript sdk', () => {
       ],
       'DELETE /v1/machines/m_1/control': () => new Response(null, { status: 204 }),
     })
-    const cs = await sai.control.open({ machine: 'm_1' })
-    const err = await cs.exec('1').catch((e: unknown) => e)
+    const lease = await sai.control.open({ machine: 'm_1' })
+    const err = await lease.exec('1').catch((e: unknown) => e)
     expect(err).toBeInstanceOf(GoneError)
     expect((err as GoneError).code).toBe('control_closed')
     expect((err as GoneError).body.reason).toBe('unresponsive')
-    await cs.close()
+    await lease.close()
   })
 
   it('uploads the raw body with the file name', async () => {
@@ -747,8 +747,8 @@ describe('learn and judge', () => {
       },
       calls,
     )
-    const cs = await sai.control.open({ machine: 'm_1' })
-    const r = await cs.run(parseLearned(), { n: 3 })
+    const lease = await sai.control.open({ machine: 'm_1' })
+    const r = await lease.run(parseLearned(), { n: 3 })
     expect(r.result).toBe('ok')
     expect(JSON.parse(calls[1]!.body).code).toBe(
       `${learned.code}\nawait main({"site":"https://news.ycombinator.com","n":3})`,
