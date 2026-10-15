@@ -50,6 +50,12 @@ export interface SendOptions {
   idempotencyKey?: string
   /** Keep a screenshot and the action for each step (`sai.turns.trajectory()`). */
   recordTrajectory?: boolean
+  /**
+   * Run the turn this message starts without approval cards, as if "Trust for
+   * this task" had been answered; the grant ends with the turn. A message that
+   * steers a running turn changes nothing.
+   */
+  autonomous?: boolean
 }
 
 export interface WaitOptions {
@@ -133,6 +139,7 @@ export class Session {
     if (this.id) body.sessionId = this.id
     if (opts.model) body.model = opts.model
     if (opts.attachments?.length) body.attachments = opts.attachments.map((a) => a.raw)
+    if (opts.autonomous) body.autonomous = true
     const options: Record<string, unknown> = {}
     if (opts.inputs !== undefined) options.inputs = opts.inputs
     if (opts.outputSchema !== undefined) options.output_schema = opts.outputSchema

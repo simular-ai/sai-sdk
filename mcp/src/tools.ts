@@ -47,6 +47,12 @@ export const toolSchemas = {
       .describe(
         'Model id from sai_models (or "auto"). Sticks to the session until changed. Omit to keep the account default.',
       ),
+    autonomous: z
+      .boolean()
+      .optional()
+      .describe(
+        'true = run this task without approval prompts, as if "approve_for_task" had been answered up front; the grant ends with the task. Only when the user asked for the task to run unattended. Has no effect when the message steers a running task.',
+      ),
   },
   sai_models: {},
   sai_task_wait: {
@@ -233,6 +239,7 @@ export class SaiTools {
     file_ids?: string[]
     new_session?: boolean
     model?: string
+    autonomous?: boolean
   }): Promise<{ session_id: string; machine_id: string; queued: boolean; push: boolean }> {
     const machineId = await this.resolveMachineId(args.machine_id)
     const attachments = args.file_ids?.map((id) => {
@@ -250,6 +257,7 @@ export class SaiTools {
       message: args.task,
       ...(attachments && attachments.length > 0 && { attachments }),
       ...(args.model && { model: args.model }),
+      ...(args.autonomous && { autonomous: true }),
     })
     if (this.ctx.push) this.ctx.onSessionStarted?.(started.sessionId)
     return {

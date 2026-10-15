@@ -131,7 +131,8 @@ Ask your agent something like:
 A task keeps running on the computer between calls. When Sai asks for
 something only you can do, such as signing in to an account, your agent gives
 you a link to finish it and keeps waiting. Sai remembers earlier tasks on the
-same computer; `new_session: true` starts fresh.
+same computer; `new_session: true` starts fresh. `autonomous: true` on `sai_task_start`
+runs that task without permission requests, for work you want done unattended.
 
 There is no screenshot tool: Sai sees the screen itself and reports in text.
 

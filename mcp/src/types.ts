@@ -91,6 +91,8 @@ export interface StartRequest {
   attachments?: UploadedFile[]
   /** Model id from GET /models, or `auto`. Sticks to the session. */
   model?: string
+  /** Run the turn this message starts without approval cards; the grant ends with the turn. */
+  autonomous?: boolean
 }
 
 export interface StartResult {
