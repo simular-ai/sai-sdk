@@ -25,7 +25,7 @@ from sai import (
 Handler = Callable[[httpx.Request], httpx.Response]
 
 
-def client(routes: dict[str, Any], calls: list[httpx.Request] | None = None) -> Sai:
+def client(routes: dict[str, Any], calls: list[httpx.Request] | None = None, **kwargs: Any) -> Sai:
     """`routes` maps "METHOD /path" to a JSON body, a list of bodies (served in
     order), or a function of the request."""
     queues = {k: list(v) if isinstance(v, list) else v for k, v in routes.items()}
@@ -44,7 +44,7 @@ def client(routes: dict[str, Any], calls: list[httpx.Request] | None = None) -> 
         status, body = r if isinstance(r, tuple) else (200, r)
         return httpx.Response(status, json=body)
 
-    return Sai("sapi_test", base_url="https://api.test", transport=httpx.MockTransport(handle))
+    return Sai("sapi_test", base_url="https://api.test", transport=httpx.MockTransport(handle), **kwargs)
 
 
 MACHINES = {"machines": [{"machineId": "m_1", "name": "Work PC", "kind": "own", "online": True}]}
@@ -667,3 +667,138 @@ def test_lease_runs_learned_code_with_inputs_over_defaults() -> None:
     assert json.loads(calls[1].content)["code"] == (
         f'{LEARNED["code"]}\nawait main({{"site": "https://news.ycombinator.com", "n": 3}})'
     )
+
+
+TENANT = {
+    "tenantId": "t_1",
+    "name": "Riverside Clinic",
+    "externalId": "clinic-4821",
+    "metadata": {"plan": "pro"},
+    "status": "active",
+    "createdAt": 1790000000000,
+    "disabledAt": None,
+    "machineCount": 2,
+}
+TENANT_MACHINE = {
+    "machineId": "tm_1",
+    "name": "Front desk PC",
+    "platform": "darwin",
+    "status": "active",
+    "online": True,
+    "lastSeen": 1790003600000,
+    "runtimeVersion": "1.2.0",
+}
+
+
+def test_tenants_map_to_the_tenant_routes() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/tenants": (201, TENANT),
+            "GET /v1/tenants": {"tenants": [TENANT], "nextCursor": "c_2"},
+            "GET /v1/tenants/t_1": TENANT,
+            "PATCH /v1/tenants/t_1": {**TENANT, "status": "disabled", "disabledAt": 1790000001000},
+            "DELETE /v1/tenants/t_1": (204, None),
+            "POST /v1/tenants/t_1/enrollments": (201, {"enrollmentToken": "senr_1", "expiresAt": 1790000900000}),
+        },
+        calls,
+    )
+    t = sai.tenants.create("Riverside Clinic", external_id="clinic-4821", metadata={"plan": "pro"})
+    assert json.loads(calls[0].content) == {
+        "name": "Riverside Clinic",
+        "externalId": "clinic-4821",
+        "metadata": {"plan": "pro"},
+    }
+    assert (t.id, t.external_id, t.metadata, t.machine_count) == ("t_1", "clinic-4821", {"plan": "pro"}, 2)
+
+    page = sai.tenants.list(status="active", limit=10)
+    assert dict(calls[1].url.params) == {"status": "active", "limit": "10"}
+    assert ([x.id for x in page.tenants], page.next_cursor) == (["t_1"], "c_2")
+    sai.tenants.list(external_id="clinic-4821")
+    assert dict(calls[2].url.params) == {"externalId": "clinic-4821"}
+
+    assert sai.tenants.get(t).name == "Riverside Clinic"
+    disabled = sai.tenants.update("t_1", status="disabled")
+    assert json.loads(calls[4].content) == {"status": "disabled"}
+    assert (disabled.status, disabled.disabled_at) == ("disabled", 1790000001000)
+
+    assert sai.tenants.delete(t) is None
+    e = sai.tenants.create_enrollment(t)
+    assert (e.token, e.expires_at) == ("senr_1", 1790000900000)
+    assert [f"{c.method} {c.url.path}" for c in calls[5:]] == [
+        "DELETE /v1/tenants/t_1",
+        "POST /v1/tenants/t_1/enrollments",
+    ]
+
+
+def test_tenant_machines_list_get_and_revoke() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "GET /v1/tenants/t_1/machines": {"machines": [TENANT_MACHINE]},
+            "GET /v1/tenants/t_1/machines/tm_1": TENANT_MACHINE,
+            "DELETE /v1/tenants/t_1/machines/tm_1": (204, None),
+        },
+        calls,
+    )
+    [m] = sai.tenant_machines.list("t_1")
+    assert (m.id, m.platform, m.online, m.last_seen, m.runtime_version) == (
+        "tm_1",
+        "darwin",
+        True,
+        1790003600000,
+        "1.2.0",
+    )
+    assert sai.tenant_machines.get("t_1", "tm_1").name == "Front desk PC"
+    assert sai.tenant_machines.revoke("t_1", m) is None
+    assert f"{calls[2].method} {calls[2].url.path}" == "DELETE /v1/tenants/t_1/machines/tm_1"
+
+
+def test_tenant_token_org_id_from_client_env_or_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    reply = {"token": "tt_1", "expiresAt": 1790003600000, "tenantId": "t_1"}
+    routes = {
+        "POST /v1/orgs/org_a/tenants/t_1/token": reply,
+        "POST /v1/orgs/org_b/tenants/t_1/token": reply,
+        "POST /v1/orgs/org_env/tenants/t_1/token": reply,
+    }
+    monkeypatch.delenv("SAI_ORG_ID", raising=False)
+    with pytest.raises(ValueError, match="SAI_ORG_ID"):
+        client(routes).tenants.token("t_1")
+
+    sai = client(routes, org_id="org_a")
+    tok = sai.tenants.token("t_1")
+    assert (tok.token, tok.expires_at, tok.tenant_id) == ("tt_1", 1790003600000, "t_1")
+    assert sai.tenants.token("t_1", org_id="org_b").token == "tt_1"
+
+    monkeypatch.setenv("SAI_ORG_ID", "org_env")
+    assert client(routes).tenants.token("t_1").token == "tt_1"
+
+
+def test_tenant_client_acts_as_the_tenant_and_exchanges_before_expiry() -> None:
+    import time
+
+    now = int(time.time() * 1000)
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/orgs/org_a/tenants/t_1/token": [
+                {"token": "tt_1", "expiresAt": now + 4 * 60 * 1000, "tenantId": "t_1"},
+                {"token": "tt_2", "expiresAt": now + 60 * 60 * 1000, "tenantId": "t_1"},
+            ],
+            "GET /v1/agents/machines": MACHINES,
+        },
+        calls,
+        org_id="org_a",
+    )
+    tenant = sai.tenants.client("t_1")
+    assert [c.url.path for c in calls] == ["/v1/orgs/org_a/tenants/t_1/token"]
+    assert calls[0].headers["authorization"] == "Bearer sapi_test"
+
+    tenant.machines.list()  # tt_1 has under five minutes left
+    tenant.machines.list()
+    assert [c.url.path for c in calls[1:]] == [
+        "/v1/orgs/org_a/tenants/t_1/token",
+        "/v1/agents/machines",
+        "/v1/agents/machines",
+    ]
+    assert [c.headers["authorization"] for c in calls[2:]] == ["Bearer tt_2", "Bearer tt_2"]

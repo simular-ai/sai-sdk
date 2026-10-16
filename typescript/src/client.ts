@@ -1,7 +1,8 @@
 import { Control } from './control.js'
-import { DEFAULT_BASE_URL, Http, type FetchLike } from './http.js'
+import { DEFAULT_BASE_URL, Http, type Credential, type FetchLike } from './http.js'
 import { Machines } from './machines.js'
 import { Sessions } from './sessions.js'
+import { TenantMachines, Tenants } from './tenants.js'
 import { Turns } from './turns.js'
 import { Judge, Learn } from './learn.js'
 import {
@@ -23,6 +24,11 @@ export interface SaiOptions {
   versionTag?: string
   /** Replace `fetch`, e.g. in tests. */
   fetch?: FetchLike
+  /**
+   * The Organisation that `tenants.token()` and `tenants.client()` exchange for. Defaults to
+   * `process.env.SAI_ORG_ID`. Only an Organisation Key needs it.
+   */
+  orgId?: string
 }
 
 /**
@@ -46,10 +52,15 @@ export class Sai {
   readonly models: Models
   readonly files: Files
   readonly account: AccountResource
+  /** Your customers under an Organisation. Takes an Organisation Key. */
+  readonly tenants: Tenants
+  /** A Tenant's enrolled computers. Takes an Organisation Key. */
+  readonly tenantMachines: TenantMachines
 
-  constructor(opts: SaiOptions = {}) {
+  /** @param credential internal: `tenants.client()` passes a token source instead of `apiKey`. */
+  constructor(opts: SaiOptions = {}, credential?: Credential) {
     const env = typeof process !== 'undefined' ? process.env : {}
-    const key = opts.apiKey ?? env.SAI_API_KEY
+    const key = credential ?? opts.apiKey ?? env.SAI_API_KEY
     if (!key) {
       throw new Error(
         'No API key: pass apiKey or set SAI_API_KEY. Create one at https://platform.simular.ai.',
@@ -71,6 +82,8 @@ export class Sai {
     this.models = new Models(http)
     this.files = new Files(http)
     this.account = new AccountResource(http)
+    this.tenants = new Tenants(http, opts.orgId ?? env.SAI_ORG_ID, (c) => new Sai(opts, c))
+    this.tenantMachines = new TenantMachines(http)
   }
 }
 

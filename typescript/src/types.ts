@@ -88,6 +88,98 @@ export function parseMachine(d: Json): Machine {
   }
 }
 
+/** One of your customers under an Organisation. */
+export interface Tenant {
+  id: string
+  name: string
+  /** Your id for the customer. Unique in the Organisation; set on create only. */
+  externalId: string | null
+  metadata: Record<string, string>
+  /** `active` or `disabled`. */
+  status: string
+  /** Unix time in milliseconds. */
+  createdAt: number
+  disabledAt: number | null
+  machineCount: number
+  raw: Json
+}
+
+export function parseTenant(d: Json): Tenant {
+  return {
+    id: str(d.tenantId) ?? '',
+    name: str(d.name) ?? '',
+    externalId: str(d.externalId) ?? null,
+    metadata: obj(d.metadata) as Record<string, string>,
+    status: str(d.status) ?? '',
+    createdAt: num(d.createdAt),
+    disabledAt: typeof d.disabledAt === 'number' ? d.disabledAt : null,
+    machineCount: num(d.machineCount),
+    raw: d,
+  }
+}
+
+export interface TenantPage {
+  tenants: Tenant[]
+  /** Pass as `cursor` for the next page; null on the last page. */
+  nextCursor: string | null
+}
+
+/** A Tenant's own computer, running the Sai runtime. */
+export interface TenantMachine {
+  id: string
+  name: string | null
+  platform: string | null
+  status: string
+  /** True when the machine reported in the last 3 minutes. */
+  online: boolean
+  lastSeen: number | null
+  runtimeVersion: string | null
+  raw: Json
+}
+
+export function parseTenantMachine(d: Json): TenantMachine {
+  return {
+    id: str(d.machineId) ?? '',
+    name: str(d.name) ?? null,
+    platform: str(d.platform) ?? null,
+    status: str(d.status) ?? '',
+    online: Boolean(d.online),
+    lastSeen: typeof d.lastSeen === 'number' ? d.lastSeen : null,
+    runtimeVersion: str(d.runtimeVersion) ?? null,
+    raw: d,
+  }
+}
+
+export interface Enrollment {
+  /** Single use. Treat it as a secret until the Sai runtime redeems it. */
+  token: string
+  /** Unix time in milliseconds, 15 minutes after it was created. */
+  expiresAt: number
+  raw: Json
+}
+
+export function parseEnrollment(d: Json): Enrollment {
+  return { token: str(d.enrollmentToken) ?? '', expiresAt: num(d.expiresAt), raw: d }
+}
+
+export interface TenantToken {
+  /** Pass as `new Sai({ apiKey })` to act as the Tenant on sessions, machines and turns. */
+  token: string
+  /** Unix time in milliseconds, an hour after the exchange. There is no refresh: exchange again. */
+  expiresAt: number
+  tenantId: string
+  raw: Json
+}
+
+export function parseTenantToken(d: Json): TenantToken {
+  return {
+    token: str(d.token) ?? '',
+    expiresAt: num(d.expiresAt),
+    tenantId: str(d.tenantId) ?? '',
+    raw: d,
+  }
+}
+
 /** A file uploaded with `sai.files.upload()`. Pass it in `attachments`. */
 export interface Attachment {
   fileId: string

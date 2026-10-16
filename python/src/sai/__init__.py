@@ -4,6 +4,7 @@
 - `sai.learn`, `sai.judge`: turn recorded turns into Simulang code, repair it, judge turns.
 - `sai.control`: drive a cloud computer yourself with Simulang.
 - `sai.machines`, `sai.models`, `sai.files`, `sai.account`.
+- `sai.tenants`, `sai.tenant_machines`: your customers under an Organisation (an Organisation Key).
 """
 
 from ._client import Sai
@@ -26,6 +27,7 @@ from ._version import __version__
 from .control import ControlLease
 from .machines import Machine
 from .sessions import Session, Turn
+from .tenants import Enrollment, Tenant, TenantMachine, TenantPage, TenantToken
 from .types import (
     Account,
     Approval,
@@ -54,6 +56,11 @@ __all__ = [
     "Turn",
     "ControlLease",
     "Machine",
+    "Tenant",
+    "TenantPage",
+    "TenantMachine",
+    "Enrollment",
+    "TenantToken",
     "Account",
     "Approval",
     "Attachment",
