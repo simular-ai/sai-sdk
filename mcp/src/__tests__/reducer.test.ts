@@ -107,3 +107,21 @@ describe('cursor codec', () => {
     expect(decodeCursor('-2', 5)).toBe(0)
   })
 })
+
+describe('error code', () => {
+  it('keeps the error frame’s `code` next to its text', () => {
+    const state = initialState()
+    applyEvent(state, { type: 'error', errorText: 'Out of credits.', code: 'insufficient_credits' })
+    expect(state).toMatchObject({
+      status: 'error',
+      error: 'Out of credits.',
+      errorCode: 'insufficient_credits',
+    })
+  })
+
+  it('leaves `errorCode` unset for servers that send no code', () => {
+    const state = initialState()
+    applyEvent(state, { type: 'error', errorText: 'Boom.' })
+    expect(state.errorCode).toBeUndefined()
+  })
+})

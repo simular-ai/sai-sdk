@@ -117,7 +117,10 @@ export function errorFor(
     (code !== undefined && Object.hasOwn(BY_CODE, code) ? BY_CODE[code] : undefined) ??
     BY_STATUS[status] ??
     SaiError
-  return new Cls(message, { status, code, body, retryAfter })
+  // The `Retry-After` header wins; `retryAfterSeconds` is the same value in the body (`rate_limited`).
+  const wait =
+    retryAfter ?? (typeof body.retryAfterSeconds === 'number' ? body.retryAfterSeconds : undefined)
+  return new Cls(message, { status, code, body, retryAfter: wait })
 }
 
 function looksLikeCode(s: string): boolean {

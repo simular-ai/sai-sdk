@@ -128,6 +128,9 @@ def error_for(status: int, body: dict[str, Any], retry_after: Optional[float]) -
     if status == 401:
         message += " (SAI_API_KEY was rejected: it may be revoked.)"
     cls = _BY_CODE.get(code or "") or _BY_STATUS.get(status, SaiError)
+    # The `Retry-After` header wins; `retryAfterSeconds` is the same value in the body (`rate_limited`).
+    if retry_after is None and isinstance(body.get("retryAfterSeconds"), (int, float)):
+        retry_after = float(body["retryAfterSeconds"])
     return cls(message, status=status, code=code, body=body, retry_after=retry_after)
 
 

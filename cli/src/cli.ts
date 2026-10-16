@@ -26,6 +26,7 @@ import {
   streamMessage,
   sendApproval,
   startConciergePoll,
+  errorDetail,
 } from './sai/client.js'
 import type { MachineInfo, SessionSummary, SseEvent } from './sai/client.js'
 import { uploadFile } from './upload/simulang.js'
@@ -220,7 +221,7 @@ program
 
     if (machines.length === 0) {
       console.error(
-        'No machines found. Open the Sai desktop app on a computer to set up a workspace first.',
+        'No machines found. Create a cloud computer in the Sai app or the developer portal first.',
       )
       process.exit(1)
     }
@@ -364,8 +365,10 @@ keyCmd
         body: JSON.stringify({ name: opts.name }),
       })
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(`Failed to generate key (${res.status}): ${body.error ?? res.statusText}`)
+        const body: unknown = await res.json().catch(() => ({}))
+        throw new Error(
+          `Failed to generate key (${res.status}): ${errorDetail(body, res.statusText)}`,
+        )
       }
       const { key, keyId } = (await res.json()) as { key: string; keyId: string; name?: string }
       saveApiKey(key, keyId)
@@ -405,8 +408,10 @@ keyCmd
         process.exit(1)
       }
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(`Failed to revoke key (${res.status}): ${body.error ?? res.statusText}`)
+        const body: unknown = await res.json().catch(() => ({}))
+        throw new Error(
+          `Failed to revoke key (${res.status}): ${errorDetail(body, res.statusText)}`,
+        )
       }
       if (loadApiKeyId() === keyId) {
         clearApiKey()
@@ -437,8 +442,8 @@ keyCmd
         headers: { Authorization: `Bearer ${authToken}` },
       })
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(`Failed to list keys (${res.status}): ${body.error ?? res.statusText}`)
+        const body: unknown = await res.json().catch(() => ({}))
+        throw new Error(`Failed to list keys (${res.status}): ${errorDetail(body, res.statusText)}`)
       }
       const { keys } = (await res.json()) as {
         keys: { keyId: string; name: string | null; createdAt: number }[]
@@ -704,7 +709,7 @@ program
       }
       if (machines.length === 0) {
         console.error(
-          'No machines found. Open the Sai desktop app on a computer to set up a workspace first.',
+          'No machines found. Create a cloud computer in the Sai app or the developer portal first.',
         )
         process.exit(1)
       }

@@ -9,7 +9,9 @@ import {
   ConflictError,
   GoneError,
   LinkOnlyApprovalError,
+  NotFoundError,
   PermissionDeniedError,
+  RateLimitError,
   SpendCapReachedError,
   Sai,
   type Event,
@@ -245,6 +247,55 @@ describe('sai typescript sdk', () => {
     for await (const ev of turn.events()) evs.push(ev)
     expect(evs).toEqual([])
     expect((await turn.wait()).text).toBe('Hi! What should I do?')
+  })
+
+  it('reads a handled message from `reply` (current servers)', async () => {
+    const turn = await client({
+      'POST /v1/agents/message': { handled: true, reply: 'Hi! What should I do?', error: 'old' },
+    })
+      .sessions.resume('cs_1', { machine: 'm_1' })
+      .send('hello')
+    expect((await turn.wait()).text).toBe('Hi! What should I do?')
+  })
+
+  it('reads the code and message of a { error: code, message } body', async () => {
+    const err = await client({
+      'POST /v1/agents/abort': [404, { error: 'not_found', message: 'Session not found.' }],
+    })
+      .sessions.resume('cs_1', { machine: 'm_1' })
+      .abort()
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(NotFoundError)
+    expect((err as NotFoundError).code).toBe('not_found')
+    expect((err as NotFoundError).message).toBe('Session not found.')
+  })
+
+  it('takes retryAfter from the body when the header is missing', async () => {
+    const err = await client({
+      'GET /v1/agents/machines': [
+        429,
+        { error: 'rate_limited', message: 'Too many requests.', retryAfterSeconds: 42 },
+      ],
+    })
+      .machines.list()
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(RateLimitError)
+    expect((err as RateLimitError).retryAfter).toBe(42)
+  })
+
+  it('parses the public machine `state`, and null from servers without it', async () => {
+    const machines = await client({
+      'GET /v1/agents/machines': {
+        machines: [
+          { machineId: 'm_1', kind: 'cloud', state: 'asleep', status: 'hibernated' },
+          { machineId: 'm_2', kind: 'own' },
+        ],
+      },
+    }).machines.list()
+    expect(machines.map((m) => [m.state, m.status])).toEqual([
+      ['asleep', 'hibernated'],
+      [null, null],
+    ])
   })
 
   it('surfaces credit error codes', async () => {

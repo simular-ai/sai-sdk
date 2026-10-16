@@ -96,6 +96,7 @@ function snapshot(state: SessionState, cursor: string | undefined): WaitResult {
     ...(state.status === 'needs_approval' && state.approval && { approval: state.approval }),
     cursor: encodeCursor(state.events.length),
     ...(state.status === 'error' && state.error && { error: state.error }),
+    ...(state.status === 'error' && state.errorCode && { errorCode: state.errorCode }),
   }
 }
 
@@ -276,6 +277,15 @@ export class EventsPoller implements SessionSource {
 
   async start(req: StartRequest): Promise<StartResult> {
     const result = await this.api.sendMessageNoWait(req)
+    if (!result.sessionId) {
+      // Handled without starting a task (a command, an acknowledgement): `200 { handled, reply }`,
+      // or `{ error: <reply> }` on servers before `reply`. There is no session to poll.
+      const handled = result as unknown as { reply?: unknown; error?: unknown }
+      const reply = typeof handled.reply === 'string' ? handled.reply : handled.error
+      throw new Error(
+        `Sai answered without starting a task: ${typeof reply === 'string' ? reply : ''}`.trim(),
+      )
+    }
     this.sessions.set(result.sessionId, { machineId: result.machineId, state: initialState() })
     return result
   }
@@ -355,6 +365,8 @@ export class EventsPoller implements SessionSource {
       }
     }
     const errorEvent = [...collected].reverse().find((e) => e.type === 'error')
+    const errorCode =
+      errorEvent && errorEvent.type === 'error' ? errorEvent.code : polled.state.errorCode
     return {
       status,
       events: collected,
@@ -368,6 +380,7 @@ export class EventsPoller implements SessionSource {
         error:
           errorEvent && errorEvent.type === 'error' ? errorEvent.errorText : polled.state.error,
       }),
+      ...(status === 'error' && errorCode && { errorCode }),
     }
   }
 

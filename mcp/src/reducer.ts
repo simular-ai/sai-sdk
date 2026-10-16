@@ -19,6 +19,7 @@ export interface SessionState {
   text: string
   approval?: ApprovalRequest
   error?: string
+  errorCode?: string
 }
 
 export function initialState(): SessionState {
@@ -59,6 +60,7 @@ export function applyEvent(state: SessionState, event: SseEvent): SessionState {
     case 'error':
       state.status = 'error'
       state.error = event.errorText
+      state.errorCode = event.code
       state.approval = undefined
       break
     default:

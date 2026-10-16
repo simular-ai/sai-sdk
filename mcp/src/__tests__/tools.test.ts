@@ -127,6 +127,41 @@ describe('machinesResult', () => {
     ])
     expect(machinesResult([]).default).toBeUndefined()
   })
+  it('passes the public `state` through when the server sends it', () => {
+    expect(
+      machinesResult([
+        { machineId: 'm1', kind: 'cloud', online: false, state: 'asleep', status: 'hibernated' },
+      ]).machines,
+    ).toEqual([{ machineId: 'm1', kind: 'cloud', online: false, state: 'asleep' }])
+  })
+})
+
+describe('SaiApi errors', () => {
+  it('reads the human text from `message` (current servers) before `error`', async () => {
+    const api = new SaiApi(
+      'https://api.test',
+      'k',
+      async () =>
+        new Response(JSON.stringify({ error: 'not_found', message: 'Session not found.' }), {
+          status: 404,
+        }),
+    )
+    const err = (await api.abort('s1').catch((e: unknown) => e)) as ApiError
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.message).toContain('Session not found.')
+    expect(err.message).not.toContain('not_found')
+    expect(err.body.error).toBe('not_found')
+  })
+
+  it('still reads `error` from older servers', async () => {
+    const api = new SaiApi(
+      'https://api.test',
+      'k',
+      async () => new Response(JSON.stringify({ error: 'Session not found.' }), { status: 403 }),
+    )
+    const err = (await api.abort('s1').catch((e: unknown) => e)) as ApiError
+    expect(err.message).toContain('Session not found.')
+  })
 })
 
 describe('approval url', () => {

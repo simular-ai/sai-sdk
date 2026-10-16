@@ -51,11 +51,25 @@ export type SseEvent =
       toolMetadata?: Record<string, unknown>
     }
   | { type: 'tool-input-available'; toolCallId: string; toolName: string; input: unknown }
-  | { type: 'tool-output-error'; toolCallId: string; errorText: string }
+  | {
+      type: 'tool-output-error'
+      toolCallId: string
+      errorText: string
+      /** `insufficient_credits` / `free_computer_time_exhausted`, on servers that send it. */
+      code?: string
+      /** ISO time the free daily credits refresh (`insufficient_credits`). */
+      resetsAt?: string
+    }
   | { type: 'data-progress'; data: { text: string; tool: string } }
   | { type: 'data-approval-request'; data: ApprovalRequest }
   | { type: 'finish'; finishReason?: string }
-  | { type: 'error'; errorText: string }
+  | {
+      type: 'error'
+      errorText: string
+      /** Machine-readable reason (`insufficient_credits`, `agent_error`, …), on servers that send it. */
+      code?: string
+      resetsAt?: string
+    }
 
 export type SessionStatus = 'running' | 'needs_approval' | 'idle' | 'error'
 
@@ -83,6 +97,8 @@ export interface WaitResult {
   cursor: string
   /** Set on `status: 'error'` — the `error` frame's text. */
   error?: string
+  /** Set on `status: 'error'` when the `error` frame carried a `code`. */
+  errorCode?: string
 }
 
 export interface StartRequest {
@@ -114,6 +130,9 @@ export interface MachineRow {
   machineId: string
   name?: string
   updatedAt?: number
+  /** `running` / `starting` / `asleep` / `creating` / `unknown`, on servers that send it. */
+  state?: string
+  /** Deprecated by the server in favour of `state`: the internal lifecycle value. */
   status?: string
   canWake?: boolean
   /** A4 fields — present once cloud-api ships them. */

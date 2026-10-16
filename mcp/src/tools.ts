@@ -189,7 +189,7 @@ export function buildApprovalUrl(userId: string, approvalId: string): string {
 }
 
 export function machinesResult(rows: MachineRow[]): {
-  machines: Array<Pick<MachineRow, 'machineId' | 'name' | 'kind' | 'online' | 'status'>>
+  machines: Array<Pick<MachineRow, 'machineId' | 'name' | 'kind' | 'online' | 'state' | 'status'>>
   default?: string
 } {
   const machines = rows.map((m) => ({
@@ -197,6 +197,7 @@ export function machinesResult(rows: MachineRow[]): {
     ...(m.name !== undefined && { name: m.name }),
     ...(m.kind !== undefined && { kind: m.kind }),
     ...(m.online !== undefined && { online: m.online }),
+    ...(m.state !== undefined && { state: m.state }),
     // Pre-A4 servers send `status` instead of `online`; pass it through rather than guess.
     ...(m.online === undefined && m.status !== undefined && { status: m.status }),
   }))

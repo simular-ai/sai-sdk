@@ -9,7 +9,10 @@ import type {
   UploadedFile,
 } from './types.js'
 
-/** A non-2xx cloud-api response. `body.error` is the server's message when it sent JSON. */
+/**
+ * A non-2xx cloud-api response. `body` is the JSON the server sent: `{ error: "<code>",
+ * message: "<text>" }` on current servers, `{ error: "<text>" }` on older ones.
+ */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -79,7 +82,13 @@ function toNetworkError(url: string, err: unknown): Error {
 
 async function readError(res: Response, prefix: string): Promise<ApiError> {
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
-  const detail = typeof body.error === 'string' ? body.error : res.statusText
+  // `message` is the human text on current servers; older ones put it in `error`.
+  const detail =
+    typeof body.message === 'string' && body.message
+      ? body.message
+      : typeof body.error === 'string' && body.error
+        ? body.error
+        : res.statusText
   const hint =
     res.status === 401
       ? ' SAI_API_KEY was rejected — it may be revoked or expired (Firebase ID tokens last one hour).'

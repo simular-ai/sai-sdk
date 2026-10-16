@@ -18,15 +18,34 @@ function authHint(status: number): string {
 }
 
 /**
+ * The human-readable part of a cloud-api error body. Newer servers send
+ * `{ error: "<code>", message: "<text>" }`; older ones put the text in `error`.
+ * Prefers `message`, then `error`, then `fallback` (the status text), so every
+ * server generation and a non-JSON body read sensibly.
+ */
+export function errorDetail(body: unknown, fallback: string): string {
+  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
+  if (typeof b.message === 'string' && b.message) return b.message
+  if (typeof b.error === 'string' && b.error) return b.error
+  return fallback
+}
+
+/**
  * The Error to throw for a failed cloud-api response: `<prefix> (<status>): <detail>`,
- * plus the stored-key hint on a 401. `detail` prefers the JSON `error` field and
- * falls back to the status text, so a non-JSON body still reads sensibly.
+ * plus the stored-key hint on a 401. `detail` is `errorDetail` of the JSON body.
  */
 async function apiError(res: Response, prefix: string): Promise<Error> {
-  const body = (await res.json().catch(() => ({}))) as { error?: string }
-  const detail = body.error ?? res.statusText
+  const body: unknown = await res.json().catch(() => ({}))
+  const detail = errorDetail(body, res.statusText)
   return new Error(`${prefix} (${res.status}): ${detail}${authHint(res.status)}`)
 }
+
+/**
+ * The CLI's conversation is the `cli` channel, named on every request that takes one. The
+ * server's default follows the credential (`api` for an API key, `cli` for a signed-in token),
+ * and `sai` can run with an API key too (`SAI_API_KEY`, `sai key generate`).
+ */
+export const CLI_CHANNEL = 'cli'
 
 export interface SessionInfo {
   machineId: string
@@ -73,7 +92,7 @@ export async function abortCurrentTask(
   const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/abort`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-    body: JSON.stringify({ machineId }),
+    body: JSON.stringify({ machineId, channel: CLI_CHANNEL }),
     signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) {
@@ -83,7 +102,7 @@ export async function abortCurrentTask(
 }
 
 export async function resolveSession(authToken: string): Promise<SessionInfo> {
-  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/session`, {
+  const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/session?channel=${CLI_CHANNEL}`, {
     headers: { Authorization: `Bearer ${authToken}` },
   })
 
@@ -91,9 +110,9 @@ export async function resolveSession(authToken: string): Promise<SessionInfo> {
     // 404 here means "no machine registered", not a missing route — worth its own
     // actionable message, so it reads the body itself rather than via apiError.
     if (res.status === 404) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      const body: unknown = await res.json().catch(() => ({}))
       throw new Error(
-        `No machine found for your account. Open the Sai desktop app first, then try again. (${body.error ?? res.statusText})`,
+        `No machine found for your account. Create a cloud computer in the Sai app or the developer portal, then try again. (${errorDetail(body, res.statusText)})`,
       )
     }
     throw await apiError(res, 'Failed to resolve session')
@@ -192,7 +211,7 @@ export async function listSessions(
   machineId: string,
 ): Promise<SessionSummary[]> {
   const res = await apiFetch(
-    `${CLOUD_API_URL}/v1/agents/sessions?machineId=${encodeURIComponent(machineId)}`,
+    `${CLOUD_API_URL}/v1/agents/sessions?machineId=${encodeURIComponent(machineId)}&channel=${CLI_CHANNEL}`,
     { headers: { Authorization: `Bearer ${authToken}` } },
   )
 
@@ -249,9 +268,9 @@ export async function fetchConciergeMessages(
     signal: opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout,
   })
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    const body: unknown = await res.json().catch(() => ({}))
     throw new Error(
-      `Failed to fetch concierge messages (${res.status}): ${body.error ?? res.statusText}`,
+      `Failed to fetch concierge messages (${res.status}): ${errorDetail(body, res.statusText)}`,
     )
   }
   return (await res.json()) as ConciergeMessagesPage
@@ -382,7 +401,7 @@ export async function restartTarget(
   const res = await apiFetch(`${CLOUD_API_URL}/v1/agents/restart`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-    body: JSON.stringify({ machineId, target }),
+    body: JSON.stringify({ machineId, target, channel: CLI_CHANNEL }),
     signal: AbortSignal.timeout(30_000),
   })
 
@@ -398,7 +417,7 @@ export async function startNewSession(authToken: string, machineId: string): Pro
       'Content-Type': 'application/json',
       Authorization: `Bearer ${authToken}`,
     },
-    body: JSON.stringify({ machineId }),
+    body: JSON.stringify({ machineId, channel: CLI_CHANNEL }),
     signal: AbortSignal.timeout(15_000),
   })
 
