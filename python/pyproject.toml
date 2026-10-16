@@ -1,6 +1,6 @@
 [project]
 name = "sai-sdk"
-version = "0.1.0a5"
+version = "0.1.0a6"
 description = "Python SDK for the Sai API: delegate desktop work to Sai, or drive a cloud computer directly."
 readme = "README.md"
 requires-python = ">=3.10"
