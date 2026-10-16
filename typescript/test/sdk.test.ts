@@ -14,6 +14,7 @@ import {
   RateLimitError,
   SpendCapReachedError,
   Sai,
+  type SaiOptions,
   type Event,
   type TurnResult,
 } from '../src/index.js'
@@ -32,7 +33,11 @@ interface Call {
  * `routes` maps "METHOD /path" to a JSON body, `[status, body]`, a list of
  * those (served in order, the last repeats), or a function of the request.
  */
-function client(routes: Record<string, Reply | Reply[]>, calls: Call[] = []): Sai {
+function client(
+  routes: Record<string, Reply | Reply[]>,
+  calls: Call[] = [],
+  opts: SaiOptions = {},
+): Sai {
   const queues = new Map(
     Object.entries(routes).map(([k, v]) => [k, Array.isArray(v) && !isPair(v) ? [...v] : [v]]),
   )
@@ -55,7 +60,7 @@ function client(routes: Record<string, Reply | Reply[]>, calls: Call[] = []): Sa
     const [status, json] = isPair(r) ? r : [200, r]
     return Response.json(json, { status })
   }
-  return new Sai({ apiKey: 'sapi_test', baseUrl: 'https://api.test', fetch })
+  return new Sai({ apiKey: 'sapi_test', baseUrl: 'https://api.test', fetch, ...opts })
 }
 
 function isPair(v: unknown): v is [number, unknown] {
@@ -316,6 +321,7 @@ describe('sai typescript sdk', () => {
 
   it('runs a control lease and closes it', async () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0])
     const calls: Call[] = []
     const exec = (over: Record<string, unknown>) => ({
       logs: [],
@@ -336,6 +342,11 @@ describe('sai typescript sdk', () => {
             },
           }),
           exec({ error: { kind: 'exception', message: 'boom' } }),
+          exec({
+            observations: {
+              screenshot: { base64: Buffer.from(jpeg).toString('base64'), mimeType: 'image/jpeg' },
+            },
+          }),
         ],
         'DELETE /v1/machines/m_1/control': () => new Response(null, { status: 204 }),
       },
@@ -348,6 +359,12 @@ describe('sai typescript sdk', () => {
       const r = await lease.exec("throw new Error('boom')")
       expect(r.ok).toBe(false)
       expect(r.error?.kind).toBe('exception')
+      const snap = await lease.exec('await page.snapshot()')
+      expect([snap.screenshot, snap.screenshotMimeType, snap.screenshotPng]).toEqual([
+        jpeg,
+        'image/jpeg',
+        jpeg,
+      ])
     }
     expect(calls.at(-1)!.method).toBe('DELETE')
     const first = calls.find((c) => c.path.endsWith('/exec'))!
@@ -396,6 +413,7 @@ describe('sai typescript sdk', () => {
     expect(a.fileId).toBe('f_1')
     expect(calls[0]!.headers.get('x-filename')).toBe('a%20b.txt')
     expect(calls[0]!.body).toBe('abc')
+    expect(calls[0]!.headers.get('content-type')).toBe('application/octet-stream')
   })
 
   describe('turns', () => {
@@ -776,7 +794,8 @@ describe('learn and judge', () => {
             result: null,
             logs,
             error: { kind: 'exception', message: 'boom', stack: 'st' },
-            screenshotPng: new Uint8Array([1]),
+            screenshot: new Uint8Array([1]),
+            screenshotMimeType: 'image/jpeg',
             screenshotOmitted: false,
             variables: [],
             durationMs: 5,
@@ -860,4 +879,159 @@ describe('learn and judge', () => {
       parameters: learned.parameters.map((p) => ({ ...p, description: null })),
     } as never
   }
+})
+
+const TENANT = {
+  tenantId: 't_1',
+  name: 'Riverside Clinic',
+  externalId: 'clinic-4821',
+  metadata: { plan: 'pro' },
+  status: 'active',
+  createdAt: 1790000000000,
+  disabledAt: null,
+  machineCount: 2,
+}
+const TENANT_MACHINE = {
+  machineId: 'tm_1',
+  name: 'Front desk PC',
+  platform: 'darwin',
+  status: 'active',
+  online: true,
+  lastSeen: 1790003600000,
+  runtimeVersion: '1.2.0',
+}
+const noContent = () => new Response(null, { status: 204 })
+
+describe('tenants', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('maps to the tenant routes', async () => {
+    const calls: Call[] = []
+    const sai = client(
+      {
+        'POST /v1/tenants': [201, TENANT],
+        'GET /v1/tenants': { tenants: [TENANT], nextCursor: 'c_2' },
+        'GET /v1/tenants/t_1': TENANT,
+        'PATCH /v1/tenants/t_1': { ...TENANT, status: 'disabled', disabledAt: 1790000001000 },
+        'DELETE /v1/tenants/t_1': noContent,
+        'POST /v1/tenants/t_1/enrollments': [
+          201,
+          { enrollmentToken: 'senr_1', expiresAt: 1790000900000 },
+        ],
+      },
+      calls,
+    )
+    const t = await sai.tenants.create('Riverside Clinic', {
+      externalId: 'clinic-4821',
+      metadata: { plan: 'pro' },
+    })
+    expect(JSON.parse(calls[0]!.body)).toEqual({
+      name: 'Riverside Clinic',
+      externalId: 'clinic-4821',
+      metadata: { plan: 'pro' },
+    })
+    expect([t.id, t.externalId, t.metadata, t.machineCount]).toEqual([
+      't_1',
+      'clinic-4821',
+      { plan: 'pro' },
+      2,
+    ])
+
+    const page = await sai.tenants.list({ status: 'active', limit: 10 })
+    expect(Object.fromEntries(calls[1]!.params)).toEqual({ status: 'active', limit: '10' })
+    expect([page.tenants.map((x) => x.id), page.nextCursor]).toEqual([['t_1'], 'c_2'])
+    await sai.tenants.list({ externalId: 'clinic-4821' })
+    expect(Object.fromEntries(calls[2]!.params)).toEqual({ externalId: 'clinic-4821' })
+
+    expect((await sai.tenants.get(t)).name).toBe('Riverside Clinic')
+    const disabled = await sai.tenants.update('t_1', { status: 'disabled' })
+    expect(JSON.parse(calls[4]!.body)).toEqual({ status: 'disabled' })
+    expect([disabled.status, disabled.disabledAt]).toEqual(['disabled', 1790000001000])
+
+    expect(await sai.tenants.delete(t)).toBeUndefined()
+    const e = await sai.tenants.createEnrollment(t)
+    expect([e.token, e.expiresAt]).toEqual(['senr_1', 1790000900000])
+    expect(calls.slice(5).map((c) => `${c.method} ${c.path}`)).toEqual([
+      'DELETE /v1/tenants/t_1',
+      'POST /v1/tenants/t_1/enrollments',
+    ])
+  })
+
+  it('lists, gets and revokes tenant machines', async () => {
+    const calls: Call[] = []
+    const sai = client(
+      {
+        'GET /v1/tenants/t_1/machines': { machines: [TENANT_MACHINE] },
+        'GET /v1/tenants/t_1/machines/tm_1': TENANT_MACHINE,
+        'DELETE /v1/tenants/t_1/machines/tm_1': noContent,
+      },
+      calls,
+    )
+    const [m] = await sai.tenantMachines.list('t_1')
+    expect([m!.id, m!.platform, m!.online, m!.lastSeen, m!.runtimeVersion]).toEqual([
+      'tm_1',
+      'darwin',
+      true,
+      1790003600000,
+      '1.2.0',
+    ])
+    expect((await sai.tenantMachines.get('t_1', 'tm_1')).name).toBe('Front desk PC')
+    expect(await sai.tenantMachines.revoke('t_1', m!)).toBeUndefined()
+    expect(`${calls[2]!.method} ${calls[2]!.path}`).toBe('DELETE /v1/tenants/t_1/machines/tm_1')
+  })
+
+  it('takes the token orgId from the client, the env or the call', async () => {
+    const reply = { token: 'tt_1', expiresAt: 1790003600000, tenantId: 't_1' }
+    const routes = {
+      'POST /v1/orgs/org_a/tenants/t_1/token': reply,
+      'POST /v1/orgs/org_b/tenants/t_1/token': reply,
+      'POST /v1/orgs/org_env/tenants/t_1/token': reply,
+    }
+    vi.stubEnv('SAI_ORG_ID', '')
+    await expect(client(routes).tenants.token('t_1')).rejects.toThrow(/SAI_ORG_ID/)
+
+    const sai = client(routes, [], { orgId: 'org_a' })
+    const tok = await sai.tenants.token('t_1')
+    expect([tok.token, tok.expiresAt, tok.tenantId]).toEqual(['tt_1', 1790003600000, 't_1'])
+    expect((await sai.tenants.token('t_1', { orgId: 'org_b' })).token).toBe('tt_1')
+
+    vi.stubEnv('SAI_ORG_ID', 'org_env')
+    expect((await client(routes).tenants.token('t_1')).token).toBe('tt_1')
+  })
+
+  it('acts as the tenant and exchanges again before the token expires', async () => {
+    const now = Date.now()
+    const calls: Call[] = []
+    const sai = client(
+      {
+        'POST /v1/orgs/org_a/tenants/t_1/token': [
+          { token: 'tt_1', expiresAt: now + 4 * 60 * 1000, tenantId: 't_1' },
+          { token: 'tt_2', expiresAt: now + 60 * 60 * 1000, tenantId: 't_1' },
+        ],
+        'GET /v1/agents/machines': MACHINES,
+      },
+      calls,
+      { orgId: 'org_a' },
+    )
+    const tenant = await sai.tenants.client('t_1')
+    expect(calls.map((c) => c.path)).toEqual(['/v1/orgs/org_a/tenants/t_1/token'])
+    expect(calls[0]!.headers.get('authorization')).toBe('Bearer sapi_test')
+
+    // tt_1 has under five minutes left: two requests at once share one exchange
+    await Promise.all([tenant.machines.list(), tenant.machines.list()])
+    await tenant.machines.list()
+    expect(calls.slice(1).map((c) => c.path)).toEqual([
+      '/v1/orgs/org_a/tenants/t_1/token',
+      '/v1/agents/machines',
+      '/v1/agents/machines',
+      '/v1/agents/machines',
+    ])
+    expect(calls.slice(2).map((c) => c.headers.get('authorization'))).toEqual([
+      'Bearer tt_2',
+      'Bearer tt_2',
+      'Bearer tt_2',
+    ])
+  })
 })

@@ -374,16 +374,23 @@ class ExecResult:
     result: Any
     logs: list[str]
     error: Optional[ExecError]
-    screenshot_png: Optional[bytes] = field(repr=False)
+    screenshot: Optional[bytes] = field(repr=False)
     """The screenshot the block captured (page/app snapshot, pageContent), decoded."""
     screenshot_omitted: bool
     variables: list[dict[str, Any]] = field(repr=False)
     duration_ms: int
     raw: dict[str, Any] = field(repr=False)
+    screenshot_mime_type: Optional[str] = None
+    """`image/jpeg` or `image/png`."""
 
     @property
     def ok(self) -> bool:
         return self.error is None
+
+    @property
+    def screenshot_png(self) -> Optional[bytes]:
+        """Deprecated: use `screenshot`. Not always PNG; see `screenshot_mime_type`."""
+        return self.screenshot
 
     @classmethod
     def parse(cls, d: dict[str, Any]) -> ExecResult:
@@ -394,7 +401,8 @@ class ExecResult:
             result=d.get("result"),
             logs=d.get("logs") or [],
             error=ExecError(err.get("kind", ""), err.get("message", ""), err.get("stack")) if err else None,
-            screenshot_png=base64.b64decode(shot["base64"]) if shot and shot.get("base64") else None,
+            screenshot=base64.b64decode(shot["base64"]) if shot and shot.get("base64") else None,
+            screenshot_mime_type=shot.get("mimeType") if shot else None,
             screenshot_omitted=bool(obs.get("screenshotOmitted")),
             variables=d.get("variables") or [],
             duration_ms=int(d.get("durationMs", 0)),

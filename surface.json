@@ -10,7 +10,9 @@
       "control",
       "models",
       "files",
-      "account"
+      "account",
+      "tenants",
+      "tenant_machines"
     ],
     "machines": ["list", "get", "live"],
     "sessions": ["create", "resume"],
@@ -20,7 +22,18 @@
     "control": ["open"],
     "models": ["list"],
     "files": ["upload"],
-    "account": ["get"]
+    "account": ["get"],
+    "tenants": [
+      "create",
+      "list",
+      "get",
+      "update",
+      "delete",
+      "create_enrollment",
+      "token",
+      "client"
+    ],
+    "tenant_machines": ["list", "get", "revoke"]
   },
   "objects": {
     "Session": ["send", "run", "abort", "respond"],

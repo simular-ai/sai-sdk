@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import urllib.parse
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import httpx
 
@@ -13,6 +13,7 @@ from .machines import Machines
 from .sessions import Sessions
 from .turns import Turns
 from .learn import Judge, Learn
+from .tenants import TenantMachines, Tenants
 from .types import Account, Attachment, Model
 
 
@@ -34,13 +35,22 @@ class Sai:
         timeout: float = 60.0,
         version_tag: Optional[str] = None,
         transport: Optional[httpx.BaseTransport] = None,
+        org_id: Optional[str] = None,
+        _token: Optional[Callable[[], str]] = None,
     ) -> None:
-        key = api_key or os.environ.get("SAI_API_KEY")
+        """`org_id` (default `SAI_ORG_ID`) is the Organisation that `tenants.token()` and
+        `tenants.client()` exchange for; only an Organisation Key needs it."""
+        key = _token or api_key or os.environ.get("SAI_API_KEY")
         if not key:
             raise ValueError("No API key: pass api_key= or set SAI_API_KEY. Create one at https://platform.simular.ai.")
+        self._base_url = base_url or os.environ.get("SAI_API_URL") or DEFAULT_BASE_URL
+        self._timeout = timeout
+        self._version_tag = version_tag
+        self._transport = transport
+        self._org_id = org_id or os.environ.get("SAI_ORG_ID")
         self._http = HTTP(
             key,
-            base_url or os.environ.get("SAI_API_URL") or DEFAULT_BASE_URL,
+            self._base_url,
             timeout=timeout,
             version_tag=version_tag,
             transport=transport,
@@ -56,6 +66,20 @@ class Sai:
         self.models = _Models(self)
         self.files = _Files(self)
         self.account = _Account(self)
+        self.tenants = Tenants(self)
+        """Your customers under an Organisation. Takes an Organisation Key."""
+        self.tenant_machines = TenantMachines(self)
+        """A Tenant's enrolled computers. Takes an Organisation Key."""
+
+    def _with_token(self, token: Callable[[], str]) -> Sai:
+        return Sai(
+            base_url=self._base_url,
+            timeout=self._timeout,
+            version_tag=self._version_tag,
+            transport=self._transport,
+            org_id=self._org_id,
+            _token=token,
+        )
 
     def close(self) -> None:
         self._http.close()
@@ -88,7 +112,11 @@ class _Files:
             "POST",
             "/v1/agents/upload",
             content=path.read_bytes(),
-            headers={"x-filename": urllib.parse.quote(name or path.name)},
+            # The server reads only a body that has a Content-Type; it derives the MIME type from the name.
+            headers={
+                "Content-Type": "application/octet-stream",
+                "x-filename": urllib.parse.quote(name or path.name),
+            },
             timeout=120,
         )
         return Attachment.parse(d)

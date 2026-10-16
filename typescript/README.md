@@ -194,7 +194,7 @@ try {
     snap.title
   `)
   console.log(r.result) // Example Domain
-  await writeFile('page.png', r.screenshotPng!)
+  await writeFile(`page.${r.screenshotMimeType!.split('/')[1]}`, r.screenshot!) // jpeg or png
 } finally {
   await lease.close()
 }
@@ -249,6 +249,31 @@ console.log(judgement.verdict, judgement.criteria[0]?.score)
 `learned.status` is `failed` when the code still has `learned.validation.errors` after one retry.
 Pass a judgement as `{ ..., judgement }` in an evaluation to repair code from its evidence.
 
+## Run Sai for your customers
+
+With an [Organisation](https://platform.simular.ai/documentation/organisations), each customer is a
+Tenant. Your backend manages Tenants with an Organisation Key, and acts as one with a Tenant token.
+
+```ts
+const org = new Sai({ apiKey: 'sapi_...', orgId: 'org_...' }) // an Organisation Key; or SAI_API_KEY, SAI_ORG_ID
+
+const tenant = await org.tenants.create('Riverside Clinic', { externalId: 'clinic-4821' })
+const code = await org.tenants.createEnrollment(tenant) // hand code.token to your installer
+console.log(await org.tenantMachines.list(tenant))
+
+const clinic = await org.tenants.client(tenant) // acts as the Tenant; renews its token
+const session = await clinic.sessions.create()
+await session.run("Open the calendar and read today's appointments")
+```
+
+- `tenants.list({ status, externalId, limit, cursor })` resolves with one page: `page.tenants`,
+  `page.nextCursor`. `externalId` finds your customer's Tenant without storing `tenant.id`.
+- `tenants.update(tenant, { name, metadata, status: 'disabled' | 'active' })`; `tenants.delete(tenant)`
+  disables it and revokes every machine.
+- `tenants.token(tenant)` is the raw exchange: a one-hour `TenantToken` to pass as
+  `new Sai({ apiKey: token.token })`.
+- `tenantMachines.get(tenant, machineId)`, `tenantMachines.revoke(tenant, machine)`.
+
 ## Errors
 
 Every non-2xx response throws a `SaiError` subclass with `status`, `code`, `message` and `retryAfter`:
@@ -268,6 +293,7 @@ A task that ran out of credit ends with `result.status === 'error'` and `result.
 | `baseUrl`   | `SAI_API_URL` | `https://api.simular.ai` |
 | `timeoutMs` |               | 60 000 per request       |
 | `fetch`     |               | global `fetch`           |
+| `orgId`     | `SAI_ORG_ID`  | for `tenants.token()`    |
 
 ## Development
 

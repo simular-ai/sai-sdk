@@ -5,6 +5,7 @@
  * - `sai.learn`, `sai.judge`: turn recorded turns into Simulang code, repair it, judge turns.
  * - `sai.control`: drive a cloud computer yourself with Simulang.
  * - `sai.machines`, `sai.models`, `sai.files`, `sai.account`.
+ * - `sai.tenants`, `sai.tenantMachines`: your customers under an Organisation (an Organisation Key).
  */
 
 export { Sai, type SaiOptions } from './client.js'
@@ -25,6 +26,7 @@ export {
 } from './errors.js'
 export { ControlLease } from './control.js'
 export type { MachineRef } from './machines.js'
+export type { TenantMachineRef, TenantRef } from './tenants.js'
 export type { TurnRef } from './turns.js'
 export type { JudgeOptions, LearnOptions } from './learn.js'
 export {
@@ -44,6 +46,7 @@ export {
   type Attachment,
   type Check,
   type CriterionResult,
+  type Enrollment,
   type Evaluation,
   type Event,
   type Evidence,
@@ -56,6 +59,10 @@ export {
   type LiveView,
   type Machine,
   type Model,
+  type Tenant,
+  type TenantMachine,
+  type TenantPage,
+  type TenantToken,
   type TrajectoryStep,
   type TurnRecord,
   type TurnRecordStatus,

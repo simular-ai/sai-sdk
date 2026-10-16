@@ -88,6 +88,98 @@ export function parseMachine(d: Json): Machine {
   }
 }
 
+/** One of your customers under an Organisation. */
+export interface Tenant {
+  id: string
+  name: string
+  /** Your id for the customer. Unique in the Organisation; set on create only. */
+  externalId: string | null
+  metadata: Record<string, string>
+  /** `active` or `disabled`. */
+  status: string
+  /** Unix time in milliseconds. */
+  createdAt: number
+  disabledAt: number | null
+  machineCount: number
+  raw: Json
+}
+
+export function parseTenant(d: Json): Tenant {
+  return {
+    id: str(d.tenantId) ?? '',
+    name: str(d.name) ?? '',
+    externalId: str(d.externalId) ?? null,
+    metadata: obj(d.metadata) as Record<string, string>,
+    status: str(d.status) ?? '',
+    createdAt: num(d.createdAt),
+    disabledAt: typeof d.disabledAt === 'number' ? d.disabledAt : null,
+    machineCount: num(d.machineCount),
+    raw: d,
+  }
+}
+
+export interface TenantPage {
+  tenants: Tenant[]
+  /** Pass as `cursor` for the next page; null on the last page. */
+  nextCursor: string | null
+}
+
+/** A Tenant's own computer, running the Sai runtime. */
+export interface TenantMachine {
+  id: string
+  name: string | null
+  platform: string | null
+  status: string
+  /** True when the machine reported in the last 3 minutes. */
+  online: boolean
+  lastSeen: number | null
+  runtimeVersion: string | null
+  raw: Json
+}
+
+export function parseTenantMachine(d: Json): TenantMachine {
+  return {
+    id: str(d.machineId) ?? '',
+    name: str(d.name) ?? null,
+    platform: str(d.platform) ?? null,
+    status: str(d.status) ?? '',
+    online: Boolean(d.online),
+    lastSeen: typeof d.lastSeen === 'number' ? d.lastSeen : null,
+    runtimeVersion: str(d.runtimeVersion) ?? null,
+    raw: d,
+  }
+}
+
+export interface Enrollment {
+  /** Single use. Treat it as a secret until the Sai runtime redeems it. */
+  token: string
+  /** Unix time in milliseconds, 15 minutes after it was created. */
+  expiresAt: number
+  raw: Json
+}
+
+export function parseEnrollment(d: Json): Enrollment {
+  return { token: str(d.enrollmentToken) ?? '', expiresAt: num(d.expiresAt), raw: d }
+}
+
+export interface TenantToken {
+  /** Pass as `new Sai({ apiKey })` to act as the Tenant on sessions, machines and turns. */
+  token: string
+  /** Unix time in milliseconds, an hour after the exchange. There is no refresh: exchange again. */
+  expiresAt: number
+  tenantId: string
+  raw: Json
+}
+
+export function parseTenantToken(d: Json): TenantToken {
+  return {
+    token: str(d.token) ?? '',
+    expiresAt: num(d.expiresAt),
+    tenantId: str(d.tenantId) ?? '',
+    raw: d,
+  }
+}
+
 /** A file uploaded with `sai.files.upload()`. Pass it in `attachments`. */
 export interface Attachment {
   fileId: string
@@ -383,7 +475,11 @@ export interface ExecResult {
   logs: string[]
   error: ExecError | null
   /** The screenshot the block captured (page/app snapshot, pageContent), decoded. */
-  screenshotPng: Uint8Array | null
+  screenshot: Uint8Array | null
+  /** `image/jpeg` or `image/png`. */
+  screenshotMimeType: string | null
+  /** @deprecated Use `screenshot`. Not always PNG; see `screenshotMimeType`. */
+  screenshotPng?: Uint8Array | null
   screenshotOmitted: boolean
   variables: Json[]
   durationMs: number
@@ -396,6 +492,7 @@ export function parseExecResult(d: Json): ExecResult {
   const shot = obj(obs.screenshot)
   const err = d.error ? obj(d.error) : null
   const b64 = str(shot.base64)
+  const screenshot = b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null
   const error = err
     ? { kind: str(err.kind) ?? '', message: str(err.message) ?? '', stack: str(err.stack) ?? null }
     : null
@@ -403,7 +500,9 @@ export function parseExecResult(d: Json): ExecResult {
     result: d.result ?? null,
     logs: Array.isArray(d.logs) ? (d.logs as string[]) : [],
     error,
-    screenshotPng: b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null,
+    screenshot,
+    screenshotMimeType: str(shot.mimeType) ?? null,
+    screenshotPng: screenshot,
     screenshotOmitted: Boolean(obs.screenshotOmitted),
     variables: Array.isArray(d.variables) ? (d.variables as Json[]) : [],
     durationMs: num(d.durationMs),

@@ -107,13 +107,14 @@ class ControlLease:
         _raise_on_block_error(r)
 
     def screenshot(self) -> bytes:
-        """The whole screen as PNG bytes. Needs the computer's screen-capture service;
-        raises `BlockError` where it is off (a page or app snapshot still carries an image)."""
+        """The whole screen as image bytes (usually JPEG; use `exec` for the MIME type). Needs the
+        computer's screen-capture service; raises `BlockError` where it is off (a page or app
+        snapshot still carries an image)."""
         r = self.exec("var __sai_page = await machine.pageContent(); null")
         _raise_on_block_error(r)
-        if r.screenshot_png is None:
+        if r.screenshot is None:
             raise BlockError("exception", "screenshot too large to return" if r.screenshot_omitted else "no screenshot")
-        return r.screenshot_png
+        return r.screenshot
 
     def interrupt(self) -> bool:
         """Stop the running block at its next step. False if nothing was running."""

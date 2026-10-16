@@ -5,6 +5,9 @@ export const DEFAULT_BASE_URL = 'https://api.simular.ai'
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
+/** The bearer token, or a function that returns it before each request. */
+export type Credential = string | (() => Promise<string>)
+
 export interface RequestOptions {
   json?: unknown
   params?: Record<string, string | number | undefined>
@@ -19,14 +22,15 @@ export class Http {
   private readonly headers: Record<string, string>
 
   constructor(
-    apiKey: string,
+    private readonly credential: Credential,
     baseUrl: string,
     private readonly timeoutMs: number,
     versionTag: string | undefined,
     private readonly fetchImpl: FetchLike,
   ) {
     this.baseUrl = baseUrl.replace(/\/+$/, '')
-    this.headers = { Authorization: `Bearer ${apiKey}`, 'User-Agent': `sai-typescript/${VERSION}` }
+    this.headers = { 'User-Agent': `sai-typescript/${VERSION}` }
+    if (typeof credential === 'string') this.headers.Authorization = `Bearer ${credential}`
     // routes the request to a tagged API revision
     if (versionTag) this.headers['x-sai-version'] = versionTag
   }
@@ -37,6 +41,9 @@ export class Http {
       if (v !== undefined) url.searchParams.set(k, String(v))
     }
     const headers = { ...this.headers, ...opts.headers }
+    if (typeof this.credential === 'function') {
+      headers.Authorization = `Bearer ${await this.credential()}`
+    }
     let body = opts.body
     if (opts.json !== undefined) {
       headers['Content-Type'] = 'application/json'

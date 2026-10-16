@@ -178,7 +178,8 @@ with sai.control.open(machine=pc) as lease:
         snap.snapshot.grep('points')
     """)
     print(r.result)
-    open("hn.png", "wb").write(r.screenshot_png)   # a page or app snapshot carries a screenshot
+    ext = r.screenshot_mime_type.split("/")[1]   # a page or app snapshot carries a screenshot (jpeg or png)
+    open(f"hn.{ext}", "wb").write(r.screenshot)
 ```
 
 `lease.screenshot()` grabs the whole screen. It needs the computer's screen-capture service; where that is
@@ -225,6 +226,29 @@ print(judgement.verdict, judgement.criteria[0].score)
 `learned.status` is `failed` when the code still has `learned.validation["errors"]` after one retry.
 Pass a judgement as `Evaluation(..., judgement=judgement)` to repair code from its evidence.
 
+## Run Sai for your customers
+
+With an [Organisation](https://platform.simular.ai/documentation/organisations), each customer is a
+Tenant. Your backend manages Tenants with an Organisation Key, and acts as one with a Tenant token.
+
+```python
+org = Sai(api_key="sapi_...", org_id="org_...")  # an Organisation Key; or SAI_API_KEY, SAI_ORG_ID
+
+tenant = org.tenants.create("Riverside Clinic", external_id="clinic-4821")
+code = org.tenants.create_enrollment(tenant)      # hand code.token to your installer
+print(org.tenant_machines.list(tenant))
+
+clinic = org.tenants.client(tenant)               # acts as the Tenant; renews its token
+clinic.sessions.create().run("Open the calendar and read today's appointments")
+```
+
+- `tenants.list(status=, external_id=, limit=, cursor=)` returns one page: `page.tenants`, `page.next_cursor`.
+  `external_id=` finds your customer's Tenant without storing `tenant.id`.
+- `tenants.update(tenant, name=, metadata=, status="disabled" | "active")`; `tenants.delete(tenant)`
+  disables it and revokes every machine.
+- `tenants.token(tenant)` is the raw exchange: a one-hour `TenantToken` to pass as `Sai(api_key=token.token)`.
+- `tenant_machines.get(tenant, machine_id)`, `tenant_machines.revoke(tenant, machine)`.
+
 ## Errors
 
 Every non-2xx response raises a `SaiError` subclass with `status`, `code`, `message` and `retry_after`:
@@ -251,6 +275,7 @@ A task that ran out of credit ends with `result.status == "error"` and `result.e
 | `api_key`  | `SAI_API_KEY` | required                 |
 | `base_url` | `SAI_API_URL` | `https://api.simular.ai` |
 | `timeout`  |               | 60 s per request         |
+| `org_id`   | `SAI_ORG_ID`  | for `tenants.token()`    |
 
 ## Development
 

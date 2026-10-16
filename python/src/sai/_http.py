@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Union
 
 import httpx
 
@@ -15,17 +15,18 @@ class HTTP:
 
     def __init__(
         self,
-        api_key: str,
+        api_key: Union[str, Callable[[], str]],
         base_url: str,
         *,
         timeout: float,
         version_tag: Optional[str],
         transport: Optional[httpx.BaseTransport],
     ) -> None:
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "User-Agent": f"sai-python/{__version__}",
-        }
+        """`api_key` is the bearer token, or a function that returns it before each request."""
+        self._token = api_key if callable(api_key) else None
+        headers = {"User-Agent": f"sai-python/{__version__}"}
+        if not callable(api_key):
+            headers["Authorization"] = f"Bearer {api_key}"
         if version_tag:
             # routes the request to a tagged API revision
             headers["x-sai-version"] = version_tag
@@ -50,6 +51,8 @@ class HTTP:
         kwargs: dict[str, Any] = {}
         if timeout is not None:
             kwargs["timeout"] = timeout
+        if self._token is not None:
+            headers = {**(headers or {}), "Authorization": f"Bearer {self._token()}"}
         try:
             res = self._client.request(
                 method, path, json=json, params=params, content=content, headers=headers, **kwargs
