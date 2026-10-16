@@ -12,6 +12,7 @@ from sai import (
     BadRequestError,
     Check,
     ConflictError,
+    ExecResult,
     GoneError,
     LinkOnlyApprovalError,
     NotFoundError,
@@ -294,6 +295,15 @@ def test_control_lease_exec_and_close() -> None:
     assert json.loads(first_exec.content)["code"] == 'await machine.exec({"command": "hostname"})'
 
 
+def test_exec_result_keeps_screenshot_mime_type() -> None:
+    jpeg = b"\xff\xd8\xff\xe0 fake"
+    r = ExecResult.parse(
+        {"observations": {"screenshot": {"base64": base64.b64encode(jpeg).decode(), "mimeType": "image/jpeg"}}}
+    )
+    assert (r.screenshot, r.screenshot_mime_type, r.screenshot_png) == (jpeg, "image/jpeg", jpeg)
+    assert ExecResult.parse({}).screenshot_mime_type is None
+
+
 def test_control_exec_raises_gone_with_reason_when_lease_lost() -> None:
     sai = client(
         {
@@ -332,6 +342,7 @@ def test_upload_sends_raw_body_and_filename() -> None:
         a = sai.files.upload(p)
     assert a.file_id == "f_1" and a.raw["path"] == "uploads/a b.txt"
     assert calls[0].headers["x-filename"] == "a%20b.txt" and calls[0].content == b"abc"
+    assert calls[0].headers["content-type"] == "application/octet-stream"
 
 
 DONE = {

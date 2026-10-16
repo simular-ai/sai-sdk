@@ -475,7 +475,11 @@ export interface ExecResult {
   logs: string[]
   error: ExecError | null
   /** The screenshot the block captured (page/app snapshot, pageContent), decoded. */
-  screenshotPng: Uint8Array | null
+  screenshot: Uint8Array | null
+  /** `image/jpeg` or `image/png`. */
+  screenshotMimeType: string | null
+  /** @deprecated Use `screenshot`. Not always PNG; see `screenshotMimeType`. */
+  screenshotPng?: Uint8Array | null
   screenshotOmitted: boolean
   variables: Json[]
   durationMs: number
@@ -488,6 +492,7 @@ export function parseExecResult(d: Json): ExecResult {
   const shot = obj(obs.screenshot)
   const err = d.error ? obj(d.error) : null
   const b64 = str(shot.base64)
+  const screenshot = b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null
   const error = err
     ? { kind: str(err.kind) ?? '', message: str(err.message) ?? '', stack: str(err.stack) ?? null }
     : null
@@ -495,7 +500,9 @@ export function parseExecResult(d: Json): ExecResult {
     result: d.result ?? null,
     logs: Array.isArray(d.logs) ? (d.logs as string[]) : [],
     error,
-    screenshotPng: b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null,
+    screenshot,
+    screenshotMimeType: str(shot.mimeType) ?? null,
+    screenshotPng: screenshot,
     screenshotOmitted: Boolean(obs.screenshotOmitted),
     variables: Array.isArray(d.variables) ? (d.variables as Json[]) : [],
     durationMs: num(d.durationMs),

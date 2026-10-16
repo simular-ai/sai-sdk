@@ -124,7 +124,11 @@ export class Files {
     }
     const d = await this.http.json<Record<string, unknown>>('POST', '/v1/agents/upload', {
       body: data instanceof Blob ? data : new Blob([data as Uint8Array<ArrayBuffer>]),
-      headers: { 'x-filename': encodeURIComponent(name) },
+      // The server reads only a body that has a Content-Type; it derives the MIME type from the name.
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-filename': encodeURIComponent(name),
+      },
       timeoutMs: 120_000,
     })
     return parseAttachment(d)

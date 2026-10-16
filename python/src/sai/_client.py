@@ -112,7 +112,11 @@ class _Files:
             "POST",
             "/v1/agents/upload",
             content=path.read_bytes(),
-            headers={"x-filename": urllib.parse.quote(name or path.name)},
+            # The server reads only a body that has a Content-Type; it derives the MIME type from the name.
+            headers={
+                "Content-Type": "application/octet-stream",
+                "x-filename": urllib.parse.quote(name or path.name),
+            },
             timeout=120,
         )
         return Attachment.parse(d)

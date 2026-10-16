@@ -194,7 +194,7 @@ try {
     snap.title
   `)
   console.log(r.result) // Example Domain
-  await writeFile('page.png', r.screenshotPng!)
+  await writeFile(`page.${r.screenshotMimeType!.split('/')[1]}`, r.screenshot!) // jpeg or png
 } finally {
   await lease.close()
 }

@@ -321,6 +321,7 @@ describe('sai typescript sdk', () => {
 
   it('runs a control lease and closes it', async () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0])
     const calls: Call[] = []
     const exec = (over: Record<string, unknown>) => ({
       logs: [],
@@ -341,6 +342,11 @@ describe('sai typescript sdk', () => {
             },
           }),
           exec({ error: { kind: 'exception', message: 'boom' } }),
+          exec({
+            observations: {
+              screenshot: { base64: Buffer.from(jpeg).toString('base64'), mimeType: 'image/jpeg' },
+            },
+          }),
         ],
         'DELETE /v1/machines/m_1/control': () => new Response(null, { status: 204 }),
       },
@@ -353,6 +359,12 @@ describe('sai typescript sdk', () => {
       const r = await lease.exec("throw new Error('boom')")
       expect(r.ok).toBe(false)
       expect(r.error?.kind).toBe('exception')
+      const snap = await lease.exec('await page.snapshot()')
+      expect([snap.screenshot, snap.screenshotMimeType, snap.screenshotPng]).toEqual([
+        jpeg,
+        'image/jpeg',
+        jpeg,
+      ])
     }
     expect(calls.at(-1)!.method).toBe('DELETE')
     const first = calls.find((c) => c.path.endsWith('/exec'))!
@@ -401,6 +413,7 @@ describe('sai typescript sdk', () => {
     expect(a.fileId).toBe('f_1')
     expect(calls[0]!.headers.get('x-filename')).toBe('a%20b.txt')
     expect(calls[0]!.body).toBe('abc')
+    expect(calls[0]!.headers.get('content-type')).toBe('application/octet-stream')
   })
 
   describe('turns', () => {
@@ -781,7 +794,8 @@ describe('learn and judge', () => {
             result: null,
             logs,
             error: { kind: 'exception', message: 'boom', stack: 'st' },
-            screenshotPng: new Uint8Array([1]),
+            screenshot: new Uint8Array([1]),
+            screenshotMimeType: 'image/jpeg',
             screenshotOmitted: false,
             variables: [],
             durationMs: 5,

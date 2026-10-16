@@ -112,19 +112,20 @@ export class ControlLease {
   }
 
   /**
-   * The whole screen as PNG bytes. Needs the computer's screen-capture service;
-   * throws `BlockError` where it is off (a page or app snapshot still carries an image).
+   * The whole screen as image bytes (usually JPEG; use `exec` for the MIME type). Needs the
+   * computer's screen-capture service; throws `BlockError` where it is off (a page or app
+   * snapshot still carries an image).
    */
   async screenshot(): Promise<Uint8Array> {
     const r = await this.exec('var __sai_page = await machine.pageContent(); null')
     raiseOnBlockError(r)
-    if (!r.screenshotPng) {
+    if (!r.screenshot) {
       throw new BlockError(
         'exception',
         r.screenshotOmitted ? 'screenshot too large to return' : 'no screenshot',
       )
     }
-    return r.screenshotPng
+    return r.screenshot
   }
 
   /** Stop the running block at its next step. False if nothing was running. */

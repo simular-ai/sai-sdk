@@ -178,7 +178,8 @@ with sai.control.open(machine=pc) as lease:
         snap.snapshot.grep('points')
     """)
     print(r.result)
-    open("hn.png", "wb").write(r.screenshot_png)   # a page or app snapshot carries a screenshot
+    ext = r.screenshot_mime_type.split("/")[1]   # a page or app snapshot carries a screenshot (jpeg or png)
+    open(f"hn.{ext}", "wb").write(r.screenshot)
 ```
 
 `lease.screenshot()` grabs the whole screen. It needs the computer's screen-capture service; where that is
