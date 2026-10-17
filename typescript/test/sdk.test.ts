@@ -826,6 +826,112 @@ describe('learn and judge', () => {
     expect((await sai.learn.get('learn_1')).id).toBe('learn_1')
   })
 
+  it('starts a learn job, waits for it, cancels it and reads a run', async () => {
+    const running = { learnId: 'learn_2', mode: 'policyIteration', status: 'running' }
+    const done = {
+      ...learned,
+      learnId: 'learn_2',
+      mode: 'policyIteration',
+      status: 'succeeded',
+      version: 2,
+      testResult: { status: 'passed', passedRuns: 2, requiredRuns: 2, inputs: { site: 'x' } },
+      agentTurnId: 'turn_9',
+      iterations: [
+        {
+          index: 1,
+          learnId: 'learn_v1',
+          passed: 0,
+          runs: 1,
+          rollouts: [
+            {
+              index: 1,
+              verdict: 'failed',
+              reset: { kind: 'code', ok: true, durationMs: 800 },
+              summary: 'no URL',
+              continuationTurnId: 'turn_c',
+            },
+          ],
+        },
+      ],
+    }
+    const calls: Call[] = []
+    const sai = client(
+      {
+        'POST /v1/agents/learn': [202, running],
+        'GET /v1/agents/learn/learn_2': [
+          { ...running, progress: { step: 'run', iteration: 1, rollout: 1 } },
+          done,
+        ],
+        'POST /v1/agents/learn/learn_2/cancel': [202, { learnId: 'learn_2', status: 'running' }],
+        'GET /v1/agents/learn/learn_2/iterations/1/rollouts/1': {
+          learnId: 'learn_2',
+          iteration: 1,
+          rollout: 1,
+          run: { result: 'Top story', logs: [] },
+          judgement: { verdict: 'failed' },
+        },
+      },
+      calls,
+    )
+    const job = await sai.learn.create([], {
+      taskTemplate: 'Open {{site}}',
+      inputs: { site: 'x' },
+      machine: 'm_1',
+      maxIterations: 2,
+      rollouts: 2,
+      criteria: 'The title is shown',
+      reset: { code: 'await reset()' },
+      continueWithAgent: true,
+      guidance: 'Use the menu',
+    })
+    expect(JSON.parse(calls[0]!.body)).toEqual({
+      turns: [],
+      taskTemplate: 'Open {{site}}',
+      inputs: { site: 'x' },
+      guidance: 'Use the menu',
+      machineId: 'm_1',
+      maxIterations: 2,
+      rollouts: 2,
+      criteria: 'The title is shown',
+      reset: { code: 'await reset()' },
+      continueWithAgent: true,
+    })
+    expect(job).toMatchObject({
+      id: 'learn_2',
+      mode: 'policyIteration',
+      status: 'running',
+      ok: false,
+    })
+
+    const r = await sai.learn.wait(job, { pollMs: 1 })
+    expect(r).toMatchObject({
+      status: 'succeeded',
+      version: 2,
+      agentTurnId: 'turn_9',
+      testResult: { status: 'passed', passedRuns: 2, requiredRuns: 2 },
+    })
+    expect(r.iterations[0]!.rollouts[0]).toMatchObject({
+      verdict: 'failed',
+      reset: { kind: 'code', ok: true, durationMs: 800, turnId: null },
+      continuationTurnId: 'turn_c',
+    })
+
+    await sai.learn.cancel('learn_2')
+    expect(calls.at(-1)).toMatchObject({ method: 'POST', path: '/v1/agents/learn/learn_2/cancel' })
+    const run = await sai.learn.rollout(job, 1, 1)
+    expect(run).toMatchObject({ iteration: 1, rollout: 1, run: { result: 'Top story' } })
+    expect(run.judgement).toEqual({ verdict: 'failed' })
+  })
+
+  it('stops waiting at the timeout with the job still running', async () => {
+    const sai = client({
+      'GET /v1/agents/learn/learn_3': { learnId: 'learn_3', status: 'running' },
+    })
+    await expect(sai.learn.wait('learn_3', { timeoutMs: 5, pollMs: 10 })).rejects.toMatchObject({
+      name: 'TimeoutError',
+    })
+  })
+
   it('judges turns against checks', async () => {
     const calls: Call[] = []
     const sai = client(
