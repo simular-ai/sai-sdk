@@ -221,7 +221,7 @@ const turn = await session.send('Open {{site}} and read the title of the top sto
 })
 await sai.turns.wait(turn)
 
-const learned = await sai.learn.create([turn]) // about two minutes
+const learned = await sai.learn.create([turn]) // waits for the code; longer for a longer task
 console.log(
   learned.template,
   learned.parameters.map((p) => p.name),

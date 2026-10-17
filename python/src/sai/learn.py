@@ -63,7 +63,7 @@ class Learn:
         """Make Simulang code, and optionally run, judge and repair it on a machine.
 
         - `create(turns)`: code from recorded turns (ordered, one session, each sent with
-          `record_trajectory`). Answers with the code (about two minutes).
+          `record_trajectory`). Answers with the code; a longer task takes longer.
         - `create(initial_code=..., guidance=...)` (or `evaluations`): a repair. Answers with the code.
         - `create(turns, max_iterations=3)` or `create(task_template=..., inputs=..., max_iterations=3)`:
           a job on the machine (from `turns`, or after the agent does the task). Answers at once

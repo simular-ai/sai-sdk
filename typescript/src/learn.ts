@@ -79,7 +79,7 @@ export interface LearnOptions {
   continuationMinutes?: number
   /** Limit of the whole job, in minutes. Default 615, at most 690. */
   maxJobMinutes?: number
-  /** A model id from `sai.models.list()`; default `anthropic/claude-opus-5-5`. */
+  /** A model id from `sai.models.list()`; without it, Sai picks the model. */
   model?: string
   /** The same key again returns the earlier result and runs nothing. */
   idempotencyKey?: string
@@ -112,7 +112,7 @@ export class Learn {
    * Make Simulang code, and optionally run, judge and repair it on a machine.
    *
    * - `create(turns)`: code from recorded turns (ordered, one session, each sent with
-   *   `recordTrajectory`). Answers with the code (about two minutes).
+   *   `recordTrajectory`). Answers with the code; a longer task takes longer.
    * - `create([], { initialCode, guidance | evaluations })`: a repair. Answers with the code.
    * - `create(turns, { maxIterations: 3 })` or `create([], { taskTemplate, inputs, maxIterations: 3 })`:
    *   a job on the machine (from `turns`, or after the agent does the task). Answers at once with

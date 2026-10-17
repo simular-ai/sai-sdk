@@ -204,7 +204,7 @@ turn = session.send(
 )
 sai.turns.wait(turn)
 
-learned = sai.learn.create([turn])        # about two minutes
+learned = sai.learn.create([turn])        # waits for the code; longer for a longer task
 print(learned.template, [p.name for p in learned.parameters])
 print(learned.code)                       # async function main(params = { site: "..." }) { ... }
 
