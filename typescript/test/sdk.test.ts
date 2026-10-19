@@ -293,7 +293,12 @@ describe('sai typescript sdk', () => {
     const sai = client({
       'POST /v1/agents/message': [
         202,
-        { sessionId: 'cs_1', turnId: 't_1', watch_url: 'https://sai.test/screens/m_1?from=api' },
+        {
+          sessionId: 'cs_1',
+          turnId: 't_1',
+          watch_url: 'https://sai.test/screens/m_1?from=api',
+          takeover_url: 'https://sai.test/screens/m_1?takeover=cs_1&from=api',
+        },
       ],
       'GET /v1/agents/events': waiting({
         ...APPROVAL,
@@ -304,6 +309,7 @@ describe('sai typescript sdk', () => {
     })
     const turn = await sai.sessions.resume('cs_1').send('sign in to chatgpt')
     expect(turn.watchUrl).toBe('https://sai.test/screens/m_1?from=api')
+    expect(turn.takeoverUrl).toBe('https://sai.test/screens/m_1?takeover=cs_1&from=api')
     const r = await turn.wait()
     expect(r.approval?.handOff).toBe(true)
     expect(r.approval?.takeoverUrl).toBe('https://sai.test/screens/m_1?takeover=cs_1&from=api')

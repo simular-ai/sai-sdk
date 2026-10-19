@@ -430,6 +430,8 @@ export interface TurnRecord {
   replayed: boolean
   /** The computer's screen in the Sai web app, to watch Sai work (signed in as the account). */
   watchUrl: string | null
+  /** The same page with the offer to take over: hand it to a person when Sai needs one. */
+  takeoverUrl: string | null
   done: boolean
   ok: boolean
   raw: Json
@@ -461,6 +463,7 @@ export function parseTurnRecord(d: Json): TurnRecord {
     inputs: d.inputs && typeof d.inputs === 'object' ? (d.inputs as Json) : null,
     replayed: Boolean(d.idempotent_replay),
     watchUrl: str(d.watch_url) ?? null,
+    takeoverUrl: str(d.takeover_url) ?? null,
     done: status === 'succeeded' || status === 'failed',
     ok: status === 'succeeded',
     raw: d,

@@ -173,7 +173,13 @@ export class Session {
     if (typeof d.machineId === 'string') this.machineId = d.machineId
     const id = typeof d.turnId === 'string' ? d.turnId : null
     const watchUrl = typeof d.watch_url === 'string' ? d.watch_url : null
-    return new Turn(this, this.http, Boolean(d.queued), null, { id, structured, watchUrl })
+    const takeoverUrl = typeof d.takeover_url === 'string' ? d.takeover_url : null
+    return new Turn(this, this.http, Boolean(d.queued), null, {
+      id,
+      structured,
+      watchUrl,
+      takeoverUrl,
+    })
   }
 
   /** `send()` then `wait()`: the answer, or where it stopped. */
@@ -249,6 +255,8 @@ export class Turn {
   readonly id: string | null
   /** The computer's screen in the Sai web app, to watch Sai work (signed in as the account). */
   readonly watchUrl: string | null
+  /** The same page with the offer to take over: hand it to a person when Sai needs one. */
+  readonly takeoverUrl: string | null
   private cursor: string | null = null
   private last: TurnResult | null
   private readonly structured: boolean
@@ -266,6 +274,7 @@ export class Turn {
       structured: boolean
       replay?: TurnRecord
       watchUrl?: string | null
+      takeoverUrl?: string | null
     } = {
       id: null,
       structured: false,
@@ -276,6 +285,7 @@ export class Turn {
     this.structured = turn.structured
     this.replay = turn.replay ?? null
     this.watchUrl = turn.watchUrl ?? this.replay?.watchUrl ?? null
+    this.takeoverUrl = turn.takeoverUrl ?? this.replay?.takeoverUrl ?? null
     this.local = done !== null || this.replay !== null
   }
 

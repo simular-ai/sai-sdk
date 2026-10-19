@@ -96,9 +96,9 @@ turn.abort()
 
 ### Watch, or step in
 
-`turn.watch_url` opens the computer's screen in the Sai web app. When Sai needs a person on the
+`turn.watch_url` opens the computer's screen in the Sai web app, and `turn.takeover_url` the same page with the offer to take over: hand it to a person when Sai says it needs one. When Sai needs a person on the
 computer (a sign-in, a captcha; `approval.hand_off` is true), take over: Sai pauses until you hand
-back, or for at most 15 minutes. The approval's take-over URL already does it: opening it takes over. Both pages need a sign-in as your account.
+back, or for at most 15 minutes. Both pages need a sign-in as your account.
 
 ```python
 t = session.takeover()

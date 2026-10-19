@@ -326,6 +326,8 @@ class TurnRecord:
     """True when `idempotency_key` matched an earlier turn: this is that turn, and nothing was sent."""
     watch_url: Optional[str]
     """The computer's screen in the Sai web app, to watch Sai work (signed in as the account)."""
+    takeover_url: Optional[str]
+    """The same page with the offer to take over: hand it to a person when Sai needs one."""
     raw: dict[str, Any] = field(repr=False)
 
     @property
@@ -356,6 +358,7 @@ class TurnRecord:
             inputs=d.get("inputs"),
             replayed=bool(d.get("idempotent_replay")),
             watch_url=d.get("watch_url"),
+            takeover_url=d.get("takeover_url"),
             raw=d,
         )
 

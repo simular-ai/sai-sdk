@@ -155,6 +155,7 @@ class Session:
             turn_id=d.get("turnId"),
             structured=structured,
             watch_url=d.get("watch_url"),
+            takeover_url=d.get("takeover_url"),
         )
 
     def run(
@@ -255,12 +256,15 @@ class Turn:
         structured: bool = False,
         replay: Optional[TurnRecord] = None,
         watch_url: Optional[str] = None,
+        takeover_url: Optional[str] = None,
     ) -> None:
         self.session = session
         self.queued = queued
         self.id = turn_id
         # The computer's screen in the Sai web app, to watch Sai work (signed in as the account).
         self.watch_url = watch_url or (replay.watch_url if replay else None)
+        # The same page with the offer to take over: hand it to a person when Sai needs one.
+        self.takeover_url = takeover_url or (replay.takeover_url if replay else None)
         self._structured = structured
         self._replay = replay
         self._cursor: Optional[str] = None
