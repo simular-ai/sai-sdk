@@ -542,8 +542,11 @@ export interface LearnReset {
 /** One run of a version of the code in a learn job. */
 export interface LearnRollout {
   index: number
-  /** `stopped`: the job stopped during this run (see the job's `stopReason`); `error`: the run could not be judged. */
-  verdict: 'passed' | 'failed' | 'error' | 'stopped'
+  /**
+   * `stopped`: the job stopped during this run (see the job's `stopReason`); `error`: the run could
+   * not be judged; `null` while the run is going.
+   */
+  verdict: 'passed' | 'failed' | 'error' | 'stopped' | null
   reset: LearnReset | null
   error: string | null
   result: Json | null
@@ -650,7 +653,7 @@ function parseIteration(d: Json): LearnIteration {
     runs: num(d.runs),
     rollouts: (Array.isArray(d.rollouts) ? (d.rollouts as Json[]) : []).map((r) => ({
       index: num(r.index),
-      verdict: (str(r.verdict) ?? 'error') as LearnRollout['verdict'],
+      verdict: (str(r.verdict) ?? null) as LearnRollout['verdict'],
       reset: parseLearnReset(r.reset),
       error: str(r.error) ?? null,
       result: (r.result as Json | undefined) ?? null,

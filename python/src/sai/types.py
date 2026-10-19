@@ -477,10 +477,10 @@ class LearnRollout:
     """One run of a version of the code in a learn job.
 
     `verdict` is `passed`, `failed`, `error` (the run could not be judged) or `stopped` (the job
-    stopped during this run; its `stop_reason` says why)."""
+    stopped during this run; its `stop_reason` says why), and `None` while the run is going."""
 
     index: int
-    verdict: str
+    verdict: Optional[str]
     reset: Optional[LearnReset]
     error: Optional[str]
     result: Any
@@ -496,7 +496,7 @@ class LearnRollout:
     def parse(cls, d: dict[str, Any]) -> LearnRollout:
         return cls(
             index=d.get("index", 0),
-            verdict=d.get("verdict", "error"),
+            verdict=d.get("verdict"),
             reset=LearnReset.parse(d.get("reset")),
             error=d.get("error"),
             result=d.get("result"),
