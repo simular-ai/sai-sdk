@@ -10,6 +10,8 @@
  * actionable message naming the host and the underlying cause.
  */
 
+import { VERSION } from './version.js'
+
 function hostOf(url: string): string {
   try {
     return new URL(url).host
@@ -62,18 +64,24 @@ function versionTagHeader(): Record<string, string> {
 }
 
 /**
+ * Identifies this client to cloud-api, which records it per API key. Like the
+ * version tag, applied only in apiFetch, never to the Google/Firebase token exchanges.
+ */
+const USER_AGENT = `sai-cli/${VERSION}`
+
+/**
  * fetch wrapper that converts connection-level failures into actionable errors.
  * Successful responses (including non-2xx) pass straight through — callers still
  * handle HTTP status codes themselves.
  */
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
-  const tag = versionTagHeader()
-  const withTag =
-    Object.keys(tag).length > 0
-      ? { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), ...tag } }
-      : init
+  const headers = {
+    'User-Agent': USER_AGENT,
+    ...(init?.headers as Record<string, string> | undefined),
+    ...versionTagHeader(),
+  }
   try {
-    return await fetch(url, withTag)
+    return await fetch(url, { ...init, headers })
   } catch (err) {
     throw toNetworkError(url, err)
   }

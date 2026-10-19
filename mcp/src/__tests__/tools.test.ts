@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { ApiError, SaiApi } from '../api.js'
@@ -16,6 +17,7 @@ import {
   WAIT_MAX_S,
 } from '../tools.js'
 import type { ApprovalRequest } from '../types.js'
+import { SERVER_VERSION } from '../version.js'
 
 describe('decision mapping', () => {
   it('maps the three decisions to the /approve vocabulary', () => {
@@ -161,6 +163,28 @@ describe('SaiApi errors', () => {
     )
     const err = (await api.abort('s1').catch((e: unknown) => e)) as ApiError
     expect(err.message).toContain('Session not found.')
+  })
+})
+
+describe('SaiApi User-Agent', () => {
+  it('identifies itself as sai-mcp/<package version> on every request', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ ok: true, aborted: true })))
+    const api = new SaiApi('https://api.test', 'k', fetchImpl, 'my-tag')
+    await api.abort('s1')
+    const headers = (fetchImpl.mock.calls[0] as unknown[])[1] as RequestInit
+    expect(headers.headers).toMatchObject({
+      Authorization: 'Bearer k',
+      'User-Agent': `sai-mcp/${SERVER_VERSION}`,
+      'x-sai-version': 'my-tag',
+      'Content-Type': 'application/json',
+    })
+  })
+
+  it('reports the version in package.json', () => {
+    const pkg = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { version: string }
+    expect(SERVER_VERSION).toBe(pkg.version)
   })
 })
 

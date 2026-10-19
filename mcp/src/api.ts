@@ -8,6 +8,7 @@ import type {
   TaskUsage,
   UploadedFile,
 } from './types.js'
+import { SERVER_VERSION } from './version.js'
 
 /**
  * A non-2xx cloud-api response. `body` is the JSON the server sent: `{ error: "<code>",
@@ -112,6 +113,8 @@ export class SaiApi {
   private headers(extra: Record<string, string> = {}): Record<string, string> {
     return {
       Authorization: `Bearer ${this.apiKey}`,
+      // identifies this client to cloud-api, which records it per API key
+      'User-Agent': `sai-mcp/${SERVER_VERSION}`,
       ...(this.versionTag && { 'x-sai-version': this.versionTag }),
       ...extra,
     }

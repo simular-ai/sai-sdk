@@ -21,9 +21,9 @@ import { registerTaskView, TASK_VIEW_TOOL_META, taskViewHtml, taskViewTools } fr
 import { LocalView } from './local-view.js'
 import { TaskLog } from './task-log.js'
 import { parseInitClaudeFlags, runInitClaude } from './init-claude.js'
+import { SERVER_VERSION } from './version.js'
 
 export const SERVER_NAME = 'sai'
-export const SERVER_VERSION = '0.3.0'
 
 const log = (line: string): void => {
   process.stderr.write(`[sai-mcp] ${line}\n`)
