@@ -295,12 +295,18 @@ describe('sai typescript sdk', () => {
         202,
         { sessionId: 'cs_1', turnId: 't_1', watch_url: 'https://sai.test/screens/m_1?from=api' },
       ],
-      'GET /v1/agents/events': waiting({ ...APPROVAL, approvalType: 'choice', handOff: true }),
+      'GET /v1/agents/events': waiting({
+        ...APPROVAL,
+        approvalType: 'choice',
+        handOff: true,
+        takeoverUrl: 'https://sai.test/screens/m_1?takeover=cs_1&from=api',
+      }),
     })
     const turn = await sai.sessions.resume('cs_1').send('sign in to chatgpt')
     expect(turn.watchUrl).toBe('https://sai.test/screens/m_1?from=api')
     const r = await turn.wait()
     expect(r.approval?.handOff).toBe(true)
+    expect(r.approval?.takeoverUrl).toBe('https://sai.test/screens/m_1?takeover=cs_1&from=api')
   })
 
   it('reads the code and message of a { error: code, message } body', async () => {

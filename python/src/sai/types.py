@@ -105,6 +105,8 @@ class Approval:
     hand_off: bool
     """True: a choice offering to go to the computer. Sai needs a person on its screen
     (a sign-in, a captcha): answer it, or `session.takeover()`."""
+    takeover_url: Optional[str]
+    """With `hand_off`: the computer's screen page. Opening it pauses Sai for the person."""
     raw: dict[str, Any] = field(repr=False)
 
     @classmethod
@@ -119,6 +121,7 @@ class Approval:
             command=d.get("command"),
             questions=d.get("questions") or [],
             hand_off=bool(d.get("handOff")),
+            takeover_url=d.get("takeoverUrl"),
             raw=d,
         )
 
@@ -127,8 +130,9 @@ class Approval:
 class Takeover:
     """A person has the computer: Sai is paused until `session.hand_back()` or `expires_at`."""
 
-    url: str
-    """The computer's screen in the Sai web app, with Hand back. Open it signed in as the account."""
+    url: Optional[str]
+    """The computer's screen in the Sai web app, with Hand back. Open it signed in as the account.
+    None for a Tenant: the person is at the PC already."""
     machine_id: str
     expires_at: int
     """Milliseconds since the epoch. Sai resumes here whether or not anyone handed back."""
@@ -137,7 +141,7 @@ class Takeover:
     @classmethod
     def parse(cls, d: dict[str, Any]) -> Takeover:
         return cls(
-            url=d.get("takeover_url", ""),
+            url=d.get("takeover_url"),
             machine_id=d.get("machineId", ""),
             expires_at=int(d.get("expires_at") or 0),
             raw=d,

@@ -224,6 +224,8 @@ export interface Approval {
    * screen (a sign-in, a captcha): answer it, or `session.takeover()`.
    */
   handOff: boolean
+  /** With `handOff`: the computer's screen page. Opening it pauses Sai for the person. */
+  takeoverUrl: string | null
   raw: Json
 }
 
@@ -238,14 +240,18 @@ export function parseApproval(d: Json): Approval {
     command: str(d.command) ?? null,
     questions: Array.isArray(d.questions) ? (d.questions as Json[]) : [],
     handOff: Boolean(d.handOff),
+    takeoverUrl: str(d.takeoverUrl) ?? null,
     raw: d,
   }
 }
 
 /** A person has the computer: Sai is paused until `session.handBack()` or `expiresAt`. */
 export interface Takeover {
-  /** The computer's screen in the Sai web app, with Hand back. Open it signed in as the account. */
-  url: string
+  /**
+   * The computer's screen in the Sai web app, with Hand back. Open it signed
+   * in as the account. Null for a Tenant: the person is at the PC already.
+   */
+  url: string | null
   machineId: string
   /** Milliseconds since the epoch. Sai resumes here whether or not anyone handed back. */
   expiresAt: number
@@ -254,7 +260,7 @@ export interface Takeover {
 
 export function parseTakeover(d: Json): Takeover {
   return {
-    url: str(d.takeover_url) ?? '',
+    url: str(d.takeover_url) ?? null,
     machineId: str(d.machineId) ?? '',
     expiresAt: typeof d.expires_at === 'number' ? d.expires_at : 0,
     raw: d,

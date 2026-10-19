@@ -240,13 +240,21 @@ def test_watch_url_on_the_turn_and_hand_off_on_the_approval() -> None:
                 202,
                 {"sessionId": "cs_1", "turnId": "t_1", "watch_url": "https://sai.test/screens/m_1?from=api"},
             ),
-            "GET /v1/agents/events": _waiting({**APPROVAL, "approvalType": "choice", "handOff": True}),
+            "GET /v1/agents/events": _waiting(
+                {
+                    **APPROVAL,
+                    "approvalType": "choice",
+                    "handOff": True,
+                    "takeoverUrl": "https://sai.test/screens/m_1?takeover=cs_1&from=api",
+                }
+            ),
         }
     )
     turn = sai.sessions.resume("cs_1", "m_1").send("sign in to chatgpt")
     assert turn.watch_url == "https://sai.test/screens/m_1?from=api"
     r = turn.wait()
     assert r.approval is not None and r.approval.hand_off
+    assert r.approval.takeover_url == "https://sai.test/screens/m_1?takeover=cs_1&from=api"
 
 
 def test_acknowledgement_without_task() -> None:
