@@ -63,6 +63,7 @@ export {
   type TenantMachine,
   type TenantPage,
   type TenantToken,
+  type Takeover,
   type TrajectoryStep,
   type TurnRecord,
   type TurnRecordStatus,

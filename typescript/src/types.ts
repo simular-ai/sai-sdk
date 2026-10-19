@@ -219,6 +219,11 @@ export interface Approval {
   url: string | null
   command: string | null
   questions: Json[]
+  /**
+   * True: a choice offering to go to the computer. Sai needs a person on its
+   * screen (a sign-in, a captcha): answer it, or `session.takeover()`.
+   */
+  handOff: boolean
   raw: Json
 }
 
@@ -232,6 +237,26 @@ export function parseApproval(d: Json): Approval {
     url: str(d.approvalUrl) ?? null,
     command: str(d.command) ?? null,
     questions: Array.isArray(d.questions) ? (d.questions as Json[]) : [],
+    handOff: Boolean(d.handOff),
+    raw: d,
+  }
+}
+
+/** A person has the computer: Sai is paused until `session.handBack()` or `expiresAt`. */
+export interface Takeover {
+  /** The computer's screen in the Sai web app, with Hand back. Open it signed in as the account. */
+  url: string
+  machineId: string
+  /** Milliseconds since the epoch. Sai resumes here whether or not anyone handed back. */
+  expiresAt: number
+  raw: Json
+}
+
+export function parseTakeover(d: Json): Takeover {
+  return {
+    url: str(d.takeover_url) ?? '',
+    machineId: str(d.machineId) ?? '',
+    expiresAt: typeof d.expires_at === 'number' ? d.expires_at : 0,
     raw: d,
   }
 }
@@ -397,6 +422,8 @@ export interface TurnRecord {
   inputs: Json | null
   /** True when `idempotencyKey` matched an earlier turn: this is that turn, and nothing was sent. */
   replayed: boolean
+  /** The computer's screen in the Sai web app, to watch Sai work (signed in as the account). */
+  watchUrl: string | null
   done: boolean
   ok: boolean
   raw: Json
@@ -427,6 +454,7 @@ export function parseTurnRecord(d: Json): TurnRecord {
     template: str(d.template) ?? null,
     inputs: d.inputs && typeof d.inputs === 'object' ? (d.inputs as Json) : null,
     replayed: Boolean(d.idempotent_replay),
+    watchUrl: str(d.watch_url) ?? null,
     done: status === 'succeeded' || status === 'failed',
     ok: status === 'succeeded',
     raw: d,

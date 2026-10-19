@@ -263,6 +263,46 @@ describe('sai typescript sdk', () => {
     expect((await turn.wait()).text).toBe('Hi! What should I do?')
   })
 
+  it('takes over and hands back the session', async () => {
+    const calls: Call[] = []
+    const session = client(
+      {
+        'POST /v1/agents/sessions/cs_1/takeover': {
+          sessionId: 'cs_1',
+          machineId: 'm_1',
+          takeover_url: 'https://sai.test/screens/m_1?takeover=cs_1&from=api',
+          expires_at: 1792400000000,
+          window_ms: 900000,
+        },
+        'POST /v1/agents/sessions/cs_1/handback': { resumed: true },
+      },
+      calls,
+    ).sessions.resume('cs_1', { machine: 'm_1' })
+    const t = await session.takeover()
+    expect(t.url).toBe('https://sai.test/screens/m_1?takeover=cs_1&from=api')
+    expect(t.machineId).toBe('m_1')
+    expect(t.expiresAt).toBe(1792400000000)
+    expect(await session.handBack()).toBe(true)
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+      'POST /v1/agents/sessions/cs_1/takeover',
+      'POST /v1/agents/sessions/cs_1/handback',
+    ])
+  })
+
+  it('carries watch_url on the turn and handOff on the approval', async () => {
+    const sai = client({
+      'POST /v1/agents/message': [
+        202,
+        { sessionId: 'cs_1', turnId: 't_1', watch_url: 'https://sai.test/screens/m_1?from=api' },
+      ],
+      'GET /v1/agents/events': waiting({ ...APPROVAL, approvalType: 'choice', handOff: true }),
+    })
+    const turn = await sai.sessions.resume('cs_1').send('sign in to chatgpt')
+    expect(turn.watchUrl).toBe('https://sai.test/screens/m_1?from=api')
+    const r = await turn.wait()
+    expect(r.approval?.handOff).toBe(true)
+  })
+
   it('reads the code and message of a { error: code, message } body', async () => {
     const err = await client({
       'POST /v1/agents/abort': [404, { error: 'not_found', message: 'Session not found.' }],

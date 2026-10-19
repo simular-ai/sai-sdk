@@ -15,7 +15,7 @@ from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from ._errors import ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError
-from .types import Approval, Attachment, Check, Event, TurnRecord, TurnResult, Usage
+from .types import Approval, Attachment, Check, Event, Takeover, TurnRecord, TurnResult, Usage
 
 if TYPE_CHECKING:
     from ._client import Sai
@@ -149,7 +149,13 @@ class Session:
             return Turn(self, done=_result(self.id or "", "idle", text))
         self.id = d["sessionId"]
         self.machine_id = d.get("machineId", self.machine_id)
-        return Turn(self, queued=bool(d.get("queued")), turn_id=d.get("turnId"), structured=structured)
+        return Turn(
+            self,
+            queued=bool(d.get("queued")),
+            turn_id=d.get("turnId"),
+            structured=structured,
+            watch_url=d.get("watch_url"),
+        )
 
     def run(
         self,
@@ -185,6 +191,24 @@ class Session:
             return False
         d = self._sai._http.json("POST", "/v1/agents/abort", json={"sessionId": self.id})
         return bool(d.get("aborted"))
+
+    def takeover(self) -> Takeover:
+        """Pause Sai so a person can work on the computer (a sign-in, a captcha).
+
+        Open `url` signed in as the account. Sai resumes on `hand_back()`, or on its own at
+        `expires_at` (15 minutes). Calling again during a take-over keeps the same `expires_at`.
+        """
+        if not self.id:
+            raise ValueError("This session has not started yet: send a message first.")
+        path = f"/v1/agents/sessions/{urllib.parse.quote(self.id, safe='')}/takeover"
+        return Takeover.parse(self._sai._http.json("POST", path))
+
+    def hand_back(self) -> bool:
+        """End a take-over: Sai resumes the held turn. True also when nothing was paused."""
+        if not self.id:
+            return False
+        path = f"/v1/agents/sessions/{urllib.parse.quote(self.id, safe='')}/handback"
+        return bool(self._sai._http.json("POST", path).get("resumed"))
 
     def respond(
         self,
@@ -230,10 +254,13 @@ class Turn:
         turn_id: Optional[str] = None,
         structured: bool = False,
         replay: Optional[TurnRecord] = None,
+        watch_url: Optional[str] = None,
     ) -> None:
         self.session = session
         self.queued = queued
         self.id = turn_id
+        # The computer's screen in the Sai web app, to watch Sai work (signed in as the account).
+        self.watch_url = watch_url or (replay.watch_url if replay else None)
         self._structured = structured
         self._replay = replay
         self._cursor: Optional[str] = None

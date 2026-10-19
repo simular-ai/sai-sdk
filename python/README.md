@@ -94,6 +94,18 @@ turn = session.send("...")
 turn.abort()
 ```
 
+### Watch, or step in
+
+`turn.watch_url` opens the computer's screen in the Sai web app. When Sai needs a person on the
+computer (a sign-in, a captcha; `approval.hand_off` is true), take over: Sai pauses until you hand
+back, or for at most 15 minutes. Both pages need a sign-in as your account.
+
+```python
+t = session.takeover()
+print(t.url)          # open it, sign in to the site, then:
+session.hand_back()   # Sai looks at the screen again and carries on
+```
+
 ## Get typed results
 
 Any message can also return structured data. Pass `output_schema` and the turn's record comes back in

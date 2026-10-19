@@ -102,6 +102,9 @@ class Approval:
     url: Optional[str]
     command: Optional[str]
     questions: list[dict[str, Any]]
+    hand_off: bool
+    """True: a choice offering to go to the computer. Sai needs a person on its screen
+    (a sign-in, a captcha): answer it, or `session.takeover()`."""
     raw: dict[str, Any] = field(repr=False)
 
     @classmethod
@@ -115,6 +118,28 @@ class Approval:
             url=d.get("approvalUrl"),
             command=d.get("command"),
             questions=d.get("questions") or [],
+            hand_off=bool(d.get("handOff")),
+            raw=d,
+        )
+
+
+@dataclass
+class Takeover:
+    """A person has the computer: Sai is paused until `session.hand_back()` or `expires_at`."""
+
+    url: str
+    """The computer's screen in the Sai web app, with Hand back. Open it signed in as the account."""
+    machine_id: str
+    expires_at: int
+    """Milliseconds since the epoch. Sai resumes here whether or not anyone handed back."""
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> Takeover:
+        return cls(
+            url=d.get("takeover_url", ""),
+            machine_id=d.get("machineId", ""),
+            expires_at=int(d.get("expires_at") or 0),
             raw=d,
         )
 
@@ -295,6 +320,8 @@ class TurnRecord:
     inputs: Optional[dict[str, Any]]
     replayed: bool
     """True when `idempotency_key` matched an earlier turn: this is that turn, and nothing was sent."""
+    watch_url: Optional[str]
+    """The computer's screen in the Sai web app, to watch Sai work (signed in as the account)."""
     raw: dict[str, Any] = field(repr=False)
 
     @property
@@ -324,6 +351,7 @@ class TurnRecord:
             template=d.get("template"),
             inputs=d.get("inputs"),
             replayed=bool(d.get("idempotent_replay")),
+            watch_url=d.get("watch_url"),
             raw=d,
         )
 

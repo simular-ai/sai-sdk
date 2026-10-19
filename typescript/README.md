@@ -94,6 +94,18 @@ const turn = await session.send('...')
 await turn.abort()
 ```
 
+### Watch, or step in
+
+`turn.watchUrl` opens the computer's screen in the Sai web app. When Sai needs a person on the
+computer (a sign-in, a captcha; `approval.handOff` is true), take over: Sai pauses until you hand
+back, or for at most 15 minutes. Both pages need a sign-in as your account.
+
+```ts
+const t = await session.takeover()
+console.log(t.url) // open it, sign in to the site, then:
+await session.handBack() // Sai looks at the screen again and carries on
+```
+
 ## Get typed results
 
 Any message can also return structured data. Pass `outputSchema` and the turn's record comes back in

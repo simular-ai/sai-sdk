@@ -207,6 +207,48 @@ def test_link_only_is_refused_locally() -> None:
     assert e.value.approval_url == "https://x"
 
 
+def test_takeover_and_hand_back() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/agents/sessions/cs_1/takeover": {
+                "sessionId": "cs_1",
+                "machineId": "m_1",
+                "takeover_url": "https://sai.test/screens/m_1?takeover=cs_1&from=api",
+                "expires_at": 1792400000000,
+                "window_ms": 900000,
+            },
+            "POST /v1/agents/sessions/cs_1/handback": {"resumed": True},
+        },
+        calls,
+    )
+    session = sai.sessions.resume("cs_1", "m_1")
+    t = session.takeover()
+    assert t.url == "https://sai.test/screens/m_1?takeover=cs_1&from=api"
+    assert t.machine_id == "m_1" and t.expires_at == 1792400000000
+    assert session.hand_back() is True
+    assert [f"{c.method} {c.url.path}" for c in calls] == [
+        "POST /v1/agents/sessions/cs_1/takeover",
+        "POST /v1/agents/sessions/cs_1/handback",
+    ]
+
+
+def test_watch_url_on_the_turn_and_hand_off_on_the_approval() -> None:
+    sai = client(
+        {
+            "POST /v1/agents/message": (
+                202,
+                {"sessionId": "cs_1", "turnId": "t_1", "watch_url": "https://sai.test/screens/m_1?from=api"},
+            ),
+            "GET /v1/agents/events": _waiting({**APPROVAL, "approvalType": "choice", "handOff": True}),
+        }
+    )
+    turn = sai.sessions.resume("cs_1", "m_1").send("sign in to chatgpt")
+    assert turn.watch_url == "https://sai.test/screens/m_1?from=api"
+    r = turn.wait()
+    assert r.approval is not None and r.approval.hand_off
+
+
 def test_acknowledgement_without_task() -> None:
     sai = client({"POST /v1/agents/message": {"error": "Hi! What should I do?"}})
     turn = sai.sessions.resume("cs_1", "m_1").send("hello")

@@ -13,12 +13,14 @@ import { idOf, type MachineRef, type Machines } from './machines.js'
 import {
   parseApproval,
   parseEvent,
+  parseTakeover,
   parseTurnRecord,
   parseUsage,
   type Approval,
   type Attachment,
   type Check,
   type Event,
+  type Takeover,
   type TurnRecord,
   type TurnRecordStatus,
   type TurnResult,
@@ -170,7 +172,8 @@ export class Session {
     this.id = d.sessionId
     if (typeof d.machineId === 'string') this.machineId = d.machineId
     const id = typeof d.turnId === 'string' ? d.turnId : null
-    return new Turn(this, this.http, Boolean(d.queued), null, { id, structured })
+    const watchUrl = typeof d.watch_url === 'string' ? d.watch_url : null
+    return new Turn(this, this.http, Boolean(d.queued), null, { id, structured, watchUrl })
   }
 
   /** `send()` then `wait()`: the answer, or where it stopped. */
@@ -186,6 +189,26 @@ export class Session {
       json: { sessionId: this.id },
     })
     return Boolean(d.aborted)
+  }
+
+  /**
+   * Pause Sai so a person can work on the computer (a sign-in, a captcha).
+   * Open `url` signed in as the account. Sai resumes on `handBack()`, or on
+   * its own at `expiresAt` (15 minutes). Calling again during a take-over keeps
+   * the same `expiresAt`.
+   */
+  async takeover(): Promise<Takeover> {
+    if (!this.id) throw new Error('This session has not started yet: send a message first.')
+    const path = `/v1/agents/sessions/${encodeURIComponent(this.id)}/takeover`
+    return parseTakeover(await this.http.json('POST', path))
+  }
+
+  /** End a take-over: Sai resumes the held turn. True also when nothing was paused. */
+  async handBack(): Promise<boolean> {
+    if (!this.id) return false
+    const path = `/v1/agents/sessions/${encodeURIComponent(this.id)}/handback`
+    const d = await this.http.json<{ resumed?: boolean }>('POST', path)
+    return Boolean(d.resumed)
   }
 
   /**
@@ -224,6 +247,8 @@ export class Session {
  */
 export class Turn {
   readonly id: string | null
+  /** The computer's screen in the Sai web app, to watch Sai work (signed in as the account). */
+  readonly watchUrl: string | null
   private cursor: string | null = null
   private last: TurnResult | null
   private readonly structured: boolean
@@ -236,7 +261,12 @@ export class Turn {
     private readonly http: Http,
     readonly queued: boolean,
     done: TurnResult | null = null,
-    turn: { id: string | null; structured: boolean; replay?: TurnRecord } = {
+    turn: {
+      id: string | null
+      structured: boolean
+      replay?: TurnRecord
+      watchUrl?: string | null
+    } = {
       id: null,
       structured: false,
     },
@@ -245,6 +275,7 @@ export class Turn {
     this.id = turn.id
     this.structured = turn.structured
     this.replay = turn.replay ?? null
+    this.watchUrl = turn.watchUrl ?? this.replay?.watchUrl ?? null
     this.local = done !== null || this.replay !== null
   }
 
