@@ -476,8 +476,8 @@ class LearnReset:
 class LearnRollout:
     """One run of a version of the code in a learn job.
 
-    `verdict` is `passed`, `failed`, `error` (the run could not be judged) or `aborted` (cut off
-    by a cancel or `max_job_minutes`)."""
+    `verdict` is `passed`, `failed`, `error` (the run could not be judged) or `stopped` (the job
+    stopped during this run; its `stop_reason` says why)."""
 
     index: int
     verdict: str

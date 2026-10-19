@@ -542,8 +542,8 @@ export interface LearnReset {
 /** One run of a version of the code in a learn job. */
 export interface LearnRollout {
   index: number
-  /** `aborted`: cut off by a cancel or `maxJobMinutes`; `error`: the run could not be judged. */
-  verdict: 'passed' | 'failed' | 'error' | 'aborted'
+  /** `stopped`: the job stopped during this run (see the job's `stopReason`); `error`: the run could not be judged. */
+  verdict: 'passed' | 'failed' | 'error' | 'stopped'
   reset: LearnReset | null
   error: string | null
   result: Json | null
