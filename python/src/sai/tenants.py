@@ -47,7 +47,7 @@ class Tenant:
     cloud_machine_limit: Optional[int]
     """Most cloud machines the Tenant may have at once. None: no limit."""
     residential_proxy: Optional[bool]
-    """Whether the Tenant's cloud machines browse through a residential proxy. Set by `get` and
+    """The Tenant's residential proxy switch. It has no effect yet: traffic goes direct. Set by `get` and
     `update`; None from `list` and from servers before cloud machines."""
     cloud_machine_count: Optional[int]
     """Set by `get` and `update`; None from `list` and from servers before cloud machines."""
@@ -215,8 +215,8 @@ class Tenants:
 
         `cloud_machine_limit` (0 to 1000) caps the Tenant's cloud machines; `None` removes the cap.
         Lowering it deletes nothing: creates are refused until the count fits.
-        `residential_proxy` routes the Tenant's cloud machines' traffic through a residential proxy.
-        Only the Organisation Key or an owner may set these two."""
+        `residential_proxy` is the Tenant's residential proxy switch; it has no effect yet, and
+        traffic goes direct. Only the Organisation Key or an owner may set these two."""
         body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name

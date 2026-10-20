@@ -71,8 +71,8 @@ export class Tenants {
    *
    * `cloudMachineLimit` (0 to 1000) caps the Tenant's cloud machines; `null` removes the cap.
    * Lowering it deletes nothing: creates are refused until the count fits. `residentialProxy`
-   * routes the Tenant's cloud machines' traffic through a residential proxy. Only the
-   * Organisation Key or an owner may set these two.
+   * is the Tenant's residential proxy switch; it has no effect yet, and traffic goes direct.
+   * Only the Organisation Key or an owner may set these two.
    */
   async update(
     tenant: TenantRef,

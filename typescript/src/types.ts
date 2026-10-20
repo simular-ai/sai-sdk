@@ -105,7 +105,7 @@ export interface Tenant {
   /** Most cloud machines the Tenant may have at once. null: no limit. */
   cloudMachineLimit: number | null
   /**
-   * Whether the Tenant's cloud machines browse through a residential proxy. Set by `get` and
+   * The Tenant's residential proxy switch. It has no effect yet: traffic goes direct. Set by `get` and
    * `update`; null from `list` and from servers before cloud machines.
    */
   residentialProxy: boolean | null
