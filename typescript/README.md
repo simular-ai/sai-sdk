@@ -268,11 +268,40 @@ await session.run("Open the calendar and read today's appointments")
 
 - `tenants.list({ status, externalId, limit, cursor })` resolves with one page: `page.tenants`,
   `page.nextCursor`. `externalId` finds your customer's Tenant without storing `tenant.id`.
-- `tenants.update(tenant, { name, metadata, status: 'disabled' | 'active' })`; `tenants.delete(tenant)`
-  disables it and revokes every machine.
+- `tenants.update(tenant, { name, metadata, status: 'disabled' | 'active', cloudMachineLimit, residentialProxy })`.
+  `cloudMachineLimit` is 0 to 1000, and `null` removes the cap. `tenants.get` also returns
+  `cloudMachineCount` and `residentialProxy`.
+- `tenants.delete(tenant)` disables it and revokes every enrolled machine. Its cloud machines stay
+  until you delete them.
 - `tenants.token(tenant)` is the raw exchange: a one-hour `TenantToken` to pass as
   `new Sai({ apiKey: token.token })`.
-- `tenantMachines.get(tenant, machineId)`, `tenantMachines.revoke(tenant, machine)`.
+- `tenantMachines.list(tenant)` and `tenantMachines.get(tenant, machineId)` return both kinds:
+  `machine.kind` is `enrolled` or `cloud`, and `machine.state` is `online` / `offline` for an
+  enrolled machine, or `provisioning`, `ready`, `starting`, `hibernated`, `deleting` or `failed` for a
+  cloud one.
+- `tenantMachines.delete(tenant, machine)` resolves with `'revoked'` for an enrolled machine and
+  `'deleting'` for a cloud machine, whose disk goes with it.
+
+### Cloud machines
+
+Sai can host a computer for a Tenant instead of the Tenant enrolling its own:
+
+```ts
+const machine = await org.tenantMachines.create(tenant, {
+  os: 'windows', // or 'linux'
+  name: 'intake-desk-3',
+  requestId: crypto.randomUUID(), // keep it, and send it again if you retry this create
+  wait: true, // read the machine until it is ready (timeoutMs: 10 minutes)
+})
+const onCloud = await clinic.sessions.create({ machine: machine.id })
+await onCloud.run("Open the calendar and read today's appointments")
+```
+
+Without `wait: true`, `create` resolves at once with `state: 'provisioning'`. A create can throw
+`SaiError` (402 `insufficient_credits`), `SpendCapReachedError` (the Tenant's budget, `err.body.scope`),
+`ConflictError` (`machine_limit_reached` with `err.body.limit` and `err.body.used`, or
+`request_id_reused`), `PermissionDeniedError` (`tenant_disabled`) or `ServiceUnavailableError`
+(`capacity_unavailable`: retry later). A 500 carries `err.body.errorId` to quote to support.
 
 ## Errors
 

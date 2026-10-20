@@ -14,6 +14,8 @@ import {
   RateLimitError,
   SpendCapReachedError,
   Sai,
+  SaiError,
+  ServiceUnavailableError,
   type SaiOptions,
   type Event,
   type TurnResult,
@@ -980,6 +982,213 @@ describe('tenants', () => {
     expect((await sai.tenantMachines.get('t_1', 'tm_1')).name).toBe('Front desk PC')
     expect(await sai.tenantMachines.revoke('t_1', m!)).toBeUndefined()
     expect(`${calls[2]!.method} ${calls[2]!.path}`).toBe('DELETE /v1/tenants/t_1/machines/tm_1')
+  })
+
+  const CLOUD_MACHINE = {
+    machineId: 'cm_1',
+    kind: 'cloud',
+    name: 'intake-desk-3',
+    platform: 'win32',
+    machineClass: 'win32-4c8g',
+    state: 'provisioning',
+    lastSeen: null,
+    runtimeVersion: null,
+    createdAt: 1790000000000,
+  }
+  const ENROLLED_MACHINE = {
+    machineId: 'tm_1',
+    kind: 'enrolled',
+    name: 'Front desk PC',
+    platform: 'darwin',
+    state: 'offline',
+    lastSeen: 1790003600000,
+    runtimeVersion: '1.2.0',
+    createdAt: 1789000000000,
+  }
+
+  it('parses both kinds of tenant machine and the older shape', async () => {
+    const sai = client({
+      'GET /v1/tenants/t_1/machines': {
+        machines: [ENROLLED_MACHINE, { ...CLOUD_MACHINE, state: 'ready' }, TENANT_MACHINE],
+      },
+    })
+    const [enrolled, cloud, older] = await sai.tenantMachines.list('t_1')
+    expect([
+      enrolled!.kind,
+      enrolled!.state,
+      enrolled!.online,
+      enrolled!.machineClass,
+      enrolled!.createdAt,
+    ]).toEqual(['enrolled', 'offline', false, null, 1789000000000])
+    expect([
+      cloud!.kind,
+      cloud!.state,
+      cloud!.online,
+      cloud!.machineClass,
+      cloud!.platform,
+    ]).toEqual(['cloud', 'ready', true, 'win32-4c8g', 'win32'])
+    expect([older!.kind, older!.state, older!.online, older!.status, older!.createdAt]).toEqual([
+      'enrolled',
+      'online',
+      true,
+      'active',
+      null,
+    ])
+  })
+
+  it('creates a cloud machine and returns at once', async () => {
+    const calls: Call[] = []
+    const sai = client({ 'POST /v1/tenants/t_1/machines': [202, CLOUD_MACHINE] }, calls)
+    const m = await sai.tenantMachines.create('t_1', {
+      os: 'windows',
+      name: 'intake-desk-3',
+      requestId: 'req_1',
+    })
+    expect(JSON.parse(calls[0]!.body)).toEqual({
+      os: 'windows',
+      name: 'intake-desk-3',
+      requestId: 'req_1',
+    })
+    expect([m.id, m.kind, m.state, m.machineClass]).toEqual([
+      'cm_1',
+      'cloud',
+      'provisioning',
+      'win32-4c8g',
+    ])
+
+    await sai.tenantMachines.create('t_1', { os: 'linux' })
+    expect(JSON.parse(calls[1]!.body)).toEqual({ os: 'linux' })
+    expect(calls).toHaveLength(2)
+  })
+
+  describe('create with wait', () => {
+    const settle = async <T>(p: Promise<T>): Promise<T> => {
+      const caught = p.catch((err: unknown) => err)
+      await vi.runAllTimersAsync()
+      const r = await caught
+      if (r instanceof Error) throw r
+      return p
+    }
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('reads the machine until it is ready', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] })
+      const calls: Call[] = []
+      const sai = client(
+        {
+          'POST /v1/tenants/t_1/machines': [202, CLOUD_MACHINE],
+          'GET /v1/tenants/t_1/machines/cm_1': [
+            CLOUD_MACHINE,
+            { ...CLOUD_MACHINE, state: 'starting' },
+            [429, { error: 'rate_limited', message: 'Slow down', retryAfterSeconds: 7 }],
+            { ...CLOUD_MACHINE, state: 'ready' },
+          ],
+        },
+        calls,
+      )
+      const m = await settle(sai.tenantMachines.create('t_1', { os: 'windows', wait: true }))
+      expect([m.state, m.online]).toEqual(['ready', true])
+      expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+        'POST /v1/tenants/t_1/machines',
+        ...Array<string>(4).fill('GET /v1/tenants/t_1/machines/cm_1'),
+      ])
+    })
+
+    it.each(['failed', 'deleting'])('throws when the machine is %s', async (state) => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] })
+      const sai = client({
+        'POST /v1/tenants/t_1/machines': [202, CLOUD_MACHINE],
+        'GET /v1/tenants/t_1/machines/cm_1': { ...CLOUD_MACHINE, state },
+      })
+      const err = await settle(
+        sai.tenantMachines.create('t_1', { os: 'windows', wait: true }),
+      ).catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(SaiError)
+      expect((err as SaiError).message).toContain(`cm_1 is ${state}`)
+      expect((err as SaiError).body.state).toBe(state)
+    })
+
+    it('throws a TimeoutError past timeoutMs', async () => {
+      const sai = client({ 'POST /v1/tenants/t_1/machines': [202, CLOUD_MACHINE] })
+      await expect(
+        sai.tenantMachines.create('t_1', { os: 'windows', wait: true, timeoutMs: 0 }),
+      ).rejects.toMatchObject({
+        name: 'TimeoutError',
+        message: 'Cloud machine cm_1 still provisioning.',
+      })
+    })
+  })
+
+  it('says whether a delete revoked or is deleting', async () => {
+    const calls: Call[] = []
+    const sai = client(
+      {
+        'DELETE /v1/tenants/t_1/machines/tm_1': noContent,
+        'DELETE /v1/tenants/t_1/machines/cm_1': [202, { state: 'deleting' }],
+      },
+      calls,
+    )
+    expect(await sai.tenantMachines.delete('t_1', 'tm_1')).toBe('revoked')
+    expect(await sai.tenantMachines.delete('t_1', 'cm_1')).toBe('deleting')
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+      'DELETE /v1/tenants/t_1/machines/tm_1',
+      'DELETE /v1/tenants/t_1/machines/cm_1',
+    ])
+  })
+
+  it('sets or clears the cloud machine limit and the proxy', async () => {
+    const calls: Call[] = []
+    const detail = { ...TENANT, cloudMachineLimit: 5, residentialProxy: true, cloudMachineCount: 2 }
+    const sai = client(
+      { 'PATCH /v1/tenants/t_1': detail, 'GET /v1/tenants': { tenants: [TENANT] } },
+      calls,
+    )
+    const t = await sai.tenants.update('t_1', { cloudMachineLimit: 5, residentialProxy: true })
+    expect(JSON.parse(calls[0]!.body)).toEqual({ cloudMachineLimit: 5, residentialProxy: true })
+    expect([t.cloudMachineLimit, t.residentialProxy, t.cloudMachineCount]).toEqual([5, true, 2])
+
+    await sai.tenants.update('t_1', { cloudMachineLimit: null })
+    expect(JSON.parse(calls[1]!.body)).toEqual({ cloudMachineLimit: null })
+    await sai.tenants.update('t_1', { name: 'Riverside', residentialProxy: false })
+    expect(JSON.parse(calls[2]!.body)).toEqual({ name: 'Riverside', residentialProxy: false })
+
+    const [listed] = (await sai.tenants.list()).tenants
+    expect([
+      listed!.cloudMachineLimit,
+      listed!.residentialProxy,
+      listed!.cloudMachineCount,
+    ]).toEqual([null, null, null])
+  })
+
+  it.each([
+    [402, { error: 'insufficient_credits', message: 'No credit.' }, SaiError],
+    [
+      403,
+      {
+        error: 'spend_cap_reached',
+        message: 'Budget.',
+        scope: 'tenant',
+        resetsAt: '2026-11-01T00:00:00Z',
+      },
+      SpendCapReachedError,
+    ],
+    [409, { error: 'machine_limit_reached', message: 'Limit.', limit: 5, used: 5 }, ConflictError],
+    [409, { error: 'request_id_reused', message: 'Reused.' }, ConflictError],
+    [403, { error: 'tenant_disabled', message: 'Disabled.' }, PermissionDeniedError],
+    [404, { error: 'not_found', message: 'Tenant not found.' }, NotFoundError],
+    [503, { error: 'capacity_unavailable', message: 'No capacity.' }, ServiceUnavailableError],
+    [429, { error: 'rate_limited', message: 'Too many.' }, RateLimitError],
+    [500, { error: 'internal', message: 'Quote errorId.', errorId: 'e_1' }, SaiError],
+  ] as const)('maps a %i create refusal', async (status, body, Cls) => {
+    const sai = client({ 'POST /v1/tenants/t_1/machines': [status, body] })
+    const err = (await sai.tenantMachines
+      .create('t_1', { os: 'windows' })
+      .catch((e: unknown) => e)) as SaiError
+    expect(err.constructor).toBe(Cls)
+    expect([err.status, err.code, err.message]).toEqual([status, body.error, body.message])
+    expect(err.body).toEqual(body)
   })
 
   it('takes the token orgId from the client, the env or the call', async () => {
