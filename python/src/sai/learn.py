@@ -45,6 +45,8 @@ class Learn:
         evaluations: Optional[Sequence[Evaluation]] = None,
         guidance: Optional[str] = None,
         feedback: Optional[str] = None,
+        history: Optional[str] = None,
+        runs_without_reset: Optional[bool] = None,
         max_iterations: Optional[int] = None,
         rollouts: Optional[int] = None,
         machine: Union[Machine, str, None] = None,
@@ -71,6 +73,9 @@ class Learn:
 
         `task_template` (`"Submit claim for {{patient}} to {{payer}}"`) defaults to the first
         turn's. `guidance` is what you know about the task, for writing and repairing the code.
+        For a repair, `history` says what earlier versions changed and how they failed; for a
+        conversion, `runs_without_reset=True` makes the code open the app or URL itself instead of
+        assuming the screen it starts on.
         `max_iterations` (default 0, only write the code) is how many code versions to run, judge
         and repair; `rollouts` (default 3) the runs per version. `reset` is `{"code": ...}` or
         `{"task": ...}`, run before the agent run and every run. The `*_minutes` are time limits.
@@ -100,6 +105,8 @@ class Learn:
         if reset is not None:
             body["reset"] = dict(reset)
         for key, value in (
+            ("history", history),
+            ("runsWithoutReset", runs_without_reset),
             ("maxIterations", max_iterations),
             ("rollouts", rollouts),
             ("judgeInitialAgentRun", judge_initial_agent_run),

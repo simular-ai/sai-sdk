@@ -823,6 +823,20 @@ describe('learn and judge', () => {
         },
       ],
     })
+
+    await sai.learn.create([], {
+      initialCode: 'code',
+      guidance: 'Return the URL too',
+      history: 'Version 1: run 1 failed: no URL',
+    })
+    expect(JSON.parse(calls[2]!.body)).toEqual({
+      turns: [],
+      initialCode: 'code',
+      guidance: 'Return the URL too',
+      history: 'Version 1: run 1 failed: no URL',
+    })
+    await sai.learn.create(['turn_1'], { runsWithoutReset: true })
+    expect(JSON.parse(calls[3]!.body)).toEqual({ turns: ['turn_1'], runsWithoutReset: true })
     expect((await sai.learn.get('learn_1')).id).toBe('learn_1')
   })
 

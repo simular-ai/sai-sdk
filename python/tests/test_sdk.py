@@ -638,6 +638,16 @@ def test_learn_converts_and_repairs_with_trimmed_evaluations() -> None:
             }
         ],
     }
+
+    sai.learn.create(initial_code="code", guidance="Return the URL too", history="Version 1: run 1 failed: no URL")
+    assert json.loads(calls[2].content) == {
+        "turns": [],
+        "initialCode": "code",
+        "guidance": "Return the URL too",
+        "history": "Version 1: run 1 failed: no URL",
+    }
+    sai.learn.create(["turn_1"], runs_without_reset=True)
+    assert json.loads(calls[3].content) == {"turns": ["turn_1"], "runsWithoutReset": True}
     assert sai.learn.get("learn_1").id == "learn_1"
 
 

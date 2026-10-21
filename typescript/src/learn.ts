@@ -54,6 +54,13 @@ export interface LearnOptions {
   guidance?: string
   /** @deprecated Use `guidance`. */
   feedback?: string
+  /** For a repair: what earlier versions of the code changed and how they failed, so the repair does not repeat them. */
+  history?: string
+  /**
+   * For a conversion: the code will be run again and again with no reset in between, so it opens
+   * the app or URL itself instead of assuming the screen it starts on.
+   */
+  runsWithoutReset?: boolean
   /**
    * Code versions to run, judge and repair: 0 (the default) only writes the code; 3 allows up to
    * two repairs. At most 5.
@@ -132,6 +139,8 @@ export class Learn {
     else if (opts.feedback !== undefined) body.feedback = opts.feedback
     if (opts.machine !== undefined) body.machineId = idOf(opts.machine)
     for (const k of [
+      'history',
+      'runsWithoutReset',
       'maxIterations',
       'rollouts',
       'criteria',
