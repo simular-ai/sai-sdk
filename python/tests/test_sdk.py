@@ -638,7 +638,111 @@ def test_learn_converts_and_repairs_with_trimmed_evaluations() -> None:
             }
         ],
     }
+
+    sai.learn.create(initial_code="code", guidance="Return the URL too", history="Version 1: run 1 failed: no URL")
+    assert json.loads(calls[2].content) == {
+        "turns": [],
+        "initialCode": "code",
+        "guidance": "Return the URL too",
+        "history": "Version 1: run 1 failed: no URL",
+    }
+    sai.learn.create(["turn_1"], runs_without_reset=True)
+    assert json.loads(calls[3].content) == {"turns": ["turn_1"], "runsWithoutReset": True}
     assert sai.learn.get("learn_1").id == "learn_1"
+
+
+def test_learn_job_starts_waits_cancels_and_reads_a_run() -> None:
+    from sai import Check
+
+    running = {"learnId": "learn_2", "mode": "policyIteration", "status": "running"}
+    done = {
+        **LEARNED,
+        "learnId": "learn_2",
+        "mode": "policyIteration",
+        "status": "succeeded",
+        "version": 2,
+        "testResult": {"status": "passed", "passedRuns": 2, "requiredRuns": 2, "inputs": {"site": "x"}},
+        "agentTurnId": "turn_9",
+        "iterations": [
+            {
+                "index": 1,
+                "learnId": "learn_v1",
+                "passed": 0,
+                "runs": 1,
+                "rollouts": [
+                    {
+                        "index": 1,
+                        "verdict": "failed",
+                        "reset": {"kind": "code", "ok": True, "durationMs": 800},
+                        "summary": "no URL",
+                        "continuationTurnId": "turn_c",
+                    }
+                ],
+            }
+        ],
+    }
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/agents/learn": (202, running),
+            "GET /v1/agents/learn/learn_2": [{**running, "progress": {"step": "run"}}, done],
+            "POST /v1/agents/learn/learn_2/cancel": (202, {"learnId": "learn_2", "status": "running"}),
+            "GET /v1/agents/learn/learn_2/iterations/1/rollouts/1": {
+                "learnId": "learn_2",
+                "iteration": 1,
+                "rollout": 1,
+                "run": {"result": "Top story", "logs": []},
+                "judgement": {"verdict": "failed"},
+            },
+        },
+        calls,
+    )
+    job = sai.learn.create(
+        task_template="Open {{site}}",
+        inputs={"site": "x"},
+        machine="m_1",
+        max_iterations=2,
+        rollouts=2,
+        criteria=[Check("title", "The title is shown")],
+        reset={"code": "await reset()"},
+        continue_with_agent=True,
+        guidance="Use the menu",
+    )
+    assert json.loads(calls[0].content) == {
+        "turns": [],
+        "taskTemplate": "Open {{site}}",
+        "inputs": {"site": "x"},
+        "guidance": "Use the menu",
+        "machineId": "m_1",
+        "criteria": [{"id": "title", "check": "The title is shown"}],
+        "reset": {"code": "await reset()"},
+        "maxIterations": 2,
+        "rollouts": 2,
+        "continueWithAgent": True,
+    }
+    assert (job.id, job.mode, job.status, job.ok) == ("learn_2", "policyIteration", "running", False)
+
+    r = sai.learn.wait(job, poll_interval=0.001)
+    assert (r.status, r.version, r.agent_turn_id) == ("succeeded", 2, "turn_9")
+    assert r.test_result is not None and (r.test_result.status, r.test_result.passed_runs) == ("passed", 2)
+    rollout = r.iterations[0].rollouts[0]
+    assert (rollout.verdict, rollout.continuation_turn_id) == ("failed", "turn_c")
+    assert rollout.reset is not None and (rollout.reset.kind, rollout.reset.ok, rollout.reset.duration_ms) == (
+        "code",
+        True,
+        800,
+    )
+
+    sai.learn.cancel("learn_2")
+    assert (calls[-1].method, calls[-1].url.path) == ("POST", "/v1/agents/learn/learn_2/cancel")
+    run = sai.learn.rollout(job, 1, 1)
+    assert (run.iteration, run.rollout, run.run["result"], run.judgement) == (1, 1, "Top story", {"verdict": "failed"})
+
+
+def test_learn_wait_times_out_with_the_job_still_running() -> None:
+    sai = client({"GET /v1/agents/learn/learn_3": {"learnId": "learn_3", "status": "running"}})
+    with pytest.raises(TimeoutError):
+        sai.learn.wait("learn_3", timeout=0.005, poll_interval=0.01)
 
 
 def test_judge_checks_turns() -> None:

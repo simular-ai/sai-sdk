@@ -448,17 +448,148 @@ class Evaluation:
 
 
 @dataclass
-class LearnResult:
-    """The result of `sai.learn.create()`: Simulang code made from recorded turns, or a repair of
-    code you sent. Run it with `lease.run(learned, inputs)`. Research preview.
+class LearnReset:
+    """What a `reset` did before a run or before the agent run."""
 
-    `status` is `failed` when the code still has `validation["errors"]`, or the request failed
-    (`error`, e.g. `trajectory_not_recorded`).
+    kind: str
+    """`code` or `task`."""
+    ok: bool
+    duration_ms: Optional[float]
+    turn_id: Optional[str]
+    """A reset task's turn."""
+    error: Optional[str]
+
+    @classmethod
+    def parse(cls, d: Any) -> Optional[LearnReset]:
+        if not isinstance(d, dict):
+            return None
+        return cls(
+            "task" if d.get("kind") == "task" else "code",
+            bool(d.get("ok")),
+            d.get("durationMs"),
+            d.get("turnId"),
+            d.get("error"),
+        )
+
+
+@dataclass
+class LearnRollout:
+    """One run of a version of the code in a learn job.
+
+    `verdict` is `passed`, `failed`, `error` (the run could not be judged) or `stopped` (the job
+    stopped during this run; its `stop_reason` says why), and `None` while the run is going."""
+
+    index: int
+    verdict: Optional[str]
+    reset: Optional[LearnReset]
+    error: Optional[str]
+    result: Any
+    duration_ms: Optional[float]
+    judgement_id: Optional[str]
+    summary: Optional[str]
+    """The judge's summary."""
+    continuation_turn_id: Optional[str]
+    """With `continue_with_agent`, the agent's turn after this failed run."""
+    continuation_timed_out: bool
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> LearnRollout:
+        return cls(
+            index=d.get("index", 0),
+            verdict=d.get("verdict"),
+            reset=LearnReset.parse(d.get("reset")),
+            error=d.get("error"),
+            result=d.get("result"),
+            duration_ms=d.get("durationMs"),
+            judgement_id=d.get("judgementId"),
+            summary=d.get("summary"),
+            continuation_turn_id=d.get("continuationTurnId"),
+            continuation_timed_out=bool(d.get("continuationTimedOut")),
+        )
+
+
+@dataclass
+class LearnIteration:
+    """One version of the code in a learn job and its runs."""
+
+    index: int
+    """1-based."""
+    learn_id: Optional[str]
+    """The convert or heal record that wrote this version (`sai.learn.get()` reads it)."""
+    changes: Optional[str]
+    passed: int
+    runs: int
+    rollouts: list[LearnRollout]
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> LearnIteration:
+        return cls(
+            index=d.get("index", 0),
+            learn_id=d.get("learnId"),
+            changes=d.get("changes"),
+            passed=d.get("passed", 0),
+            runs=d.get("runs", 0),
+            rollouts=[LearnRollout.parse(r) for r in d.get("rollouts") or []],
+        )
+
+
+@dataclass
+class LearnTestResult:
+    """How the returned code did when it was run, on `inputs` only.
+
+    `status` is `not_judged` (not run all its runs), `passed` (passed every run) or `failed`."""
+
+    status: str
+    passed_runs: int
+    required_runs: int
+    inputs: Optional[dict[str, Any]]
+
+    @classmethod
+    def parse(cls, d: Any) -> Optional[LearnTestResult]:
+        if not isinstance(d, dict):
+            return None
+        return cls(d.get("status", "not_judged"), d.get("passedRuns", 0), d.get("requiredRuns", 0), d.get("inputs"))
+
+
+@dataclass
+class LearnRun:
+    """One run of a learn job's code, from `sai.learn.rollout()`."""
+
+    learn_id: str
+    iteration: int
+    rollout: int
+    run: dict[str, Any]
+    """What the run returned and logged: `{ result, logs, error, durationMs }`."""
+    judgement: Optional[dict[str, Any]]
+    """The judge's record of the run, when it was judged."""
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> LearnRun:
+        return cls(
+            learn_id=d.get("learnId", ""),
+            iteration=d.get("iteration", 0),
+            rollout=d.get("rollout", 0),
+            run=d.get("run") or {},
+            judgement=d.get("judgement"),
+            raw=d,
+        )
+
+
+@dataclass
+class LearnResult:
+    """The result of `sai.learn.create()`: Simulang code made from recorded turns or from an
+    agent run, a repair of code you sent, or a learn job that runs, judges and repairs the code.
+    Run the code with `lease.run(learned, inputs)`. Research preview.
+
+    `status` says whether the call did its work: `running` while a job runs; `failed` when it
+    wrote no code (e.g. `validation["errors"]`, or `error` such as `trajectory_not_recorded`);
+    `stopped` when a job ended early (see `stop_reason`). How the code did is `test_result`.
     """
 
     id: str
     mode: str
-    """`convert` (code from turns) or `heal` (a repair of `initial_code`)."""
+    """`convert` (code from turns), `heal` (a repair of `initial_code`) or `policyIteration` (a job that runs the code)."""
     status: str
     title: Optional[str]
     template: Optional[str]
@@ -476,6 +607,21 @@ class LearnResult:
     replayed: bool
     """True when `idempotency_key` matched an earlier call: this is that call's result."""
     raw: dict[str, Any] = field(repr=False)
+    stop_reason: Optional[str] = None
+    """Why a job ended early, e.g. `cancelled`, `time_limit`, `agent_failed`, `interrupted`."""
+    message: Optional[str] = None
+    test_result: Optional[LearnTestResult] = None
+    """How the returned code did when it was run."""
+    progress: Optional[dict[str, Any]] = None
+    """While a job runs: `{ step, iteration, rollout }`."""
+    agent_turn_id: Optional[str] = None
+    """A job's agent run; pass it as `turns` to start again from that run."""
+    agent_run_reset: Optional[LearnReset] = None
+    agent_judgement: Optional[dict[str, Any]] = None
+    """With `judge_initial_agent_run`: `{ judgementId, verdict, summary }`."""
+    version: Optional[int] = None
+    """Which iteration `code` is from."""
+    iterations: list[LearnIteration] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -484,10 +630,20 @@ class LearnResult:
     @classmethod
     def parse(cls, d: dict[str, Any]) -> LearnResult:
         v = d.get("validation") or {}
+        mode = d.get("mode")
         return cls(
             id=d.get("learnId", ""),
-            mode="heal" if d.get("mode") == "heal" else "convert",
+            mode=mode if mode in ("heal", "policyIteration") else "convert",
             status=d.get("status", "running"),
+            stop_reason=d.get("stopReason"),
+            message=d.get("message"),
+            test_result=LearnTestResult.parse(d.get("testResult")),
+            progress=d.get("progress"),
+            agent_turn_id=d.get("agentTurnId"),
+            agent_run_reset=LearnReset.parse(d.get("agentRunReset")),
+            agent_judgement=d.get("agentJudgement"),
+            version=d.get("version"),
+            iterations=[LearnIteration.parse(i) for i in d.get("iterations") or []],
             title=d.get("title"),
             template=d.get("template"),
             parameters=[

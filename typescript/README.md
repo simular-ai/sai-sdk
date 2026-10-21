@@ -221,7 +221,7 @@ const turn = await session.send('Open {{site}} and read the title of the top sto
 })
 await sai.turns.wait(turn)
 
-const learned = await sai.learn.create([turn]) // about two minutes
+const learned = await sai.learn.create([turn]) // waits for the code; longer for a longer task
 console.log(
   learned.template,
   learned.parameters.map((p) => p.name),
@@ -232,7 +232,7 @@ await using lease = await sai.control.open({ machine: pc })
 const r = await lease.run(learned, { site: 'https://lobste.rs' }) // inputs over the defaults
 console.log(r.result) // what main returned
 
-// It broke on a new site: repair it from the run (or from feedback, or a new turn that solved it)
+// It broke on a new site: repair it from the run (or from guidance, or a new turn that solved it)
 const fixed = await sai.learn.create([], {
   initialCode: learned.code,
   evaluations: [{ inputs: { site: 'https://lobste.rs' }, result: r, passed: false }],
@@ -248,6 +248,44 @@ console.log(judgement.verdict, judgement.criteria[0]?.score)
 
 `learned.status` is `failed` when the code still has `learned.validation.errors` after one retry.
 Pass a judgement as `{ ..., judgement }` in an evaluation to repair code from its evidence.
+
+### Run, judge and repair on a machine (policy iteration)
+
+With `maxIterations`, `learn` also runs the code on a machine, judges each run, and repairs the code
+after a failed run, for up to that many versions. It starts from your `turns`, or, without them, the
+agent does `taskTemplate` first. The call answers at once with a job; `wait` reads it until it ends.
+
+```ts
+const job = await sai.learn.create([], {
+  taskTemplate: 'Open {{site}} and read the title of the top story',
+  inputs: { site: 'https://news.ycombinator.com' },
+  machine: pc,
+  criteria: 'The answer is the title of the top story on the page',
+  maxIterations: 3, // up to 3 code versions; 0 (the default) only writes the code
+  rollouts: 3, // each version must pass 3 runs in a row
+  reset: { code: 'await machine.browser.newtab("https://news.ycombinator.com")' }, // or { task: '...' }
+  continueWithAgent: true, // after a failed run, the agent finishes the task and the repair learns from it
+})
+const done = await sai.learn.wait(job) // can take an hour; `timeoutMs` to stop waiting
+console.log(done.status, done.stopReason) // did the call do its work
+console.log(done.testResult) // { status: 'passed', passedRuns: 3, requiredRuns: 3, inputs }
+console.log(done.code) // the latest version
+for (const it of done.iterations)
+  console.log(
+    it.index,
+    it.changes,
+    it.rollouts.map((r) => r.verdict),
+  )
+
+const run = await sai.learn.rollout(job, 1, 1) // what run 1 of version 1 returned, and its judgement
+await sai.learn.cancel(job) // stops at once and keeps the last complete results
+```
+
+`status` says whether the call did its work (`succeeded`, `failed` when no code was written, or
+`stopped` with a `stopReason` such as `cancelled`, `time_limit` or `agent_failed`); `testResult` says
+how the returned code did on `inputs`. With `judgeInitialAgentRun: true`, a job whose agent run fails
+the judge stops before writing code; pass its `agentTurnId` as `turns` to start again from that run.
+The runs do the task for real, so use test inputs or a test account.
 
 ## Run Sai for your customers
 

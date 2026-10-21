@@ -17,7 +17,7 @@
     "machines": ["list", "get", "live"],
     "sessions": ["create", "resume"],
     "turns": ["get", "wait", "trajectory", "screenshot"],
-    "learn": ["create", "get"],
+    "learn": ["create", "get", "wait", "cancel", "rollout"],
     "judge": ["create", "get"],
     "control": ["open"],
     "models": ["list"],
