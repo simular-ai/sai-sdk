@@ -265,7 +265,7 @@ describe('sai typescript sdk', () => {
     expect((await turn.wait()).text).toBe('Hi! What should I do?')
   })
 
-  const SCREEN = 'https://sai.test/screens/m_1?takeover=cs_1&from=api'
+  const SCREEN = 'https://sai.test/screens/m_1?apiSession=cs_1'
 
   it('takes over and hands back the session', async () => {
     const calls: Call[] = []

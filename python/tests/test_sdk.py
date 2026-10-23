@@ -207,7 +207,7 @@ def test_link_only_is_refused_locally() -> None:
     assert e.value.approval_url == "https://x"
 
 
-SCREEN = "https://sai.test/screens/m_1?takeover=cs_1&from=api"
+SCREEN = "https://sai.test/screens/m_1?apiSession=cs_1"
 
 
 def test_takeover_and_hand_back() -> None:
