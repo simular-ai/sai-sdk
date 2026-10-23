@@ -8,8 +8,8 @@ name: Publish sai-cli
 # own release tags (agent-v*, etc.) never trigger an npm publish.
 #
 # Cutting a release:
-#   1. Bump "version" in cli/package.json (and keep .version() in
-#      src/cli.ts in sync — see the verify step below).
+#   1. Bump "version" in cli/package.json (and keep VERSION in
+#      src/version.ts in sync — see the verify step below).
 #   2. Merge to main.
 #   3. git tag sai-cli-v<X.Y.Z> && git push origin sai-cli-v<X.Y.Z>
 #      (use sai-cli-v<X.Y.Z>-rc.N for a prerelease → publishes under dist-tag "next")

@@ -39,11 +39,12 @@ import {
   sanitizeTerminalText,
 } from './cli-utils.js'
 import type { ChoiceSelectionResult } from './cli-utils.js'
+import { VERSION } from './version.js'
 
 // keep subcommand options from being consumed by same-named root options
 const program = new Command().enablePositionalOptions()
 
-program.name('sai').description('CLI for Sai — your Simular AI agent').version('0.2.1')
+program.name('sai').description('CLI for Sai — your Simular AI agent').version(VERSION)
 
 program.addHelpText(
   'after',

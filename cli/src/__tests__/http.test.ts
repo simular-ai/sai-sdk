@@ -1,5 +1,7 @@
+import { readFileSync } from 'fs'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { apiFetch, toNetworkError } from '../http.js'
+import { VERSION } from '../version.js'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -99,5 +101,35 @@ describe('apiFetch version tag', () => {
       'x-sai-version': 'my-tag',
     })
     expect((spy.mock.calls[0][1] as RequestInit).method).toBe('POST')
+  })
+})
+
+describe('apiFetch User-Agent', () => {
+  function headersOf(spy: ReturnType<typeof vi.spyOn>): Record<string, string> {
+    return (spy.mock.calls[0][1] as RequestInit | undefined)?.headers as Record<string, string>
+  }
+
+  it('identifies the CLI as sai-cli/<package version>', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}'))
+    await apiFetch('https://api.example.com/x')
+    expect(headersOf(spy)['User-Agent']).toBe(`sai-cli/${VERSION}`)
+  })
+
+  it('sends it alongside the caller headers and the version tag', async () => {
+    vi.stubEnv('SAI_VERSION_TAG', 'my-tag')
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}'))
+    await apiFetch('https://api.example.com/x', { headers: { Authorization: 'Bearer t' } })
+    expect(headersOf(spy)).toEqual({
+      'User-Agent': `sai-cli/${VERSION}`,
+      Authorization: 'Bearer t',
+      'x-sai-version': 'my-tag',
+    })
+  })
+
+  it('reports the version in package.json', () => {
+    const pkg = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'),
+    ) as { version: string }
+    expect(VERSION).toBe(pkg.version)
   })
 })

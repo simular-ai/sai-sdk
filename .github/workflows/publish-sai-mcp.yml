@@ -10,7 +10,7 @@ name: Publish sai-mcp
 #
 # Cutting a release:
 #   1. Bump "version" in mcp/package.json and SERVER_VERSION in
-#      src/server.ts (the verify step below checks both).
+#      src/version.ts (the verify step below checks both).
 #   2. Merge to main.
 #   3. git tag sai-mcp-v<X.Y.Z> && git push origin sai-mcp-v<X.Y.Z>
 #      (use sai-mcp-v<X.Y.Z>-rc.N for a prerelease → publishes under dist-tag "next")
@@ -151,9 +151,9 @@ jobs:
           TAG_VERSION="${TAG_NAME#sai-mcp-v}"
           PKG_VERSION="$(node -p "require('./mcp/package.json').version")"
 
-          SRV_VERSION="$(sed -nE "s/^export const SERVER_VERSION = '([^']+)'.*/\\1/p" mcp/src/server.ts)"
+          SRV_VERSION="$(sed -nE "s/^export const SERVER_VERSION = '([^']+)'.*/\\1/p" mcp/src/version.ts)"
           if [ "$SRV_VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::SERVER_VERSION in mcp/src/server.ts ($SRV_VERSION) does not match package.json ($PKG_VERSION)." >&2
+            echo "::error::SERVER_VERSION in mcp/src/version.ts ($SRV_VERSION) does not match package.json ($PKG_VERSION)." >&2
             exit 1
           fi
 
