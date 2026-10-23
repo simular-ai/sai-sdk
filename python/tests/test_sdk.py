@@ -694,7 +694,111 @@ def test_learn_converts_and_repairs_with_trimmed_evaluations() -> None:
             }
         ],
     }
+
+    sai.learn.create(initial_code="code", guidance="Return the URL too", history="Version 1: run 1 failed: no URL")
+    assert json.loads(calls[2].content) == {
+        "turns": [],
+        "initialCode": "code",
+        "guidance": "Return the URL too",
+        "history": "Version 1: run 1 failed: no URL",
+    }
+    sai.learn.create(["turn_1"], runs_without_reset=True)
+    assert json.loads(calls[3].content) == {"turns": ["turn_1"], "runsWithoutReset": True}
     assert sai.learn.get("learn_1").id == "learn_1"
+
+
+def test_learn_job_starts_waits_cancels_and_reads_a_run() -> None:
+    from sai import Check
+
+    running = {"learnId": "learn_2", "mode": "policyIteration", "status": "running"}
+    done = {
+        **LEARNED,
+        "learnId": "learn_2",
+        "mode": "policyIteration",
+        "status": "succeeded",
+        "version": 2,
+        "testResult": {"status": "passed", "passedRuns": 2, "requiredRuns": 2, "inputs": {"site": "x"}},
+        "agentTurnId": "turn_9",
+        "iterations": [
+            {
+                "index": 1,
+                "learnId": "learn_v1",
+                "passed": 0,
+                "runs": 1,
+                "rollouts": [
+                    {
+                        "index": 1,
+                        "verdict": "failed",
+                        "reset": {"kind": "code", "ok": True, "durationMs": 800},
+                        "summary": "no URL",
+                        "continuationTurnId": "turn_c",
+                    }
+                ],
+            }
+        ],
+    }
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/agents/learn": (202, running),
+            "GET /v1/agents/learn/learn_2": [{**running, "progress": {"step": "run"}}, done],
+            "POST /v1/agents/learn/learn_2/cancel": (202, {"learnId": "learn_2", "status": "running"}),
+            "GET /v1/agents/learn/learn_2/iterations/1/rollouts/1": {
+                "learnId": "learn_2",
+                "iteration": 1,
+                "rollout": 1,
+                "run": {"result": "Top story", "logs": []},
+                "judgement": {"verdict": "failed"},
+            },
+        },
+        calls,
+    )
+    job = sai.learn.create(
+        task_template="Open {{site}}",
+        inputs={"site": "x"},
+        machine="m_1",
+        max_iterations=2,
+        rollouts=2,
+        criteria=[Check("title", "The title is shown")],
+        reset={"code": "await reset()"},
+        continue_with_agent=True,
+        guidance="Use the menu",
+    )
+    assert json.loads(calls[0].content) == {
+        "turns": [],
+        "taskTemplate": "Open {{site}}",
+        "inputs": {"site": "x"},
+        "guidance": "Use the menu",
+        "machineId": "m_1",
+        "criteria": [{"id": "title", "check": "The title is shown"}],
+        "reset": {"code": "await reset()"},
+        "maxIterations": 2,
+        "rollouts": 2,
+        "continueWithAgent": True,
+    }
+    assert (job.id, job.mode, job.status, job.ok) == ("learn_2", "policyIteration", "running", False)
+
+    r = sai.learn.wait(job, poll_interval=0.001)
+    assert (r.status, r.version, r.agent_turn_id) == ("succeeded", 2, "turn_9")
+    assert r.test_result is not None and (r.test_result.status, r.test_result.passed_runs) == ("passed", 2)
+    rollout = r.iterations[0].rollouts[0]
+    assert (rollout.verdict, rollout.continuation_turn_id) == ("failed", "turn_c")
+    assert rollout.reset is not None and (rollout.reset.kind, rollout.reset.ok, rollout.reset.duration_ms) == (
+        "code",
+        True,
+        800,
+    )
+
+    sai.learn.cancel("learn_2")
+    assert (calls[-1].method, calls[-1].url.path) == ("POST", "/v1/agents/learn/learn_2/cancel")
+    run = sai.learn.rollout(job, 1, 1)
+    assert (run.iteration, run.rollout, run.run["result"], run.judgement) == (1, 1, "Top story", {"verdict": "failed"})
+
+
+def test_learn_wait_times_out_with_the_job_still_running() -> None:
+    sai = client({"GET /v1/agents/learn/learn_3": {"learnId": "learn_3", "status": "running"}})
+    with pytest.raises(TimeoutError):
+        sai.learn.wait("learn_3", timeout=0.005, poll_interval=0.01)
 
 
 def test_judge_checks_turns() -> None:
@@ -819,6 +923,184 @@ def test_tenant_machines_list_get_and_revoke() -> None:
     assert sai.tenant_machines.get("t_1", "tm_1").name == "Front desk PC"
     assert sai.tenant_machines.revoke("t_1", m) is None
     assert f"{calls[2].method} {calls[2].url.path}" == "DELETE /v1/tenants/t_1/machines/tm_1"
+
+
+CLOUD_MACHINE = {
+    "machineId": "cm_1",
+    "kind": "cloud",
+    "name": "intake-desk-3",
+    "platform": "win32",
+    "machineClass": "win32-4c8g",
+    "state": "provisioning",
+    "lastSeen": None,
+    "runtimeVersion": None,
+    "createdAt": 1790000000000,
+}
+ENROLLED_MACHINE = {
+    "machineId": "tm_1",
+    "kind": "enrolled",
+    "name": "Front desk PC",
+    "platform": "darwin",
+    "state": "offline",
+    "lastSeen": 1790003600000,
+    "runtimeVersion": "1.2.0",
+    "createdAt": 1789000000000,
+}
+
+
+def test_tenant_machines_parse_both_kinds_and_the_older_shape() -> None:
+    sai = client(
+        {
+            "GET /v1/tenants/t_1/machines": {
+                "machines": [ENROLLED_MACHINE, {**CLOUD_MACHINE, "state": "ready"}, TENANT_MACHINE]
+            }
+        }
+    )
+    enrolled, cloud, older = sai.tenant_machines.list("t_1")
+    assert (enrolled.kind, enrolled.state, enrolled.online, enrolled.machine_class, enrolled.created_at) == (
+        "enrolled",
+        "offline",
+        False,
+        None,
+        1789000000000,
+    )
+    assert (cloud.kind, cloud.state, cloud.online, cloud.machine_class, cloud.platform) == (
+        "cloud",
+        "ready",
+        True,
+        "win32-4c8g",
+        "win32",
+    )
+    assert (older.kind, older.state, older.online, older.status, older.created_at) == (
+        "enrolled",
+        "online",
+        True,
+        "active",
+        None,
+    )
+
+
+def test_tenant_machine_create_sends_the_body_and_returns_at_once() -> None:
+    calls: list[httpx.Request] = []
+    sai = client({"POST /v1/tenants/t_1/machines": (202, CLOUD_MACHINE)}, calls)
+    m = sai.tenant_machines.create("t_1", os="windows", name="intake-desk-3", request_id="req_1")
+    assert json.loads(calls[0].content) == {"os": "windows", "name": "intake-desk-3", "requestId": "req_1"}
+    assert (m.id, m.kind, m.state, m.machine_class) == ("cm_1", "cloud", "provisioning", "win32-4c8g")
+
+    sai.tenant_machines.create("t_1", os="linux")
+    assert json.loads(calls[1].content) == {"os": "linux"}
+    assert len(calls) == 2
+
+
+def test_tenant_machine_create_waits_until_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    slept: list[float] = []
+    monkeypatch.setattr("sai.tenants.time.sleep", slept.append)
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/tenants/t_1/machines": (202, CLOUD_MACHINE),
+            "GET /v1/tenants/t_1/machines/cm_1": [
+                CLOUD_MACHINE,
+                {**CLOUD_MACHINE, "state": "starting"},
+                (429, {"error": "rate_limited", "message": "Slow down", "retryAfterSeconds": 7}),
+                {**CLOUD_MACHINE, "state": "ready"},
+            ],
+        },
+        calls,
+    )
+    m = sai.tenant_machines.create("t_1", os="windows", wait=True)
+    assert (m.state, m.online) == ("ready", True)
+    assert slept == [5, 5, 5, 7, 5]
+    assert [f"{c.method} {c.url.path}" for c in calls] == ["POST /v1/tenants/t_1/machines"] + [
+        "GET /v1/tenants/t_1/machines/cm_1"
+    ] * 4
+
+
+@pytest.mark.parametrize("state", ["failed", "deleting"])
+def test_tenant_machine_create_wait_raises_when_it_cannot_become_ready(
+    monkeypatch: pytest.MonkeyPatch, state: str
+) -> None:
+    from sai import SaiError
+
+    monkeypatch.setattr("sai.tenants.time.sleep", lambda _: None)
+    sai = client(
+        {
+            "POST /v1/tenants/t_1/machines": (202, CLOUD_MACHINE),
+            "GET /v1/tenants/t_1/machines/cm_1": {**CLOUD_MACHINE, "state": state},
+        }
+    )
+    with pytest.raises(SaiError, match=f"cm_1 is {state}") as e:
+        sai.tenant_machines.create("t_1", os="windows", wait=True)
+    assert e.value.body["state"] == state
+
+
+def test_tenant_machine_create_wait_times_out() -> None:
+    sai = client({"POST /v1/tenants/t_1/machines": (202, CLOUD_MACHINE)})
+    with pytest.raises(TimeoutError, match="cm_1 still provisioning"):
+        sai.tenant_machines.create("t_1", os="windows", wait=True, timeout=0)
+
+
+def test_tenant_machine_delete_says_revoked_or_deleting() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "DELETE /v1/tenants/t_1/machines/tm_1": (204, None),
+            "DELETE /v1/tenants/t_1/machines/cm_1": (202, {"state": "deleting"}),
+        },
+        calls,
+    )
+    assert sai.tenant_machines.delete("t_1", "tm_1") == "revoked"
+    assert sai.tenant_machines.delete("t_1", "cm_1") == "deleting"
+    assert [f"{c.method} {c.url.path}" for c in calls] == [
+        "DELETE /v1/tenants/t_1/machines/tm_1",
+        "DELETE /v1/tenants/t_1/machines/cm_1",
+    ]
+
+
+def test_tenant_update_sets_or_clears_the_cloud_machine_limit_and_the_proxy() -> None:
+    calls: list[httpx.Request] = []
+    detail = {**TENANT, "cloudMachineLimit": 5, "residentialProxy": True, "cloudMachineCount": 2}
+    sai = client({"PATCH /v1/tenants/t_1": detail, "GET /v1/tenants": {"tenants": [TENANT]}}, calls)
+    t = sai.tenants.update("t_1", cloud_machine_limit=5, residential_proxy=True)
+    assert json.loads(calls[0].content) == {"cloudMachineLimit": 5, "residentialProxy": True}
+    assert (t.cloud_machine_limit, t.residential_proxy, t.cloud_machine_count) == (5, True, 2)
+
+    sai.tenants.update("t_1", cloud_machine_limit=None)
+    assert json.loads(calls[1].content) == {"cloudMachineLimit": None}
+    sai.tenants.update("t_1", name="Riverside", residential_proxy=False)
+    assert json.loads(calls[2].content) == {"name": "Riverside", "residentialProxy": False}
+
+    [listed] = sai.tenants.list().tenants
+    assert (listed.cloud_machine_limit, listed.residential_proxy, listed.cloud_machine_count) == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    "status,body,cls",
+    [
+        (402, {"error": "insufficient_credits", "message": "No credit."}, "SaiError"),
+        (
+            403,
+            {"error": "spend_cap_reached", "message": "Budget.", "scope": "tenant", "resetsAt": "2026-11-01T00:00:00Z"},
+            "SpendCapReachedError",
+        ),
+        (409, {"error": "machine_limit_reached", "message": "Limit.", "limit": 5, "used": 5}, "ConflictError"),
+        (409, {"error": "request_id_reused", "message": "Reused."}, "ConflictError"),
+        (403, {"error": "tenant_disabled", "message": "Disabled."}, "PermissionDeniedError"),
+        (404, {"error": "not_found", "message": "Tenant not found."}, "NotFoundError"),
+        (503, {"error": "capacity_unavailable", "message": "No capacity."}, "ServiceUnavailableError"),
+        (429, {"error": "rate_limited", "message": "Too many."}, "RateLimitError"),
+        (500, {"error": "internal", "message": "Quote errorId.", "errorId": "e_1"}, "SaiError"),
+    ],
+)
+def test_tenant_machine_create_errors(status: int, body: dict[str, Any], cls: str) -> None:
+    import sai as sdk
+
+    s = client({"POST /v1/tenants/t_1/machines": (status, body)})
+    with pytest.raises(sdk.SaiError) as e:
+        s.tenant_machines.create("t_1", os="windows")
+    assert type(e.value) is getattr(sdk, cls)
+    assert (e.value.status, e.value.code, e.value.message) == (status, body["error"], body["message"])
+    assert e.value.body == body
 
 
 def test_tenant_token_org_id_from_client_env_or_call(monkeypatch: pytest.MonkeyPatch) -> None:

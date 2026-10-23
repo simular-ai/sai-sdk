@@ -54,7 +54,7 @@ export class Sai {
   readonly account: AccountResource
   /** Your customers under an Organisation. Takes an Organisation Key. */
   readonly tenants: Tenants
-  /** A Tenant's enrolled computers. Takes an Organisation Key. */
+  /** A Tenant's computers: enrolled, and cloud machines Sai hosts. Takes an Organisation Key. */
   readonly tenantMachines: TenantMachines
 
   /** @param credential internal: `tenants.client()` passes a token source instead of `apiKey`. */

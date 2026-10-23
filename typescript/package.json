@@ -1,6 +1,6 @@
 {
   "name": "@simular-ai/sai-sdk",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0",
   "description": "TypeScript SDK for the Sai API: delegate desktop work to Sai, or drive a cloud computer directly.",
   "homepage": "https://platform.simular.ai/documentation/sdks/typescript",
   "license": "MIT",

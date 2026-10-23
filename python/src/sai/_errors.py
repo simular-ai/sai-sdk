@@ -89,7 +89,8 @@ class LinkOnlyApprovalError(ConflictError):
 
 
 class SpendCapReachedError(PermissionDeniedError):
-    """403 `spend_cap_reached`: the key reached its monthly spend limit.
+    """403 `spend_cap_reached`: the key reached its monthly spend limit, or (on a cloud machine
+    create, `body["scope"] == "tenant"`) the Tenant reached its budget.
 
     Not retryable: the limit resets at `resets_at` (ISO 8601, 00:00 UTC on the
     1st), or raise it for the key in the portal.

@@ -100,7 +100,17 @@ export interface Tenant {
   /** Unix time in milliseconds. */
   createdAt: number
   disabledAt: number | null
+  /** Enrolled machines. */
   machineCount: number
+  /** Most cloud machines the Tenant may have at once. null: no limit. */
+  cloudMachineLimit: number | null
+  /**
+   * The Tenant's residential proxy switch. It has no effect yet: traffic goes direct. Set by `get` and
+   * `update`; null from `list` and from servers before cloud machines.
+   */
+  residentialProxy: boolean | null
+  /** Set by `get` and `update`; null from `list` and from servers before cloud machines. */
+  cloudMachineCount: number | null
   raw: Json
 }
 
@@ -114,6 +124,9 @@ export function parseTenant(d: Json): Tenant {
     createdAt: num(d.createdAt),
     disabledAt: typeof d.disabledAt === 'number' ? d.disabledAt : null,
     machineCount: num(d.machineCount),
+    cloudMachineLimit: typeof d.cloudMachineLimit === 'number' ? d.cloudMachineLimit : null,
+    residentialProxy: typeof d.residentialProxy === 'boolean' ? d.residentialProxy : null,
+    cloudMachineCount: typeof d.cloudMachineCount === 'number' ? d.cloudMachineCount : null,
     raw: d,
   }
 }
@@ -124,28 +137,46 @@ export interface TenantPage {
   nextCursor: string | null
 }
 
-/** A Tenant's own computer, running the Sai runtime. */
+/** A Tenant's computer: its own, enrolled, or a cloud machine Sai hosts for it. */
 export interface TenantMachine {
   id: string
   name: string | null
   platform: string | null
+  /** Older servers only; empty on servers with cloud machines. Read `state`. */
   status: string
-  /** True when the machine reported in the last 3 minutes. */
+  /** True when an enrolled machine reported in the last 3 minutes, or a cloud machine is `ready`. */
   online: boolean
   lastSeen: number | null
   runtimeVersion: string | null
+  kind: 'enrolled' | 'cloud'
+  /**
+   * Enrolled: `online` or `offline`. Cloud: `provisioning`, `ready`, `starting`, `hibernated`,
+   * `deleting` or `failed`. A run starts without waiting only on `ready`; a hibernated machine
+   * wakes when a run is sent to it.
+   */
+  state: string
+  /** Cloud only: the billing class, e.g. `win32-4c8g`. */
+  machineClass: string | null
+  /** Unix time in milliseconds. null from servers before cloud machines. */
+  createdAt: number | null
   raw: Json
 }
 
 export function parseTenantMachine(d: Json): TenantMachine {
+  // Servers before cloud machines send `online` and `status` and no `kind` or `state`.
+  const state = str(d.state) || (d.online ? 'online' : 'offline')
   return {
     id: str(d.machineId) ?? '',
     name: str(d.name) ?? null,
     platform: str(d.platform) ?? null,
     status: str(d.status) ?? '',
-    online: Boolean(d.online),
+    online: 'online' in d ? Boolean(d.online) : state === 'online' || state === 'ready',
     lastSeen: typeof d.lastSeen === 'number' ? d.lastSeen : null,
     runtimeVersion: str(d.runtimeVersion) ?? null,
+    kind: d.kind === 'cloud' ? 'cloud' : 'enrolled',
+    state,
+    machineClass: str(d.machineClass) ?? null,
+    createdAt: typeof d.createdAt === 'number' ? d.createdAt : null,
     raw: d,
   }
 }
@@ -566,16 +597,89 @@ export interface Evaluation {
   note?: string
 }
 
+/** What a `reset` did before a run or before the agent run. */
+export interface LearnReset {
+  kind: 'code' | 'task'
+  ok: boolean
+  durationMs: number | null
+  /** A reset task's turn. */
+  turnId: string | null
+  error: string | null
+}
+
+/** One run of a version of the code in a learn job. */
+export interface LearnRollout {
+  index: number
+  /**
+   * `stopped`: the job stopped during this run (see the job's `stopReason`); `error`: the run could
+   * not be judged; `null` while the run is going.
+   */
+  verdict: 'passed' | 'failed' | 'error' | 'stopped' | null
+  reset: LearnReset | null
+  error: string | null
+  result: Json | null
+  durationMs: number | null
+  judgementId: string | null
+  /** The judge's summary. */
+  summary: string | null
+  /** With `continueWithAgent`, the agent's turn after this failed run. */
+  continuationTurnId: string | null
+  continuationTimedOut: boolean
+}
+
+/** One version of the code in a learn job and its runs. */
+export interface LearnIteration {
+  /** 1-based. */
+  index: number
+  /** The convert or heal record that wrote this version (`sai.learn.get()` reads it). */
+  learnId: string | null
+  /** What the repair changed and why. */
+  changes: string | null
+  passed: number
+  runs: number
+  rollouts: LearnRollout[]
+}
+
+/** How the returned code did when it was run, on `inputs` only. */
+export interface LearnTestResult {
+  /** `not_judged`: the code was not run all its runs; `passed`: it passed every run; `failed`: a run failed. */
+  status: 'not_judged' | 'passed' | 'failed'
+  passedRuns: number
+  requiredRuns: number
+  inputs: Record<string, string | number | boolean> | null
+}
+
 /**
- * The result of `sai.learn.create()`: Simulang code made from recorded turns, or a repair of
- * code you sent. Run it with `lease.run(learned, inputs)`. Research preview.
+ * The result of `sai.learn.create()`: Simulang code made from recorded turns or from an agent
+ * run, a repair of code you sent, or a learn job that runs, judges and repairs the code. Run the
+ * code with `lease.run(learned, inputs)`. Research preview.
  */
 export interface LearnResult {
   id: string
-  /** `convert` (code from turns) or `heal` (a repair of `initialCode`). */
-  mode: 'convert' | 'heal'
-  /** `failed` when the code still has `validation.errors`, or the request failed (`error`). */
-  status: 'succeeded' | 'failed' | 'running'
+  /** `convert` (code from turns), `heal` (a repair of `initialCode`), or `policyIteration` (a job that runs the code). */
+  mode: 'convert' | 'heal' | 'policyIteration'
+  /**
+   * Whether the call did its work: `running` while a job runs; `failed` when it wrote no code
+   * (e.g. `validation.errors`); `stopped` when a job ended early (see `stopReason`).
+   * How the code did is `testResult`.
+   */
+  status: 'succeeded' | 'failed' | 'running' | 'stopped'
+  /** Why a job ended early, e.g. `cancelled`, `time_limit`, `agent_failed`, `interrupted`. */
+  stopReason: string | null
+  /** One sentence on why a job stopped. */
+  message: string | null
+  /** How the returned code did when it was run. */
+  testResult: LearnTestResult | null
+  /** While a job runs: the step it is on. */
+  progress: { step: string; iteration: number | null; rollout: number | null } | null
+  /** A job's agent run; pass it as `turns` to start again from that run. */
+  agentTurnId: string | null
+  agentRunReset: LearnReset | null
+  /** With `judgeInitialAgentRun`: the judgement of the agent run. */
+  agentJudgement: { judgementId: string; verdict: string; summary: string | null } | null
+  /** Which iteration `code` is from. */
+  version: number | null
+  iterations: LearnIteration[]
   title: string | null
   /** The task with `{{name}}` placeholders: send it to `session.send()` with `inputs` to run it with the agent. */
   template: string | null
@@ -596,13 +700,79 @@ export interface LearnResult {
   raw: Json
 }
 
+function parseLearnReset(v: unknown): LearnReset | null {
+  if (!v || typeof v !== 'object') return null
+  const r = v as Json
+  return {
+    kind: str(r.kind) === 'task' ? 'task' : 'code',
+    ok: Boolean(r.ok),
+    durationMs: typeof r.durationMs === 'number' ? r.durationMs : null,
+    turnId: str(r.turnId) ?? null,
+    error: str(r.error) ?? null,
+  }
+}
+
+function parseIteration(d: Json): LearnIteration {
+  return {
+    index: num(d.index),
+    learnId: str(d.learnId) ?? null,
+    changes: str(d.changes) ?? null,
+    passed: num(d.passed),
+    runs: num(d.runs),
+    rollouts: (Array.isArray(d.rollouts) ? (d.rollouts as Json[]) : []).map((r) => ({
+      index: num(r.index),
+      verdict: (str(r.verdict) ?? null) as LearnRollout['verdict'],
+      reset: parseLearnReset(r.reset),
+      error: str(r.error) ?? null,
+      result: (r.result as Json | undefined) ?? null,
+      durationMs: typeof r.durationMs === 'number' ? r.durationMs : null,
+      judgementId: str(r.judgementId) ?? null,
+      summary: str(r.summary) ?? null,
+      continuationTurnId: str(r.continuationTurnId) ?? null,
+      continuationTimedOut: Boolean(r.continuationTimedOut),
+    })),
+  }
+}
+
 export function parseLearnResult(d: Json): LearnResult {
   const v = obj(d.validation)
   const status = (str(d.status) ?? 'running') as LearnResult['status']
+  const mode = str(d.mode)
+  const t = d.testResult ? obj(d.testResult) : null
+  const p = d.progress ? obj(d.progress) : null
+  const aj = d.agentJudgement ? obj(d.agentJudgement) : null
   return {
     id: str(d.learnId) ?? '',
-    mode: str(d.mode) === 'heal' ? 'heal' : 'convert',
+    mode: mode === 'heal' || mode === 'policyIteration' ? mode : 'convert',
     status,
+    stopReason: str(d.stopReason) ?? null,
+    message: str(d.message) ?? null,
+    testResult: t
+      ? {
+          status: (str(t.status) ?? 'not_judged') as LearnTestResult['status'],
+          passedRuns: num(t.passedRuns),
+          requiredRuns: num(t.requiredRuns),
+          inputs: t.inputs ? (obj(t.inputs) as LearnTestResult['inputs']) : null,
+        }
+      : null,
+    progress: p
+      ? {
+          step: str(p.step) ?? '',
+          iteration: typeof p.iteration === 'number' ? p.iteration : null,
+          rollout: typeof p.rollout === 'number' ? p.rollout : null,
+        }
+      : null,
+    agentTurnId: str(d.agentTurnId) ?? null,
+    agentRunReset: parseLearnReset(d.agentRunReset),
+    agentJudgement: aj
+      ? {
+          judgementId: str(aj.judgementId) ?? '',
+          verdict: str(aj.verdict) ?? '',
+          summary: str(aj.summary) ?? null,
+        }
+      : null,
+    version: typeof d.version === 'number' ? d.version : null,
+    iterations: (Array.isArray(d.iterations) ? (d.iterations as Json[]) : []).map(parseIteration),
     title: str(d.title) ?? null,
     template: str(d.template) ?? null,
     parameters: (Array.isArray(d.parameters) ? (d.parameters as Json[]) : []).map((p) => ({
@@ -622,6 +792,29 @@ export function parseLearnResult(d: Json): LearnResult {
     error: str(d.error) ?? null,
     replayed: Boolean(d.idempotent_replay),
     ok: status === 'succeeded',
+    raw: d,
+  }
+}
+
+/** One run of a learn job's code, from `sai.learn.rollout()`. */
+export interface LearnRun {
+  learnId: string
+  iteration: number
+  rollout: number
+  /** What the run returned and logged: `{ result, logs, error, durationMs }`. */
+  run: Json
+  /** The judge's record of the run, when it was judged. */
+  judgement: Json | null
+  raw: Json
+}
+
+export function parseLearnRun(d: Json): LearnRun {
+  return {
+    learnId: str(d.learnId) ?? '',
+    iteration: num(d.iteration),
+    rollout: num(d.rollout),
+    run: obj(d.run),
+    judgement: d.judgement ? obj(d.judgement) : null,
     raw: d,
   }
 }

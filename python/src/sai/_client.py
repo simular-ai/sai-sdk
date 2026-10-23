@@ -69,7 +69,7 @@ class Sai:
         self.tenants = Tenants(self)
         """Your customers under an Organisation. Takes an Organisation Key."""
         self.tenant_machines = TenantMachines(self)
-        """A Tenant's enrolled computers. Takes an Organisation Key."""
+        """A Tenant's computers: enrolled, and cloud machines Sai hosts. Takes an Organisation Key."""
 
     def _with_token(self, token: Callable[[], str]) -> Sai:
         return Sai(

@@ -216,7 +216,7 @@ turn = session.send(
 )
 sai.turns.wait(turn)
 
-learned = sai.learn.create([turn])        # about two minutes
+learned = sai.learn.create([turn])        # waits for the code; longer for a longer task
 print(learned.template, [p.name for p in learned.parameters])
 print(learned.code)                       # async function main(params = { site: "..." }) { ... }
 
@@ -224,7 +224,7 @@ with sai.control.open(machine=pc) as lease:
     r = lease.run(learned, {"site": "https://lobste.rs"})   # inputs over the defaults
     print(r.result)                                      # what main returned
 
-# It broke on a new site: repair it from the run (or from feedback, or a new turn that solved it)
+# It broke on a new site: repair it from the run (or from guidance, or a new turn that solved it)
 fixed = sai.learn.create(
     initial_code=learned.code,
     evaluations=[Evaluation(inputs={"site": "https://lobste.rs"}, result=r, passed=False)],
@@ -237,6 +237,40 @@ print(judgement.verdict, judgement.criteria[0].score)
 
 `learned.status` is `failed` when the code still has `learned.validation["errors"]` after one retry.
 Pass a judgement as `Evaluation(..., judgement=judgement)` to repair code from its evidence.
+
+### Run, judge and repair on a machine (policy iteration)
+
+With `max_iterations`, `learn` also runs the code on a machine, judges each run, and repairs the code
+after a failed run, for up to that many versions. It starts from your `turns`, or, without them, the
+agent does `task_template` first. The call answers at once with a job; `wait` reads it until it ends.
+
+```python
+job = sai.learn.create(
+    task_template="Open {{site}} and read the title of the top story",
+    inputs={"site": "https://news.ycombinator.com"},
+    machine=pc,
+    criteria="The answer is the title of the top story on the page",
+    max_iterations=3,         # up to 3 code versions; 0 (the default) only writes the code
+    rollouts=3,               # each version must pass 3 runs in a row
+    reset={"code": 'await machine.browser.newtab("https://news.ycombinator.com")'},  # or {"task": "..."}
+    continue_with_agent=True, # after a failed run, the agent finishes the task and the repair learns from it
+)
+done = sai.learn.wait(job)    # can take an hour; `timeout=` to stop waiting
+print(done.status, done.stop_reason)     # did the call do its work
+print(done.test_result)                  # status "passed", passed_runs 3, required_runs 3, inputs
+print(done.code)                         # the latest version
+for it in done.iterations:
+    print(it.index, it.changes, [r.verdict for r in it.rollouts])
+
+run = sai.learn.rollout(job, 1, 1)       # what run 1 of version 1 returned, and its judgement
+sai.learn.cancel(job)                    # stops at once and keeps the last complete results
+```
+
+`status` says whether the call did its work (`succeeded`, `failed` when no code was written, or
+`stopped` with a `stop_reason` such as `cancelled`, `time_limit` or `agent_failed`); `test_result` says
+how the returned code did on `inputs`. With `judge_initial_agent_run=True`, a job whose agent run fails
+the judge stops before writing code; pass its `agent_turn_id` as `turns` to start again from that run.
+The runs do the task for real, so use test inputs or a test account.
 
 ## Run Sai for your customers
 
@@ -256,10 +290,40 @@ clinic.sessions.create().run("Open the calendar and read today's appointments")
 
 - `tenants.list(status=, external_id=, limit=, cursor=)` returns one page: `page.tenants`, `page.next_cursor`.
   `external_id=` finds your customer's Tenant without storing `tenant.id`.
-- `tenants.update(tenant, name=, metadata=, status="disabled" | "active")`; `tenants.delete(tenant)`
-  disables it and revokes every machine.
+- `tenants.update(tenant, name=, metadata=, status="disabled" | "active", cloud_machine_limit=, residential_proxy=)`.
+  `cloud_machine_limit` is 0 to 1000, and `None` removes the cap. `tenants.get` also returns
+  `cloud_machine_count` and `residential_proxy`.
+- `tenants.delete(tenant)` disables it and revokes every enrolled machine. Its cloud machines stay
+  until you delete them.
 - `tenants.token(tenant)` is the raw exchange: a one-hour `TenantToken` to pass as `Sai(api_key=token.token)`.
-- `tenant_machines.get(tenant, machine_id)`, `tenant_machines.revoke(tenant, machine)`.
+- `tenant_machines.list(tenant)` and `tenant_machines.get(tenant, machine_id)` return both kinds:
+  `machine.kind` is `enrolled` or `cloud`, and `machine.state` is `online` / `offline` for an enrolled
+  machine, or `provisioning`, `ready`, `starting`, `hibernated`, `deleting` or `failed` for a cloud one.
+- `tenant_machines.delete(tenant, machine)` returns `"revoked"` for an enrolled machine and
+  `"deleting"` for a cloud machine, whose disk goes with it.
+
+### Cloud machines
+
+Sai can host a computer for a Tenant instead of the Tenant enrolling its own:
+
+```python
+import uuid
+
+machine = org.tenant_machines.create(
+    tenant,
+    os="windows",  # or "linux"
+    name="intake-desk-3",
+    request_id=str(uuid.uuid4()),  # keep it, and send it again if you retry this create
+    wait=True,  # read the machine until it is ready (timeout=600 seconds)
+)
+clinic.sessions.create(machine=machine.id).run("Open the calendar and read today's appointments")
+```
+
+Without `wait=True`, `create` returns at once with `state="provisioning"`. A create can raise
+`SaiError` (402 `insufficient_credits`), `SpendCapReachedError` (the Tenant's budget, `e.body["scope"]`),
+`ConflictError` (`machine_limit_reached` with `e.body["limit"]` and `e.body["used"]`, or
+`request_id_reused`), `PermissionDeniedError` (`tenant_disabled`) or `ServiceUnavailableError`
+(`capacity_unavailable`: retry later). A 500 carries `e.body["errorId"]` to quote to support.
 
 ## Errors
 
