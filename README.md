@@ -5,8 +5,8 @@ or drive a cloud computer directly.
 
 | Directory                    | Package                                  | Status    |
 | ---------------------------- | ---------------------------------------- | --------- |
-| [`python/`](python/)         | `sai-sdk` (PyPI), `import sai`           | alpha     |
-| [`typescript/`](typescript/) | `@simular-ai/sai-sdk` (npm)              | alpha     |
+| [`python/`](python/)         | `sai-sdk` (PyPI), `import sai`           | published |
+| [`typescript/`](typescript/) | `@simular-ai/sai-sdk` (npm)              | published |
 | [`mcp/`](mcp/)               | `@simular-ai/sai-mcp`: MCP server        | published |
 | [`cli/`](cli/)               | `@simular-ai/sai-cli`: the `sai` command | published |
 
