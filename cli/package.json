@@ -1,6 +1,6 @@
 {
   "name": "@simular-ai/sai-cli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Sai CLI \u2014 command-line interface for Simular.",
   "license": "MIT",
   "repository": {
