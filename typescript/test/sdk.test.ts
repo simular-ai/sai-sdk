@@ -265,6 +265,8 @@ describe('sai typescript sdk', () => {
     expect((await turn.wait()).text).toBe('Hi! What should I do?')
   })
 
+  const SCREEN = 'https://sai.test/screens/m_1?takeover=cs_1&from=api'
+
   it('takes over and hands back the session', async () => {
     const calls: Call[] = []
     const session = client(
@@ -272,49 +274,84 @@ describe('sai typescript sdk', () => {
         'POST /v1/agents/sessions/cs_1/takeover': {
           sessionId: 'cs_1',
           machineId: 'm_1',
-          takeover_url: 'https://sai.test/screens/m_1?takeover=cs_1&from=api',
-          expires_at: 1792400000000,
-          window_ms: 900000,
+          mode: 'pause',
+          screenUrl: SCREEN,
+          expiresAt: 1792400000000,
+          windowMs: 900000,
         },
-        'POST /v1/agents/sessions/cs_1/handback': { resumed: true },
+        'POST /v1/agents/sessions/cs_1/handback': { resumed: true, mode: 'pause' },
       },
       calls,
     ).sessions.resume('cs_1', { machine: 'm_1' })
     const t = await session.takeover()
-    expect(t.url).toBe('https://sai.test/screens/m_1?takeover=cs_1&from=api')
-    expect(t.machineId).toBe('m_1')
-    expect(t.expiresAt).toBe(1792400000000)
-    expect(await session.handBack()).toBe(true)
+    expect(t).toMatchObject({
+      sessionId: 'cs_1',
+      machineId: 'm_1',
+      mode: 'pause',
+      screenUrl: SCREEN,
+      expiresAt: 1792400000000,
+      windowMs: 900000,
+      approvalId: null,
+    })
+    expect(await session.handBack()).toMatchObject({ resumed: true, mode: 'pause' })
     expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
       'POST /v1/agents/sessions/cs_1/takeover',
       'POST /v1/agents/sessions/cs_1/handback',
     ])
   })
 
-  it('carries watch_url on the turn and handOff on the approval', async () => {
-    const sai = client({
-      'POST /v1/agents/message': [
-        202,
-        {
-          sessionId: 'cs_1',
-          turnId: 't_1',
-          watch_url: 'https://sai.test/screens/m_1?from=api',
-          takeover_url: 'https://sai.test/screens/m_1?takeover=cs_1&from=api',
-        },
+  it('takes over in hand_off mode', async () => {
+    const session = client({
+      'POST /v1/agents/sessions/cs_1/takeover': {
+        sessionId: 'cs_1',
+        machineId: 'm_1',
+        mode: 'hand_off',
+        approvalId: 'ap_1',
+        screenUrl: null,
+        expiresAt: null,
+        windowMs: null,
+      },
+      'POST /v1/agents/sessions/cs_1/handback': { resumed: false, mode: null },
+    }).sessions.resume('cs_1', { machine: 'm_1' })
+    expect(await session.takeover()).toMatchObject({
+      mode: 'hand_off',
+      approvalId: 'ap_1',
+      screenUrl: null,
+      expiresAt: null,
+      windowMs: null,
+    })
+    expect(await session.handBack()).toMatchObject({ resumed: false, mode: null })
+  })
+
+  it('refuses to take over a session the owner paused', async () => {
+    const err = await client({
+      'POST /v1/agents/sessions/cs_1/takeover': [
+        409,
+        { error: 'already_paused', message: 'This session is already paused by its owner.' },
       ],
+    })
+      .sessions.resume('cs_1', { machine: 'm_1' })
+      .takeover()
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ConflictError)
+    expect((err as ConflictError).code).toBe('already_paused')
+  })
+
+  it('carries screenUrl on the turn and handOff on the approval', async () => {
+    const sai = client({
+      'POST /v1/agents/message': [202, { sessionId: 'cs_1', turnId: 't_1', screenUrl: SCREEN }],
       'GET /v1/agents/events': waiting({
         ...APPROVAL,
         approvalType: 'choice',
         handOff: true,
-        takeoverUrl: 'https://sai.test/screens/m_1?takeover=cs_1&from=api',
+        screenUrl: SCREEN,
       }),
     })
     const turn = await sai.sessions.resume('cs_1').send('sign in to chatgpt')
-    expect(turn.watchUrl).toBe('https://sai.test/screens/m_1?from=api')
-    expect(turn.takeoverUrl).toBe('https://sai.test/screens/m_1?takeover=cs_1&from=api')
+    expect(turn.screenUrl).toBe(SCREEN)
     const r = await turn.wait()
     expect(r.approval?.handOff).toBe(true)
-    expect(r.approval?.takeoverUrl).toBe('https://sai.test/screens/m_1?takeover=cs_1&from=api')
+    expect(r.approval?.screenUrl).toBe(SCREEN)
   })
 
   it('reads the code and message of a { error: code, message } body', async () => {

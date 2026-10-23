@@ -207,6 +207,9 @@ def test_link_only_is_refused_locally() -> None:
     assert e.value.approval_url == "https://x"
 
 
+SCREEN = "https://sai.test/screens/m_1?takeover=cs_1&from=api"
+
+
 def test_takeover_and_hand_back() -> None:
     calls: list[httpx.Request] = []
     sai = client(
@@ -214,53 +217,82 @@ def test_takeover_and_hand_back() -> None:
             "POST /v1/agents/sessions/cs_1/takeover": {
                 "sessionId": "cs_1",
                 "machineId": "m_1",
-                "takeover_url": "https://sai.test/screens/m_1?takeover=cs_1&from=api",
-                "expires_at": 1792400000000,
-                "window_ms": 900000,
+                "mode": "pause",
+                "screenUrl": SCREEN,
+                "expiresAt": 1792400000000,
+                "windowMs": 900000,
             },
-            "POST /v1/agents/sessions/cs_1/handback": {"resumed": True},
+            "POST /v1/agents/sessions/cs_1/handback": {"resumed": True, "mode": "pause"},
         },
         calls,
     )
     session = sai.sessions.resume("cs_1", "m_1")
     t = session.takeover()
-    assert t.url == "https://sai.test/screens/m_1?takeover=cs_1&from=api"
-    assert t.machine_id == "m_1" and t.expires_at == 1792400000000
-    assert session.hand_back() is True
+    assert t.mode == "pause" and t.screen_url == SCREEN
+    assert t.session_id == "cs_1" and t.machine_id == "m_1"
+    assert t.expires_at == 1792400000000 and t.window_ms == 900000 and t.approval_id is None
+    back = session.hand_back()
+    assert back.resumed is True and back.mode == "pause"
     assert [f"{c.method} {c.url.path}" for c in calls] == [
         "POST /v1/agents/sessions/cs_1/takeover",
         "POST /v1/agents/sessions/cs_1/handback",
     ]
 
 
-def test_watch_url_on_the_turn_and_hand_off_on_the_approval() -> None:
+def test_takeover_in_hand_off_mode() -> None:
+    sai = client(
+        {
+            "POST /v1/agents/sessions/cs_1/takeover": {
+                "sessionId": "cs_1",
+                "machineId": "m_1",
+                "mode": "hand_off",
+                "approvalId": "ap_1",
+                "screenUrl": None,
+                "expiresAt": None,
+                "windowMs": None,
+            },
+            "POST /v1/agents/sessions/cs_1/handback": {"resumed": False, "mode": None},
+        }
+    )
+    session = sai.sessions.resume("cs_1", "m_1")
+    t = session.takeover()
+    assert t.mode == "hand_off" and t.approval_id == "ap_1"
+    assert t.screen_url is None and t.expires_at is None and t.window_ms is None
+    back = session.hand_back()
+    assert back.resumed is False and back.mode is None
+
+
+def test_takeover_of_a_session_the_owner_paused() -> None:
+    sai = client(
+        {
+            "POST /v1/agents/sessions/cs_1/takeover": (
+                409,
+                {"error": "already_paused", "message": "This session is already paused by its owner."},
+            )
+        }
+    )
+    with pytest.raises(ConflictError) as e:
+        sai.sessions.resume("cs_1", "m_1").takeover()
+    assert e.value.code == "already_paused"
+
+
+def test_screen_url_on_the_turn_and_hand_off_on_the_approval() -> None:
     sai = client(
         {
             "POST /v1/agents/message": (
                 202,
-                {
-                    "sessionId": "cs_1",
-                    "turnId": "t_1",
-                    "watch_url": "https://sai.test/screens/m_1?from=api",
-                    "takeover_url": "https://sai.test/screens/m_1?takeover=cs_1&from=api",
-                },
+                {"sessionId": "cs_1", "turnId": "t_1", "screenUrl": SCREEN},
             ),
             "GET /v1/agents/events": _waiting(
-                {
-                    **APPROVAL,
-                    "approvalType": "choice",
-                    "handOff": True,
-                    "takeoverUrl": "https://sai.test/screens/m_1?takeover=cs_1&from=api",
-                }
+                {**APPROVAL, "approvalType": "choice", "handOff": True, "screenUrl": SCREEN}
             ),
         }
     )
     turn = sai.sessions.resume("cs_1", "m_1").send("sign in to chatgpt")
-    assert turn.watch_url == "https://sai.test/screens/m_1?from=api"
-    assert turn.takeover_url == "https://sai.test/screens/m_1?takeover=cs_1&from=api"
+    assert turn.screen_url == SCREEN
     r = turn.wait()
     assert r.approval is not None and r.approval.hand_off
-    assert r.approval.takeover_url == "https://sai.test/screens/m_1?takeover=cs_1&from=api"
+    assert r.approval.screen_url == SCREEN
 
 
 def test_acknowledgement_without_task() -> None:

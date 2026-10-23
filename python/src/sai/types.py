@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 
 @dataclass
@@ -105,8 +105,9 @@ class Approval:
     hand_off: bool
     """True: a choice offering to go to the computer. Sai needs a person on its screen
     (a sign-in, a captcha): answer it, or `session.takeover()`."""
-    takeover_url: Optional[str]
-    """With `hand_off`: the computer's screen page. Opening it pauses Sai for the person."""
+    screen_url: Optional[str]
+    """With `hand_off`: the computer's screen page, where the person can take over. Opening it
+    does not pause Sai. None for a Tenant."""
     raw: dict[str, Any] = field(repr=False)
 
     @classmethod
@@ -121,29 +122,70 @@ class Approval:
             command=d.get("command"),
             questions=d.get("questions") or [],
             hand_off=bool(d.get("handOff")),
-            takeover_url=d.get("takeoverUrl"),
+            screen_url=d.get("screenUrl"),
+            raw=d,
+        )
+
+
+TakeoverMode = Literal["pause", "hand_off"]
+
+
+@dataclass
+class Takeover:
+    """A person has the computer until `session.hand_back()`.
+
+    `mode` is `"pause"` (Sai is paused until hand back or `expires_at`) or `"hand_off"` (Sai is
+    waiting on the go-to-computer approval `approval_id`: not paused, no window).
+    """
+
+    session_id: str
+    machine_id: str
+    mode: TakeoverMode
+    screen_url: Optional[str]
+    """The computer's screen page in the Sai web app, with Hand back. Open it signed in as the
+    account. None for a Tenant: the person is at the PC already."""
+    expires_at: Optional[int]
+    """`"pause"`: milliseconds since the epoch; Sai resumes then whether or not anyone handed back.
+    None in `"hand_off"` mode."""
+    window_ms: Optional[int]
+    """`"pause"`: the take-over window (15 minutes). None in `"hand_off"` mode."""
+    approval_id: Optional[str]
+    """`"hand_off"`: the go-to-computer approval Sai is waiting on; hand back answers it."""
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> Takeover:
+        expires_at = d.get("expiresAt")
+        window_ms = d.get("windowMs")
+        return cls(
+            session_id=d.get("sessionId", ""),
+            machine_id=d.get("machineId", ""),
+            mode="hand_off" if d.get("mode") == "hand_off" else "pause",
+            screen_url=d.get("screenUrl"),
+            expires_at=int(expires_at) if expires_at is not None else None,
+            window_ms=int(window_ms) if window_ms is not None else None,
+            approval_id=d.get("approvalId"),
             raw=d,
         )
 
 
 @dataclass
-class Takeover:
-    """A person has the computer: Sai is paused until `session.hand_back()` or `expires_at`."""
+class HandBack:
+    """The answer to `session.hand_back()`."""
 
-    url: Optional[str]
-    """The computer's screen in the Sai web app, with Hand back. Open it signed in as the account.
-    None for a Tenant: the person is at the PC already."""
-    machine_id: str
-    expires_at: int
-    """Milliseconds since the epoch. Sai resumes here whether or not anyone handed back."""
+    resumed: bool
+    """True when Sai carries on: a paused take-over resumed, or the go-to-computer approval answered.
+    False when there was nothing to give back."""
+    mode: Optional[TakeoverMode]
+    """Which take-over was handed back; None when there was none."""
     raw: dict[str, Any] = field(repr=False)
 
     @classmethod
-    def parse(cls, d: dict[str, Any]) -> Takeover:
+    def parse(cls, d: dict[str, Any]) -> HandBack:
+        mode = d.get("mode")
         return cls(
-            url=d.get("takeover_url"),
-            machine_id=d.get("machineId", ""),
-            expires_at=int(d.get("expires_at") or 0),
+            resumed=bool(d.get("resumed")),
+            mode=mode if mode in ("pause", "hand_off") else None,
             raw=d,
         )
 
@@ -324,10 +366,9 @@ class TurnRecord:
     inputs: Optional[dict[str, Any]]
     replayed: bool
     """True when `idempotency_key` matched an earlier turn: this is that turn, and nothing was sent."""
-    watch_url: Optional[str]
-    """The computer's screen in the Sai web app, to watch Sai work (signed in as the account)."""
-    takeover_url: Optional[str]
-    """The same page with the offer to take over: hand it to a person when Sai needs one."""
+    screen_url: Optional[str]
+    """The computer's screen page in the Sai web app: watch Sai work, or take over (signed in as
+    the account). Opening it does not pause Sai. None for a Tenant."""
     raw: dict[str, Any] = field(repr=False)
 
     @property
@@ -357,8 +398,7 @@ class TurnRecord:
             template=d.get("template"),
             inputs=d.get("inputs"),
             replayed=bool(d.get("idempotent_replay")),
-            watch_url=d.get("watch_url"),
-            takeover_url=d.get("takeover_url"),
+            screen_url=d.get("screenUrl"),
             raw=d,
         )
 

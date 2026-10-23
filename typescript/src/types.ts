@@ -255,8 +255,11 @@ export interface Approval {
    * screen (a sign-in, a captcha): answer it, or `session.takeover()`.
    */
   handOff: boolean
-  /** With `handOff`: the computer's screen page. Opening it pauses Sai for the person. */
-  takeoverUrl: string | null
+  /**
+   * With `handOff`: the computer's screen page, where the person can take
+   * over. Opening it does not pause Sai. Null for a Tenant.
+   */
+  screenUrl: string | null
   raw: Json
 }
 
@@ -271,29 +274,68 @@ export function parseApproval(d: Json): Approval {
     command: str(d.command) ?? null,
     questions: Array.isArray(d.questions) ? (d.questions as Json[]) : [],
     handOff: Boolean(d.handOff),
-    takeoverUrl: str(d.takeoverUrl) ?? null,
+    screenUrl: str(d.screenUrl) ?? null,
     raw: d,
   }
 }
 
-/** A person has the computer: Sai is paused until `session.handBack()` or `expiresAt`. */
+export type TakeoverMode = 'pause' | 'hand_off'
+
+/**
+ * A person has the computer until `session.handBack()`. `mode` is `'pause'`
+ * (Sai is paused until hand back or `expiresAt`) or `'hand_off'` (Sai is
+ * waiting on the go-to-computer approval `approvalId`: not paused, no window).
+ */
 export interface Takeover {
-  /**
-   * The computer's screen in the Sai web app, with Hand back. Open it signed
-   * in as the account. Null for a Tenant: the person is at the PC already.
-   */
-  url: string | null
+  sessionId: string
   machineId: string
-  /** Milliseconds since the epoch. Sai resumes here whether or not anyone handed back. */
-  expiresAt: number
+  mode: TakeoverMode
+  /**
+   * The computer's screen page in the Sai web app, with Hand back. Open it
+   * signed in as the account. Null for a Tenant: the person is at the PC already.
+   */
+  screenUrl: string | null
+  /**
+   * `'pause'`: milliseconds since the epoch; Sai resumes then whether or not
+   * anyone handed back. Null in `'hand_off'` mode.
+   */
+  expiresAt: number | null
+  /** `'pause'`: the take-over window (15 minutes). Null in `'hand_off'` mode. */
+  windowMs: number | null
+  /** `'hand_off'`: the go-to-computer approval Sai is waiting on; hand back answers it. */
+  approvalId: string | null
   raw: Json
 }
 
 export function parseTakeover(d: Json): Takeover {
   return {
-    url: str(d.takeover_url) ?? null,
+    sessionId: str(d.sessionId) ?? '',
     machineId: str(d.machineId) ?? '',
-    expiresAt: typeof d.expires_at === 'number' ? d.expires_at : 0,
+    mode: d.mode === 'hand_off' ? 'hand_off' : 'pause',
+    screenUrl: str(d.screenUrl) ?? null,
+    expiresAt: typeof d.expiresAt === 'number' ? d.expiresAt : null,
+    windowMs: typeof d.windowMs === 'number' ? d.windowMs : null,
+    approvalId: str(d.approvalId) ?? null,
+    raw: d,
+  }
+}
+
+/** The answer to `session.handBack()`. */
+export interface HandBack {
+  /**
+   * True when Sai carries on: a paused take-over resumed, or the go-to-computer
+   * approval answered. False when there was nothing to give back.
+   */
+  resumed: boolean
+  /** Which take-over was handed back; null when there was none. */
+  mode: TakeoverMode | null
+  raw: Json
+}
+
+export function parseHandBack(d: Json): HandBack {
+  return {
+    resumed: Boolean(d.resumed),
+    mode: d.mode === 'pause' || d.mode === 'hand_off' ? d.mode : null,
     raw: d,
   }
 }
@@ -459,10 +501,11 @@ export interface TurnRecord {
   inputs: Json | null
   /** True when `idempotencyKey` matched an earlier turn: this is that turn, and nothing was sent. */
   replayed: boolean
-  /** The computer's screen in the Sai web app, to watch Sai work (signed in as the account). */
-  watchUrl: string | null
-  /** The same page with the offer to take over: hand it to a person when Sai needs one. */
-  takeoverUrl: string | null
+  /**
+   * The computer's screen page in the Sai web app: watch Sai work, or take over
+   * (signed in as the account). Opening it does not pause Sai. Null for a Tenant.
+   */
+  screenUrl: string | null
   done: boolean
   ok: boolean
   raw: Json
@@ -493,8 +536,7 @@ export function parseTurnRecord(d: Json): TurnRecord {
     template: str(d.template) ?? null,
     inputs: d.inputs && typeof d.inputs === 'object' ? (d.inputs as Json) : null,
     replayed: Boolean(d.idempotent_replay),
-    watchUrl: str(d.watch_url) ?? null,
-    takeoverUrl: str(d.takeover_url) ?? null,
+    screenUrl: str(d.screenUrl) ?? null,
     done: status === 'succeeded' || status === 'failed',
     ok: status === 'succeeded',
     raw: d,

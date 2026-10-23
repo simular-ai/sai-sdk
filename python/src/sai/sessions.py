@@ -15,7 +15,17 @@ from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from ._errors import ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError
-from .types import Approval, Attachment, Check, Event, Takeover, TurnRecord, TurnResult, Usage
+from .types import (
+    Approval,
+    Attachment,
+    Check,
+    Event,
+    HandBack,
+    Takeover,
+    TurnRecord,
+    TurnResult,
+    Usage,
+)
 
 if TYPE_CHECKING:
     from ._client import Sai
@@ -154,8 +164,7 @@ class Session:
             queued=bool(d.get("queued")),
             turn_id=d.get("turnId"),
             structured=structured,
-            watch_url=d.get("watch_url"),
-            takeover_url=d.get("takeover_url"),
+            screen_url=d.get("screenUrl"),
         )
 
     def run(
@@ -194,22 +203,31 @@ class Session:
         return bool(d.get("aborted"))
 
     def takeover(self) -> Takeover:
-        """Pause Sai so a person can work on the computer (a sign-in, a captcha).
+        """Take over the computer so a person can work on it (a sign-in, a captcha).
 
-        Open `url` signed in as the account. Sai resumes on `hand_back()`, or on its own at
-        `expires_at` (15 minutes). Calling again during a take-over keeps the same `expires_at`.
+        The server picks the mode. `"pause"`: Sai pauses until `hand_back()`, or on its own at
+        `expires_at` (15 minutes); calling again during a take-over keeps the same `expires_at`.
+        `"hand_off"`: Sai is waiting on a go-to-computer approval (`approval_id`), so it is not
+        paused and there is no window; `hand_back()` answers that approval.
+        Raises `ConflictError` with code `already_paused` when the owner paused the session in
+        the Sai app, and `no_machine` when the session has no computer.
         """
         if not self.id:
             raise ValueError("This session has not started yet: send a message first.")
         path = f"/v1/agents/sessions/{urllib.parse.quote(self.id, safe='')}/takeover"
         return Takeover.parse(self._sai._http.json("POST", path))
 
-    def hand_back(self) -> bool:
-        """End a take-over: Sai resumes the held turn. True also when nothing was paused."""
+    def hand_back(self) -> HandBack:
+        """End a take-over and let Sai carry on.
+
+        `resumed` is False when there was nothing to give back (no take-over, a second hand back,
+        or one after the 15 minutes ran out). A pause the owner made in the Sai app is never
+        resumed here.
+        """
         if not self.id:
-            return False
+            return HandBack(resumed=False, mode=None, raw={})
         path = f"/v1/agents/sessions/{urllib.parse.quote(self.id, safe='')}/handback"
-        return bool(self._sai._http.json("POST", path).get("resumed"))
+        return HandBack.parse(self._sai._http.json("POST", path))
 
     def respond(
         self,
@@ -255,16 +273,14 @@ class Turn:
         turn_id: Optional[str] = None,
         structured: bool = False,
         replay: Optional[TurnRecord] = None,
-        watch_url: Optional[str] = None,
-        takeover_url: Optional[str] = None,
+        screen_url: Optional[str] = None,
     ) -> None:
         self.session = session
         self.queued = queued
         self.id = turn_id
-        # The computer's screen in the Sai web app, to watch Sai work (signed in as the account).
-        self.watch_url = watch_url or (replay.watch_url if replay else None)
-        # The same page with the offer to take over: hand it to a person when Sai needs one.
-        self.takeover_url = takeover_url or (replay.takeover_url if replay else None)
+        # The computer's screen page in the Sai web app: watch Sai work, or take over. Opening it
+        # does not pause Sai. None for a Tenant. Refreshed by each events poll.
+        self.screen_url = screen_url or (replay.screen_url if replay else None)
         self._structured = structured
         self._replay = replay
         self._cursor: Optional[str] = None
@@ -386,6 +402,7 @@ class Turn:
             except RateLimitError as e:
                 time.sleep(e.retry_after or 30)
         self._cursor = page.get("cursor") or self._cursor
+        self.screen_url = page.get("screenUrl") or self.screen_url
         error_text: Optional[str] = None
         error_code: Optional[str] = None
         for e in page.get("events") or []:

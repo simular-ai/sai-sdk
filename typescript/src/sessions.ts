@@ -13,6 +13,7 @@ import { idOf, type MachineRef, type Machines } from './machines.js'
 import {
   parseApproval,
   parseEvent,
+  parseHandBack,
   parseTakeover,
   parseTurnRecord,
   parseUsage,
@@ -20,6 +21,7 @@ import {
   type Attachment,
   type Check,
   type Event,
+  type HandBack,
   type Takeover,
   type TurnRecord,
   type TurnRecordStatus,
@@ -81,6 +83,7 @@ interface EventsPage {
   approval?: Record<string, unknown>
   usage?: unknown
   sessionUsage?: unknown
+  screenUrl?: string
 }
 
 export class Sessions {
@@ -172,14 +175,8 @@ export class Session {
     this.id = d.sessionId
     if (typeof d.machineId === 'string') this.machineId = d.machineId
     const id = typeof d.turnId === 'string' ? d.turnId : null
-    const watchUrl = typeof d.watch_url === 'string' ? d.watch_url : null
-    const takeoverUrl = typeof d.takeover_url === 'string' ? d.takeover_url : null
-    return new Turn(this, this.http, Boolean(d.queued), null, {
-      id,
-      structured,
-      watchUrl,
-      takeoverUrl,
-    })
+    const screenUrl = typeof d.screenUrl === 'string' ? d.screenUrl : null
+    return new Turn(this, this.http, Boolean(d.queued), null, { id, structured, screenUrl })
   }
 
   /** `send()` then `wait()`: the answer, or where it stopped. */
@@ -198,10 +195,14 @@ export class Session {
   }
 
   /**
-   * Pause Sai so a person can work on the computer (a sign-in, a captcha).
-   * Open `url` signed in as the account. Sai resumes on `handBack()`, or on
-   * its own at `expiresAt` (15 minutes). Calling again during a take-over keeps
-   * the same `expiresAt`.
+   * Take over the computer so a person can work on it (a sign-in, a captcha).
+   * The server picks the mode. `'pause'`: Sai pauses until `handBack()`, or on
+   * its own at `expiresAt` (15 minutes); calling again during a take-over keeps
+   * the same `expiresAt`. `'hand_off'`: Sai is waiting on a go-to-computer
+   * approval (`approvalId`), so it is not paused and there is no window;
+   * `handBack()` answers that approval.
+   * Throws `ConflictError` with code `already_paused` when the owner paused the
+   * session in the Sai app, and `no_machine` when the session has no computer.
    */
   async takeover(): Promise<Takeover> {
     if (!this.id) throw new Error('This session has not started yet: send a message first.')
@@ -209,12 +210,16 @@ export class Session {
     return parseTakeover(await this.http.json('POST', path))
   }
 
-  /** End a take-over: Sai resumes the held turn. True also when nothing was paused. */
-  async handBack(): Promise<boolean> {
-    if (!this.id) return false
+  /**
+   * End a take-over and let Sai carry on. `resumed` is false when there was
+   * nothing to give back (no take-over, a second hand back, or one after the
+   * 15 minutes ran out). A pause the owner made in the Sai app is never
+   * resumed here.
+   */
+  async handBack(): Promise<HandBack> {
+    if (!this.id) return { resumed: false, mode: null, raw: {} }
     const path = `/v1/agents/sessions/${encodeURIComponent(this.id)}/handback`
-    const d = await this.http.json<{ resumed?: boolean }>('POST', path)
-    return Boolean(d.resumed)
+    return parseHandBack(await this.http.json('POST', path))
   }
 
   /**
@@ -253,10 +258,12 @@ export class Session {
  */
 export class Turn {
   readonly id: string | null
-  /** The computer's screen in the Sai web app, to watch Sai work (signed in as the account). */
-  readonly watchUrl: string | null
-  /** The same page with the offer to take over: hand it to a person when Sai needs one. */
-  readonly takeoverUrl: string | null
+  /**
+   * The computer's screen page in the Sai web app: watch Sai work, or take over
+   * (signed in as the account). Opening it does not pause Sai. Null for a
+   * Tenant. Refreshed by each events poll.
+   */
+  screenUrl: string | null
   private cursor: string | null = null
   private last: TurnResult | null
   private readonly structured: boolean
@@ -273,8 +280,7 @@ export class Turn {
       id: string | null
       structured: boolean
       replay?: TurnRecord
-      watchUrl?: string | null
-      takeoverUrl?: string | null
+      screenUrl?: string | null
     } = {
       id: null,
       structured: false,
@@ -284,8 +290,7 @@ export class Turn {
     this.id = turn.id
     this.structured = turn.structured
     this.replay = turn.replay ?? null
-    this.watchUrl = turn.watchUrl ?? this.replay?.watchUrl ?? null
-    this.takeoverUrl = turn.takeoverUrl ?? this.replay?.takeoverUrl ?? null
+    this.screenUrl = turn.screenUrl ?? this.replay?.screenUrl ?? null
     this.local = done !== null || this.replay !== null
   }
 
@@ -399,6 +404,7 @@ export class Turn {
       }
     }
     this.cursor = page.cursor ?? this.cursor
+    if (typeof page.screenUrl === 'string') this.screenUrl = page.screenUrl
     let error = this.last?.error ?? null
     let errorCode = this.last?.errorCode ?? null
     for (const e of page.events ?? []) {

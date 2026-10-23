@@ -96,15 +96,23 @@ turn.abort()
 
 ### Watch, or step in
 
-`turn.watch_url` opens the computer's screen in the Sai web app, and `turn.takeover_url` the same page with the offer to take over: hand it to a person when Sai says it needs one. When Sai needs a person on the
-computer (a sign-in, a captcha; `approval.hand_off` is true), take over: Sai pauses until you hand
-back, or for at most 15 minutes. Both pages need a sign-in as your account.
+`turn.screen_url` is the computer's screen page in the Sai web app. Opening it does not pause Sai:
+the page shows the computer and offers **Take over** or **Just watch**. Hand it to a person when Sai
+says it needs one (a sign-in, a captcha; `approval.hand_off` is true). The page needs a sign-in as
+your account.
+
+You can also take over from code. In `"pause"` mode Sai pauses until you hand back, or for at most
+15 minutes. In `"hand_off"` mode Sai is already waiting on a go-to-computer approval, so it is not
+paused, and handing back answers that approval.
 
 ```python
-t = session.takeover()
-print(t.url)          # open it, sign in to the site, then:
-session.hand_back()   # Sai looks at the screen again and carries on
+t = session.takeover()  # t.mode is "pause" or "hand_off"
+print(t.screen_url)     # open it, sign in to the site, then:
+session.hand_back()     # Sai looks at the screen again and carries on
 ```
+
+`takeover()` raises `ConflictError` with code `already_paused` when you paused the session yourself
+in the Sai app: resume it there first.
 
 ## Get typed results
 
