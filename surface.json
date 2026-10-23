@@ -33,7 +33,7 @@
       "token",
       "client"
     ],
-    "tenant_machines": ["list", "get", "revoke"]
+    "tenant_machines": ["create", "list", "get", "delete", "revoke"]
   },
   "objects": {
     "Session": ["send", "run", "abort", "respond"],

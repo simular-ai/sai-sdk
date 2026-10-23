@@ -869,6 +869,184 @@ def test_tenant_machines_list_get_and_revoke() -> None:
     assert f"{calls[2].method} {calls[2].url.path}" == "DELETE /v1/tenants/t_1/machines/tm_1"
 
 
+CLOUD_MACHINE = {
+    "machineId": "cm_1",
+    "kind": "cloud",
+    "name": "intake-desk-3",
+    "platform": "win32",
+    "machineClass": "win32-4c8g",
+    "state": "provisioning",
+    "lastSeen": None,
+    "runtimeVersion": None,
+    "createdAt": 1790000000000,
+}
+ENROLLED_MACHINE = {
+    "machineId": "tm_1",
+    "kind": "enrolled",
+    "name": "Front desk PC",
+    "platform": "darwin",
+    "state": "offline",
+    "lastSeen": 1790003600000,
+    "runtimeVersion": "1.2.0",
+    "createdAt": 1789000000000,
+}
+
+
+def test_tenant_machines_parse_both_kinds_and_the_older_shape() -> None:
+    sai = client(
+        {
+            "GET /v1/tenants/t_1/machines": {
+                "machines": [ENROLLED_MACHINE, {**CLOUD_MACHINE, "state": "ready"}, TENANT_MACHINE]
+            }
+        }
+    )
+    enrolled, cloud, older = sai.tenant_machines.list("t_1")
+    assert (enrolled.kind, enrolled.state, enrolled.online, enrolled.machine_class, enrolled.created_at) == (
+        "enrolled",
+        "offline",
+        False,
+        None,
+        1789000000000,
+    )
+    assert (cloud.kind, cloud.state, cloud.online, cloud.machine_class, cloud.platform) == (
+        "cloud",
+        "ready",
+        True,
+        "win32-4c8g",
+        "win32",
+    )
+    assert (older.kind, older.state, older.online, older.status, older.created_at) == (
+        "enrolled",
+        "online",
+        True,
+        "active",
+        None,
+    )
+
+
+def test_tenant_machine_create_sends_the_body_and_returns_at_once() -> None:
+    calls: list[httpx.Request] = []
+    sai = client({"POST /v1/tenants/t_1/machines": (202, CLOUD_MACHINE)}, calls)
+    m = sai.tenant_machines.create("t_1", os="windows", name="intake-desk-3", request_id="req_1")
+    assert json.loads(calls[0].content) == {"os": "windows", "name": "intake-desk-3", "requestId": "req_1"}
+    assert (m.id, m.kind, m.state, m.machine_class) == ("cm_1", "cloud", "provisioning", "win32-4c8g")
+
+    sai.tenant_machines.create("t_1", os="linux")
+    assert json.loads(calls[1].content) == {"os": "linux"}
+    assert len(calls) == 2
+
+
+def test_tenant_machine_create_waits_until_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    slept: list[float] = []
+    monkeypatch.setattr("sai.tenants.time.sleep", slept.append)
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/tenants/t_1/machines": (202, CLOUD_MACHINE),
+            "GET /v1/tenants/t_1/machines/cm_1": [
+                CLOUD_MACHINE,
+                {**CLOUD_MACHINE, "state": "starting"},
+                (429, {"error": "rate_limited", "message": "Slow down", "retryAfterSeconds": 7}),
+                {**CLOUD_MACHINE, "state": "ready"},
+            ],
+        },
+        calls,
+    )
+    m = sai.tenant_machines.create("t_1", os="windows", wait=True)
+    assert (m.state, m.online) == ("ready", True)
+    assert slept == [5, 5, 5, 7, 5]
+    assert [f"{c.method} {c.url.path}" for c in calls] == ["POST /v1/tenants/t_1/machines"] + [
+        "GET /v1/tenants/t_1/machines/cm_1"
+    ] * 4
+
+
+@pytest.mark.parametrize("state", ["failed", "deleting"])
+def test_tenant_machine_create_wait_raises_when_it_cannot_become_ready(
+    monkeypatch: pytest.MonkeyPatch, state: str
+) -> None:
+    from sai import SaiError
+
+    monkeypatch.setattr("sai.tenants.time.sleep", lambda _: None)
+    sai = client(
+        {
+            "POST /v1/tenants/t_1/machines": (202, CLOUD_MACHINE),
+            "GET /v1/tenants/t_1/machines/cm_1": {**CLOUD_MACHINE, "state": state},
+        }
+    )
+    with pytest.raises(SaiError, match=f"cm_1 is {state}") as e:
+        sai.tenant_machines.create("t_1", os="windows", wait=True)
+    assert e.value.body["state"] == state
+
+
+def test_tenant_machine_create_wait_times_out() -> None:
+    sai = client({"POST /v1/tenants/t_1/machines": (202, CLOUD_MACHINE)})
+    with pytest.raises(TimeoutError, match="cm_1 still provisioning"):
+        sai.tenant_machines.create("t_1", os="windows", wait=True, timeout=0)
+
+
+def test_tenant_machine_delete_says_revoked_or_deleting() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "DELETE /v1/tenants/t_1/machines/tm_1": (204, None),
+            "DELETE /v1/tenants/t_1/machines/cm_1": (202, {"state": "deleting"}),
+        },
+        calls,
+    )
+    assert sai.tenant_machines.delete("t_1", "tm_1") == "revoked"
+    assert sai.tenant_machines.delete("t_1", "cm_1") == "deleting"
+    assert [f"{c.method} {c.url.path}" for c in calls] == [
+        "DELETE /v1/tenants/t_1/machines/tm_1",
+        "DELETE /v1/tenants/t_1/machines/cm_1",
+    ]
+
+
+def test_tenant_update_sets_or_clears_the_cloud_machine_limit_and_the_proxy() -> None:
+    calls: list[httpx.Request] = []
+    detail = {**TENANT, "cloudMachineLimit": 5, "residentialProxy": True, "cloudMachineCount": 2}
+    sai = client({"PATCH /v1/tenants/t_1": detail, "GET /v1/tenants": {"tenants": [TENANT]}}, calls)
+    t = sai.tenants.update("t_1", cloud_machine_limit=5, residential_proxy=True)
+    assert json.loads(calls[0].content) == {"cloudMachineLimit": 5, "residentialProxy": True}
+    assert (t.cloud_machine_limit, t.residential_proxy, t.cloud_machine_count) == (5, True, 2)
+
+    sai.tenants.update("t_1", cloud_machine_limit=None)
+    assert json.loads(calls[1].content) == {"cloudMachineLimit": None}
+    sai.tenants.update("t_1", name="Riverside", residential_proxy=False)
+    assert json.loads(calls[2].content) == {"name": "Riverside", "residentialProxy": False}
+
+    [listed] = sai.tenants.list().tenants
+    assert (listed.cloud_machine_limit, listed.residential_proxy, listed.cloud_machine_count) == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    "status,body,cls",
+    [
+        (402, {"error": "insufficient_credits", "message": "No credit."}, "SaiError"),
+        (
+            403,
+            {"error": "spend_cap_reached", "message": "Budget.", "scope": "tenant", "resetsAt": "2026-11-01T00:00:00Z"},
+            "SpendCapReachedError",
+        ),
+        (409, {"error": "machine_limit_reached", "message": "Limit.", "limit": 5, "used": 5}, "ConflictError"),
+        (409, {"error": "request_id_reused", "message": "Reused."}, "ConflictError"),
+        (403, {"error": "tenant_disabled", "message": "Disabled."}, "PermissionDeniedError"),
+        (404, {"error": "not_found", "message": "Tenant not found."}, "NotFoundError"),
+        (503, {"error": "capacity_unavailable", "message": "No capacity."}, "ServiceUnavailableError"),
+        (429, {"error": "rate_limited", "message": "Too many."}, "RateLimitError"),
+        (500, {"error": "internal", "message": "Quote errorId.", "errorId": "e_1"}, "SaiError"),
+    ],
+)
+def test_tenant_machine_create_errors(status: int, body: dict[str, Any], cls: str) -> None:
+    import sai as sdk
+
+    s = client({"POST /v1/tenants/t_1/machines": (status, body)})
+    with pytest.raises(sdk.SaiError) as e:
+        s.tenant_machines.create("t_1", os="windows")
+    assert type(e.value) is getattr(sdk, cls)
+    assert (e.value.status, e.value.code, e.value.message) == (status, body["error"], body["message"])
+    assert e.value.body == body
+
+
 def test_tenant_token_org_id_from_client_env_or_call(monkeypatch: pytest.MonkeyPatch) -> None:
     reply = {"token": "tt_1", "expiresAt": 1790003600000, "tenantId": "t_1"}
     routes = {

@@ -1,4 +1,5 @@
 import type { Sai } from './client.js'
+import { RateLimitError, SaiError } from './errors.js'
 import type { Credential, Http } from './http.js'
 import {
   parseEnrollment,
@@ -17,6 +18,9 @@ export type TenantMachineRef = TenantMachine | string
 
 /** `tenants.client()` exchanges again when its token has less than this left. */
 export const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000
+
+/** Between machine reads while `tenantMachines.create({ wait: true })` waits. */
+const MACHINE_POLL_INTERVAL_MS = 5_000
 
 const q = encodeURIComponent
 const tenantPath = (tenant: TenantRef): string =>
@@ -64,15 +68,29 @@ export class Tenants {
   /**
    * `metadata` replaces the whole map. `status: 'disabled'` stops the Tenant's tokens and
    * machines; `status: 'active'` brings it back.
+   *
+   * `cloudMachineLimit` (0 to 1000) caps the Tenant's cloud machines; `null` removes the cap.
+   * Lowering it deletes nothing: creates are refused until the count fits. `residentialProxy`
+   * is the Tenant's residential proxy switch; it has no effect yet, and traffic goes direct.
+   * Only the Organisation Key or an owner may set these two.
    */
   async update(
     tenant: TenantRef,
-    opts: { name?: string; metadata?: Record<string, string>; status?: string },
+    opts: {
+      name?: string
+      metadata?: Record<string, string>
+      status?: string
+      cloudMachineLimit?: number | null
+      residentialProxy?: boolean
+    },
   ): Promise<Tenant> {
     return parseTenant(await this.http.json('PATCH', tenantPath(tenant), { json: opts }))
   }
 
-  /** Disables the Tenant and revokes every machine. Its data is kept: erase it from the console. */
+  /**
+   * Disables the Tenant and revokes every enrolled machine. Cloud machines stay and hibernate:
+   * delete them with `tenantMachines.delete`. Its data is kept: erase it from the console.
+   */
   async delete(tenant: TenantRef): Promise<void> {
     await this.http.request('DELETE', tenantPath(tenant))
   }
@@ -115,10 +133,64 @@ export class Tenants {
   }
 }
 
-/** A Tenant's enrolled computers. Every call takes an Organisation Key. */
+/** A Tenant's computers, enrolled and cloud. Every call takes an Organisation Key. */
 export class TenantMachines {
   constructor(private readonly http: Http) {}
 
+  /**
+   * Create a cloud machine for the Tenant. `os` is `windows` or `linux`; the size follows it.
+   * `name` (up to 64 characters) is a label you show your users.
+   *
+   * `requestId` (letters, digits, `_` and `-`, up to 128) makes a retry safe: the same id and
+   * body return the first machine, and the same id with another body throws `ConflictError`
+   * (`request_id_reused`). Without one, every call creates a machine.
+   *
+   * Returns at once with `state: 'provisioning'`. `wait: true` reads the machine until it is
+   * `ready`; it throws `SaiError` if the machine fails or is deleted, and a `TimeoutError`
+   * (DOMException) after `timeoutMs` (default 10 minutes).
+   */
+  async create(
+    tenant: TenantRef,
+    opts: {
+      os: 'windows' | 'linux'
+      name?: string
+      requestId?: string
+      wait?: boolean
+      timeoutMs?: number
+    },
+  ): Promise<TenantMachine> {
+    let machine = parseTenantMachine(
+      await this.http.json('POST', `${tenantPath(tenant)}/machines`, {
+        json: { os: opts.os, name: opts.name, requestId: opts.requestId },
+      }),
+    )
+    if (!opts.wait) return machine
+    const deadline = Date.now() + (opts.timeoutMs ?? 600_000)
+    while (machine.state !== 'ready') {
+      if (machine.state === 'failed' || machine.state === 'deleting') {
+        throw new SaiError(
+          `Cloud machine ${machine.id} is ${machine.state} and will not become ready.`,
+          { body: machine.raw },
+        )
+      }
+      if (Date.now() + MACHINE_POLL_INTERVAL_MS > deadline) {
+        throw new DOMException(
+          `Cloud machine ${machine.id} still ${machine.state}.`,
+          'TimeoutError',
+        )
+      }
+      await sleep(MACHINE_POLL_INTERVAL_MS)
+      try {
+        machine = await this.get(tenant, machine.id)
+      } catch (err) {
+        if (!(err instanceof RateLimitError)) throw err
+        await sleep((err.retryAfter ?? 30) * 1000)
+      }
+    }
+    return machine
+  }
+
+  /** Both kinds, enrolled and cloud. A cloud machine is listed from the moment it is created. */
   async list(tenant: TenantRef): Promise<TenantMachine[]> {
     const d = await this.http.json<{ machines?: Record<string, unknown>[] }>(
       'GET',
@@ -133,9 +205,21 @@ export class TenantMachines {
     )
   }
 
-  /** Signs the machine out at once. To bring it back, enroll it again with a new code. */
-  async revoke(tenant: TenantRef, machine: TenantMachineRef): Promise<void> {
+  /**
+   * An enrolled machine is signed out at once (`'revoked'`); enroll it again with a new code to
+   * bring it back. A cloud machine is deleted with its disk (`'deleting'`), which cannot be
+   * undone; it leaves the list when the deletion finishes.
+   */
+  async delete(tenant: TenantRef, machine: TenantMachineRef): Promise<'revoked' | 'deleting'> {
     const id = typeof machine === 'string' ? machine : machine.id
-    await this.http.request('DELETE', `${tenantPath(tenant)}/machines/${q(id)}`)
+    const res = await this.http.request('DELETE', `${tenantPath(tenant)}/machines/${q(id)}`)
+    return res.status === 202 ? 'deleting' : 'revoked'
+  }
+
+  /** `delete` without its answer. On a cloud machine it deletes the machine: use `delete`. */
+  async revoke(tenant: TenantRef, machine: TenantMachineRef): Promise<void> {
+    await this.delete(tenant, machine)
   }
 }
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))

@@ -100,7 +100,17 @@ export interface Tenant {
   /** Unix time in milliseconds. */
   createdAt: number
   disabledAt: number | null
+  /** Enrolled machines. */
   machineCount: number
+  /** Most cloud machines the Tenant may have at once. null: no limit. */
+  cloudMachineLimit: number | null
+  /**
+   * The Tenant's residential proxy switch. It has no effect yet: traffic goes direct. Set by `get` and
+   * `update`; null from `list` and from servers before cloud machines.
+   */
+  residentialProxy: boolean | null
+  /** Set by `get` and `update`; null from `list` and from servers before cloud machines. */
+  cloudMachineCount: number | null
   raw: Json
 }
 
@@ -114,6 +124,9 @@ export function parseTenant(d: Json): Tenant {
     createdAt: num(d.createdAt),
     disabledAt: typeof d.disabledAt === 'number' ? d.disabledAt : null,
     machineCount: num(d.machineCount),
+    cloudMachineLimit: typeof d.cloudMachineLimit === 'number' ? d.cloudMachineLimit : null,
+    residentialProxy: typeof d.residentialProxy === 'boolean' ? d.residentialProxy : null,
+    cloudMachineCount: typeof d.cloudMachineCount === 'number' ? d.cloudMachineCount : null,
     raw: d,
   }
 }
@@ -124,28 +137,46 @@ export interface TenantPage {
   nextCursor: string | null
 }
 
-/** A Tenant's own computer, running the Sai runtime. */
+/** A Tenant's computer: its own, enrolled, or a cloud machine Sai hosts for it. */
 export interface TenantMachine {
   id: string
   name: string | null
   platform: string | null
+  /** Older servers only; empty on servers with cloud machines. Read `state`. */
   status: string
-  /** True when the machine reported in the last 3 minutes. */
+  /** True when an enrolled machine reported in the last 3 minutes, or a cloud machine is `ready`. */
   online: boolean
   lastSeen: number | null
   runtimeVersion: string | null
+  kind: 'enrolled' | 'cloud'
+  /**
+   * Enrolled: `online` or `offline`. Cloud: `provisioning`, `ready`, `starting`, `hibernated`,
+   * `deleting` or `failed`. A run starts without waiting only on `ready`; a hibernated machine
+   * wakes when a run is sent to it.
+   */
+  state: string
+  /** Cloud only: the billing class, e.g. `win32-4c8g`. */
+  machineClass: string | null
+  /** Unix time in milliseconds. null from servers before cloud machines. */
+  createdAt: number | null
   raw: Json
 }
 
 export function parseTenantMachine(d: Json): TenantMachine {
+  // Servers before cloud machines send `online` and `status` and no `kind` or `state`.
+  const state = str(d.state) || (d.online ? 'online' : 'offline')
   return {
     id: str(d.machineId) ?? '',
     name: str(d.name) ?? null,
     platform: str(d.platform) ?? null,
     status: str(d.status) ?? '',
-    online: Boolean(d.online),
+    online: 'online' in d ? Boolean(d.online) : state === 'online' || state === 'ready',
     lastSeen: typeof d.lastSeen === 'number' ? d.lastSeen : null,
     runtimeVersion: str(d.runtimeVersion) ?? null,
+    kind: d.kind === 'cloud' ? 'cloud' : 'enrolled',
+    state,
+    machineClass: str(d.machineClass) ?? null,
+    createdAt: typeof d.createdAt === 'number' ? d.createdAt : null,
     raw: d,
   }
 }
