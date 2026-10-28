@@ -33,6 +33,12 @@ import {
 export type ApprovalAnswer = string | [string, string[][]] | null
 export type ApprovalHandler = (approval: Approval) => ApprovalAnswer | Promise<ApprovalAnswer>
 
+/**
+ * How long the agent reasons before it acts: the levels of the "Thinking
+ * strength" agent setting. Ignored by models without extended thinking.
+ */
+export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'xhigh'
+
 export interface SendOptions {
   /** An id from `sai.models.list()` (or `auto`); sticks to the session until changed. */
   model?: string
@@ -50,6 +56,12 @@ export interface SendOptions {
   idempotencyKey?: string
   /** Keep a screenshot and the action for each step (`sai.turns.trajectory()`). */
   recordTrajectory?: boolean
+  /**
+   * The thinking level for the turn this message starts, in place of the
+   * account's agent setting (used when omitted). Like `recordTrajectory`, it
+   * is refused with `ConflictError` (`session_busy`) while a turn is running.
+   */
+  thinkingLevel?: ThinkingLevel
   /**
    * Run the turn this message starts without approval cards, as if "Trust for
    * this task" had been answered; the grant ends with the turn. A message that
@@ -146,6 +158,7 @@ export class Session {
     if (opts.successCriteria !== undefined) options.success_criteria = opts.successCriteria
     if (opts.idempotencyKey !== undefined) options.idempotency_key = opts.idempotencyKey
     if (opts.recordTrajectory) options.recordTrajectory = true
+    if (opts.thinkingLevel !== undefined) options.thinkingLevel = opts.thinkingLevel
     if (Object.keys(options).length) body.options = options
     const structured = [opts.inputs, opts.outputSchema, opts.successCriteria].some(
       (v) => v !== undefined,

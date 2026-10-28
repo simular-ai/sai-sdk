@@ -12,7 +12,7 @@ import json
 import time
 import urllib.parse
 from collections.abc import Iterator, Sequence
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
 from ._errors import ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError
 from .types import Approval, Attachment, Check, Event, TurnRecord, TurnResult, Usage
@@ -33,6 +33,9 @@ _RECORD_POLL_INTERVAL = 2  # seconds between turn reads; GET /v1/agents/turns/{i
 
 Inputs = dict[str, Union[str, int, float, bool]]
 SuccessCriteria = Union[str, Sequence[Union[Check, dict[str, Any]]]]
+# How long the agent reasons before it acts: the levels of the "Thinking strength"
+# agent setting. Ignored by models without extended thinking.
+ThinkingLevel = Literal["off", "low", "medium", "high", "xhigh"]
 
 
 class Sessions:
@@ -82,6 +85,7 @@ class Session:
         success_criteria: Optional[SuccessCriteria] = None,
         idempotency_key: Optional[str] = None,
         record_trajectory: bool = False,
+        thinking_level: Optional[ThinkingLevel] = None,
         autonomous: bool = False,
     ) -> Turn:
         """Give Sai a task, or steer the running one. Returns at once.
@@ -99,7 +103,11 @@ class Session:
         with `ConflictError` (`session_busy`) while a turn is running.
         The same `idempotency_key` again returns the earlier turn and sends nothing.
         `record_trajectory` keeps a screenshot and the action for each step
-        (`sai.turns.trajectory()`). These go to the API as `options`.
+        (`sai.turns.trajectory()`). `thinking_level` (`off`, `low`, `medium`,
+        `high`, `xhigh`) sets how long the agent reasons for the turn this
+        message starts, in place of the account's agent setting (used when
+        omitted); like `record_trajectory`, it is refused with `ConflictError`
+        (`session_busy`) while a turn is running. These go to the API as `options`.
 
         `autonomous=True` runs the turn this message starts without approval
         cards, as if "Trust for this task" had been answered; the grant ends
@@ -131,6 +139,8 @@ class Session:
             options["idempotency_key"] = idempotency_key
         if record_trajectory:
             options["recordTrajectory"] = True
+        if thinking_level is not None:
+            options["thinkingLevel"] = thinking_level
         if options:
             body["options"] = options
         structured = any(v is not None for v in (inputs, output_schema, success_criteria))
@@ -162,6 +172,7 @@ class Session:
         success_criteria: Optional[SuccessCriteria] = None,
         idempotency_key: Optional[str] = None,
         record_trajectory: bool = False,
+        thinking_level: Optional[ThinkingLevel] = None,
         autonomous: bool = False,
         on_approval: Optional[ApprovalHandler] = None,
         timeout: Optional[float] = None,
@@ -176,6 +187,7 @@ class Session:
             success_criteria=success_criteria,
             idempotency_key=idempotency_key,
             record_trajectory=record_trajectory,
+            thinking_level=thinking_level,
             autonomous=autonomous,
         ).wait(on_approval=on_approval, timeout=timeout)
 

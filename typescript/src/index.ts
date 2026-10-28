@@ -36,6 +36,7 @@ export {
   type ApprovalAnswer,
   type ApprovalHandler,
   type SendOptions,
+  type ThinkingLevel,
   type WaitOptions,
 } from './sessions.js'
 export {

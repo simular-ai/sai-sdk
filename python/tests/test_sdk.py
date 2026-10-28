@@ -381,6 +381,7 @@ def test_structured_message_sends_options_and_waits_for_the_record(monkeypatch: 
         success_criteria=[Check("saved", "The file is saved on the Desktop", return_evidence=True)],
         idempotency_key="inv-1001",
         record_trajectory=True,
+        thinking_level="high",
     )
     assert turn.id == "turn_1"
     result = turn.wait()
@@ -398,6 +399,7 @@ def test_structured_message_sends_options_and_waits_for_the_record(monkeypatch: 
         "success_criteria": [{"id": "saved", "check": "The file is saved on the Desktop", "returnEvidence": True}],
         "idempotency_key": "inv-1001",
         "recordTrajectory": True,
+        "thinkingLevel": "high",
     }
     assert "output_schema" not in body
     assert len([c for c in calls if c.url.path == "/v1/agents/turns/turn_1"]) == 3
@@ -460,6 +462,24 @@ def test_autonomous_goes_on_the_message_not_in_options() -> None:
     bodies = [json.loads(c.content) for c in calls if c.url.path == "/v1/agents/message"]
     assert bodies[0]["autonomous"] is True and "options" not in bodies[0]
     assert "autonomous" not in bodies[1]
+
+
+def test_thinking_level_goes_in_options_only_when_given() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/agents/new-session": {"sessionId": "cs_1"},
+            "POST /v1/agents/message": (202, {"sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_5"}),
+            "GET /v1/agents/events": {"sessionId": "cs_1", "status": "idle", "events": [], "text": "Done."},
+        },
+        calls,
+    )
+    session = sai.sessions.create("m_1")
+    session.run("hello", thinking_level="off")
+    session.run("again")
+    bodies = [json.loads(c.content) for c in calls if c.url.path == "/v1/agents/message"]
+    assert bodies[0]["options"] == {"thinkingLevel": "off"} and "thinkingLevel" not in bodies[0]
+    assert "options" not in bodies[1]
 
 
 def test_idempotency_key_alone_keeps_the_message_plain() -> None:

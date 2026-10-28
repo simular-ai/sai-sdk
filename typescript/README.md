@@ -117,18 +117,20 @@ else console.log(result.record?.reasonCode) // e.g. output_invalid, with result.
 
 More options, all optional (the SDK sends them to the API as `options`):
 
-| Option             | What it does                                                                 |
-| ------------------ | ---------------------------------------------------------------------------- |
-| `inputs`           | Fill `{{name}}` placeholders in the message; every placeholder needs a value |
-| `outputSchema`     | JSON Schema (at most 32 KB) the output must match                            |
-| `successCriteria`  | A guideline for a judge, or `{ id, check, returnEvidence? }` yes/no checks   |
-| `idempotencyKey`   | The same key again returns the earlier turn and sends nothing                |
-| `recordTrajectory` | Keep a screenshot and the action for each step                               |
+| Option             | What it does                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| `inputs`           | Fill `{{name}}` placeholders in the message; every placeholder needs a value                  |
+| `outputSchema`     | JSON Schema (at most 32 KB) the output must match                                             |
+| `successCriteria`  | A guideline for a judge, or `{ id, check, returnEvidence? }` yes/no checks                    |
+| `idempotencyKey`   | The same key again returns the earlier turn and sends nothing                                 |
+| `recordTrajectory` | Keep a screenshot and the action for each step                                                |
+| `thinkingLevel`    | `off`, `low`, `medium`, `high` or `xhigh` for this turn; omitted, the account setting applies |
 
 `inputs`, `outputSchema` or `successCriteria` make the message _structured_. A structured message
 behaves like any other (same session, same computer); it only adds the typed result. It is rejected with
 `ConflictError` (`code === 'session_busy'`) while the session is working, because it starts a turn of
-its own. A plain message sent then joins the running turn instead.
+its own. A plain message sent then joins the running turn instead. `thinkingLevel` is refused the same
+way, since it applies to a turn of its own.
 
 ```ts
 const result = await session.run(
