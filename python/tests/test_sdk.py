@@ -247,6 +247,46 @@ def test_machine_state() -> None:
     assert [(m.state, m.status) for m in got] == [("asleep", "hibernated"), (None, None)]
 
 
+def test_live_screen_page_link_and_revoke() -> None:
+    calls: list[httpx.Request] = []
+    sai = client(
+        {
+            "POST /v1/agents/machines/m_1/live": [
+                {
+                    "machineId": "m_1",
+                    "liveUrl": "https://api.test/live#t=lp1.x.y",
+                    "expiresAt": 1790001800000,
+                    "websocketUrl": "wss://proxy.test/t?token=x",
+                    "width": 1280,
+                    "height": 800,
+                },
+                {"machineId": "m_1", "websocketUrl": "wss://proxy.test/t?token=y", "width": 1280, "height": 800},
+            ],
+            "DELETE /v1/agents/machines/m_1/live": {"machineId": "m_1", "revoked": 2},
+        },
+        calls,
+    )
+    view = sai.machines.live("m_1")
+    assert (view.machine_id, view.live_url, view.expires_at, view.websocket_url, view.width, view.height) == (
+        "m_1",
+        "https://api.test/live#t=lp1.x.y",
+        1790001800000,
+        "wss://proxy.test/t?token=x",
+        1280,
+        800,
+    )
+    assert "lp1" not in repr(view)  # the link carries a token
+    # a server without the page leaves both fields out
+    plain = sai.machines.live("m_1")
+    assert (plain.live_url, plain.expires_at) == (None, None)
+    assert sai.machines.revoke_live("m_1") == 2
+    assert [f"{c.method} {c.url.path}" for c in calls] == [
+        "POST /v1/agents/machines/m_1/live",
+        "POST /v1/agents/machines/m_1/live",
+        "DELETE /v1/agents/machines/m_1/live",
+    ]
+
+
 def test_error_code_surfaces() -> None:
     sai = client(
         {

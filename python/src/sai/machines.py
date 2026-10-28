@@ -56,15 +56,27 @@ class Machines:
         raise NotFoundError(f"Machine {machine_id} not found on this account.", status=404)
 
     def live(self, machine: Union[Machine, str]) -> LiveView:
-        """A view-only stream of the screen (Apache Guacamole). The machine must be running."""
+        """The live screen: `live_url`, a page a person can open without a Simular sign-in, and a
+        Guacamole tunnel for a viewer of your own. The machine must be running."""
         machine_id = machine.id if isinstance(machine, Machine) else machine
         d = self._sai._http.json("POST", f"/v1/agents/machines/{machine_id}/live")
+        live_url = d.get("liveUrl")
+        expires_at = d.get("expiresAt")
         return LiveView(
             machine_id=d.get("machineId", machine_id),
             websocket_url=d["websocketUrl"],
             width=int(d.get("width", 0)),
             height=int(d.get("height", 0)),
+            live_url=live_url if isinstance(live_url, str) else None,
+            expires_at=int(expires_at) if isinstance(expires_at, (int, float)) else None,
         )
+
+    def revoke_live(self, machine: Union[Machine, str]) -> int:
+        """Revokes every `live_url` handed out for the machine; returns how many. A page already showing
+        the screen keeps its connection until it closes, but stops taking input within seconds."""
+        machine_id = machine.id if isinstance(machine, Machine) else machine
+        d = self._sai._http.json("DELETE", f"/v1/agents/machines/{machine_id}/live") or {}
+        return int(d.get("revoked") or 0)
 
     def _resolve_id(self, machine: Union[Machine, str, None]) -> str:
         if isinstance(machine, Machine):

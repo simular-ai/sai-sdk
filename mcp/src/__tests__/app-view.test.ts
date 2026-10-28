@@ -98,6 +98,23 @@ describe('MCP Apps task view (server)', () => {
       width: 1920,
       height: 1080,
     })
+
+    // The hosted page, when the server offers one.
+    liveScreen.mockResolvedValueOnce({
+      websocketUrl: 'wss://proxy.vm.api.simular.cloud/t?token=y',
+      width: 1920,
+      height: 1080,
+      liveUrl: 'https://api.simular.ai/live#t=lp1.x.y',
+      expiresAt: 1790001800000,
+    })
+    const withPage = await client.callTool({
+      name: 'sai_view_live',
+      arguments: { machine_id: 'm1' },
+    })
+    expect(withPage.structuredContent).toMatchObject({
+      live_url: 'https://api.simular.ai/live#t=lp1.x.y',
+      expires_at: 1790001800000,
+    })
   })
 
   it('shows an older task its saved view, not the newer live turn', async () => {

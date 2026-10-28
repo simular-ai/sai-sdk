@@ -80,12 +80,19 @@ class Attachment:
 
 @dataclass
 class LiveView:
-    """A view-only Guacamole stream of a computer's screen. The URL carries a token: keep it private."""
+    """A computer's live screen. Both URLs carry a token: keep them private."""
 
     machine_id: str
     websocket_url: str = field(repr=False)
+    """A Guacamole tunnel for a viewer of your own. It takes input too: send none to only watch."""
     width: int
     height: int
+    live_url: Optional[str] = field(default=None, repr=False)
+    """A page that shows the screen with no Simular sign-in: send it to the person who should act (a
+    sign-in, a captcha). Whoever opens it can use the mouse and keyboard while no Sai turn is running.
+    It works until `expires_at` or `machines.revoke_live`. None where the server does not offer the page."""
+    expires_at: Optional[int] = None
+    """When `live_url` stops working, Unix time in milliseconds. None without `live_url`."""
 
 
 @dataclass

@@ -230,9 +230,19 @@ export function parseAttachment(d: Json): Attachment {
   }
 }
 
-/** A view-only Guacamole stream of a computer's screen. The URL carries a token: keep it private. */
+/** A computer's live screen. Both URLs carry a token: keep them private. */
 export interface LiveView {
   machineId: string
+  /**
+   * A page that shows the screen with no Simular sign-in: send it to the person who should act (a
+   * sign-in, a captcha). Whoever opens it can use the mouse and keyboard while no Sai turn is
+   * running. It works until `expiresAt` or `machines.revokeLive`. Null where the server does not
+   * offer the page.
+   */
+  liveUrl: string | null
+  /** When `liveUrl` stops working, Unix time in milliseconds. Null without `liveUrl`. */
+  expiresAt: number | null
+  /** A Guacamole tunnel for a viewer of your own. It takes input too: send none to only watch. */
   websocketUrl: string
   width: number
   height: number

@@ -47,11 +47,12 @@ describe('timeout clamp', () => {
 describe('tool schemas (§7)', () => {
   const names = Object.keys(toolSchemas)
 
-  it('exposes the six §7 tools plus sai_models, each with a description', () => {
+  it('exposes the six §7 tools plus sai_models and sai_live_link, each with a description', () => {
     expect(names.sort()).toEqual(
       [
         'sai_machines',
         'sai_models',
+        'sai_live_link',
         'sai_task_start',
         'sai_task_wait',
         'sai_task_approve',
@@ -109,6 +110,8 @@ describe('tool schemas (§7)', () => {
     expect(serverInstructions).toMatch(/needs_approval/)
     expect(serverInstructions).toMatch(/approvalUrl/)
     expect(serverInstructions).toMatch(/no screenshot/i)
+    expect(serverInstructions).toMatch(/sai_live_link.*live_url/)
+    expect(toolDescriptions.sai_live_link).toMatch(/without a Simular sign-in/)
   })
 })
 
@@ -407,6 +410,51 @@ describe('SaiTools.wait', () => {
     const exec: ApprovalRequest = { ...bareLinkOnly, approvalId: 'ap-10', isLinkOnly: false }
     const execResult = await toolsWith(waitWith(exec)).wait({ session_id: 's' })
     expect(execResult.approval?.approvalUrl).toBeUndefined()
+  })
+})
+
+describe('SaiTools.liveLink', () => {
+  const toolsWith = (fetchImpl: (url: string) => Promise<Response>) =>
+    new SaiTools({
+      api: new SaiApi('https://api.test', 'k', fetchImpl),
+      source: fakeSource(),
+      push: false,
+      userId: async () => undefined,
+    })
+
+  it('resolves the only machine and returns the page link, never the tunnel', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.endsWith('/machines')) return jsonResponse({ machines: [{ machineId: 'm1' }] })
+      return jsonResponse({
+        machineId: 'm1',
+        liveUrl: 'https://api.test/live#t=lp1.x.y',
+        expiresAt: 1790001800000,
+        websocketUrl: 'wss://proxy.test/t?token=secret',
+        width: 1280,
+        height: 800,
+      })
+    })
+    const result = await toolsWith(fetchImpl).liveLink({})
+    expect(result).toEqual({
+      machine_id: 'm1',
+      live_url: 'https://api.test/live#t=lp1.x.y',
+      expires_at: 1790001800000,
+    })
+    const [url, init] = fetchImpl.mock.calls[1] as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.test/v1/agents/machines/m1/live')
+    expect(init.method).toBe('POST')
+  })
+
+  it('says so when the server offers no page', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ machineId: 'm1', websocketUrl: 'wss://proxy.test/t?token=secret' }),
+    )
+    const err = await toolsWith(fetchImpl)
+      .liveLink({ machine_id: 'm1' })
+      .catch((e: Error) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).toMatch(/does not offer a live link/)
+    expect((err as Error).message).not.toContain('secret')
   })
 })
 

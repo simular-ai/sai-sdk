@@ -94,6 +94,23 @@ turn = session.send("...")
 turn.abort()
 ```
 
+### Let a person take over
+
+When Sai needs a person (a sign-in, a captcha), `machines.live` returns `live_url`: a page with the
+computer's screen that anyone with the link can open, no Simular account needed. They can use the mouse
+and keyboard while no Sai turn is running; then send a message to continue.
+
+```python
+view = sai.machines.live(pc)
+print("Sign in here, then tell me:", view.live_url)   # valid until view.expires_at (ms)
+# ... once they are done
+session.run("I signed in. Carry on.")
+sai.machines.revoke_live(pc)   # every open link stops working
+```
+
+`live_url` is None where the server does not offer the page. `view.websocket_url` is the same screen as
+a Guacamole tunnel for a viewer of your own; it takes input too. Both carry a token: keep them private.
+
 ## Get typed results
 
 Any message can also return structured data. Pass `output_schema` and the turn's record comes back in
