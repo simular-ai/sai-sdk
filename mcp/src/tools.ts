@@ -53,6 +53,12 @@ export const toolSchemas = {
       .describe(
         'true = run this task without approval prompts, as if "approve_for_task" had been answered up front; the grant ends with the task. Only when the user asked for the task to run unattended. Has no effect when the message steers a running task.',
       ),
+    record_trajectory: z
+      .boolean()
+      .optional()
+      .describe(
+        'true = record the steps of this task so sai_learn can turn it into code afterwards. Set it when the user wants code, a script or a function from this task.',
+      ),
   },
   sai_models: {},
   sai_task_wait: {
@@ -86,6 +92,24 @@ export const toolSchemas = {
   },
   sai_upload: {
     path: z.string().min(1).describe('Absolute or cwd-relative path of a local file (max 25 MB).'),
+  },
+  sai_learn: {
+    session_id: z
+      .string()
+      .min(1)
+      .describe('session_id from sai_task_start; its last task is turned into code.'),
+    task_template: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'The task with {{name}} placeholders for the inputs that should become parameters, e.g. "Open {{site}} and read the title of the top story". Omit to let Sai find them.',
+      ),
+    guidance: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("The user's own knowledge for writing the code, e.g. which button is reliable."),
   },
   sai_live_link: {
     machine_id: z
@@ -144,6 +168,13 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
   sai_upload:
     'Upload a local file (max 25 MB) so Sai can use it. Returns { file_id, name, mime, size }; pass file_id in sai_task_start.file_ids. ' +
     "The uploaded file lands in the machine's Sai files, not at the original path.",
+  sai_learn:
+    'Turn the last task in a session into Simulang code the user owns: `async function main(params = { ... })`, ' +
+    'with the inputs found in the task (a site, a name, a date) as parameters. The code runs again without the agent, faster and cheaper. ' +
+    'The task must have been started with record_trajectory: true and be finished (sai_task_wait status "idle"). ' +
+    'Returns the learn result: { learnId, status, title, template, parameters, code, validation, usage }. ' +
+    'Writing the code can take a few minutes: when this returns { status: "running" }, call sai_learn again with the same arguments to keep waiting on the same request. ' +
+    'Save `code` to a file when the user asks. To run it, open direct control and run the code with `await main({ ... })` as the last line of the block. Research preview.',
   sai_live_link:
     "A link to the machine's screen for a person: { machine_id, live_url, expires_at } (expires_at in epoch ms). " +
     'Anyone with live_url can open it in a browser without a Simular sign-in, and can use the mouse and keyboard while no Sai task is running. ' +
@@ -156,6 +187,7 @@ export const serverInstructions = [
   "Sai is an autonomous computer-use agent that operates a real desktop (browser, native apps, files, email) on the user's Sai machine.",
   "Use it when the work needs a screen: sites and apps with no API (vendor portals, admin consoles, legacy web apps), web apps behind the user's logins (sign-ins go to the human as an approval link), desktop software on Windows, macOS or Linux, or seeing what a real user sees (testing a sign-up flow, reproducing a bug). Don't use it for what you can do locally or through an API.",
   'For a workflow the user will repeat, ask Sai after the first run to save it as a replayable skill with parameters ("Save this as a replayable skill named invoice_export, with vendor and month as parameters"); later, ask Sai to run that skill. Sai replays it as code, asking the model only where the screen matters, and the agent takes over if the UI changed.',
+  'When the user wants the code itself (to keep, read or run without the agent): sai_task_start with record_trajectory: true, sai_task_wait until idle, then sai_learn { session_id }. sai_learn returns the code.',
   '',
   'The loop:',
   '1. sai_machines once (skip when you already know the machine_id).',
@@ -222,9 +254,19 @@ export function machinesResult(rows: MachineRow[]): {
   return { machines, ...(only && { default: only.machineId }) }
 }
 
+/** Resolves with `undefined` after `ms`, without keeping the process alive. */
+function timeout(ms: number): Promise<undefined> {
+  return new Promise((resolve) => setTimeout(() => resolve(undefined), ms).unref?.())
+}
+
 export class SaiTools {
   /** Uploads made in this process, keyed by fileId — `/message` needs the full attachment row. */
   private readonly uploads = new Map<string, UploadedFile>()
+  /**
+   * Learn calls not yet handed to the agent, by request body. A call that outlives one tool call
+   * keeps running here, and the next sai_learn with the same arguments waits on it.
+   */
+  private readonly learning = new Map<string, Promise<Record<string, unknown>>>()
 
   constructor(private readonly ctx: ToolContext) {}
 
@@ -258,6 +300,7 @@ export class SaiTools {
     new_session?: boolean
     model?: string
     autonomous?: boolean
+    record_trajectory?: boolean
   }): Promise<{ session_id: string; machine_id: string; queued: boolean; push: boolean }> {
     const machineId = await this.resolveMachineId(args.machine_id)
     const attachments = args.file_ids?.map((id) => {
@@ -276,6 +319,7 @@ export class SaiTools {
       ...(attachments && attachments.length > 0 && { attachments }),
       ...(args.model && { model: args.model }),
       ...(args.autonomous && { autonomous: true }),
+      ...(args.record_trajectory && { recordTrajectory: true }),
     })
     if (this.ctx.push) this.ctx.onSessionStarted?.(started.sessionId)
     return {
@@ -350,6 +394,43 @@ export class SaiTools {
       }
       throw err
     }
+  }
+
+  async learn(
+    args: { session_id: string; task_template?: string; guidance?: string },
+    waitMs = WAIT_MAX_S * 1000,
+  ): Promise<Record<string, unknown>> {
+    const turnId = this.ctx.source.turnId(args.session_id)
+    if (!turnId) {
+      throw new Error(
+        `No recorded task in session ${args.session_id} from this MCP server process. Run the task ` +
+          'with sai_task_start { record_trajectory: true }, wait until it is idle, then call sai_learn.',
+      )
+    }
+    const body = {
+      turns: [turnId],
+      ...(args.task_template && { taskTemplate: args.task_template }),
+      ...(args.guidance && { guidance: args.guidance }),
+    }
+    const key = JSON.stringify(body)
+    let call = this.learning.get(key)
+    if (!call) {
+      call = this.ctx.api.learn(body)
+      this.learning.set(key, call)
+      // A failed call is dropped, so asking again tries again.
+      call.catch(() => this.learning.delete(key))
+    }
+    const result = await Promise.race([call, timeout(waitMs)])
+    if (!result) {
+      return {
+        status: 'running',
+        message:
+          'Still writing the code. Call sai_learn again with the same arguments to keep waiting.',
+      }
+    }
+    // Handed over: asking again later learns again.
+    this.learning.delete(key)
+    return result
   }
 
   async liveLink(args: {

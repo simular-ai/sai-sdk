@@ -65,6 +65,7 @@ describe('watchSession', () => {
       }),
       findApproval: () => undefined,
       noteApprovalResolved: vi.fn(),
+      turnId: () => undefined,
     }
     return { source, waits }
   }

@@ -323,6 +323,7 @@ export class SaiApi {
         ...(req.attachments && { attachments: req.attachments }),
         ...(req.model && { model: req.model }),
         ...(req.autonomous && { autonomous: true }),
+        ...(req.recordTrajectory && { options: { recordTrajectory: true } }),
       }),
       ...(signal && { signal }),
       prefix: 'Failed to send the task',
@@ -343,9 +344,28 @@ export class SaiApi {
         ...(req.attachments && { attachments: req.attachments }),
         ...(req.model && { model: req.model }),
         ...(req.autonomous && { autonomous: true }),
+        ...(req.recordTrajectory && { options: { recordTrajectory: true } }),
       }),
       signal: AbortSignal.timeout(30_000),
       prefix: 'Failed to send the task',
+    })
+  }
+
+  /**
+   * `POST /v1/agents/learn` without `maxIterations`: writes the code from recorded turns and
+   * answers when it is written, which can take minutes.
+   */
+  learn(body: {
+    turns: string[]
+    taskTemplate?: string
+    guidance?: string
+  }): Promise<Record<string, unknown>> {
+    return this.json('/v1/agents/learn', {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10 * 60_000),
+      prefix: 'Learning code failed',
     })
   }
 
