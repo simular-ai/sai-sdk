@@ -9,7 +9,8 @@
  *   the Guacamole proxy for the live screen).
  * - `sai_view_poll`: app-only (`visibility: ["app"]`), so the model never sees
  *   it; the view calls it to follow the task.
- * - `sai_view_live`: app-only; a Guacamole tunnel for the task's live screen.
+ * - `sai_view_live`: app-only; a Guacamole tunnel for the task's live screen,
+ *   plus the hosted `live_url` page when the server offers one.
  *
  * Hosts without MCP Apps get the same page from local-view.ts instead.
  */
@@ -18,7 +19,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 
 import type { TaskLog } from './task-log.js'
-import type { WaitResult } from './types.js'
+import type { LiveScreen, WaitResult } from './types.js'
 
 export const TASK_VIEW_URI = 'ui://sai/task-view'
 export const MCP_APP_MIME = 'text/html;profile=mcp-app'
@@ -60,9 +61,7 @@ export interface TaskViewDeps {
   wait: (args: { session_id: string; timeout_s?: number; cursor?: string }) => Promise<WaitResult>
   apiUrl: string
   run: (fn: () => Promise<unknown>) => Promise<CallToolResult>
-  liveScreen: (
-    machineId: string,
-  ) => Promise<{ websocketUrl: string; width: number; height: number }>
+  liveScreen: (machineId: string) => Promise<LiveScreen>
   tasks: TaskLog
 }
 
@@ -124,7 +123,12 @@ export function taskViewTools(deps: TaskViewDeps): {
       deps.run(async () => {
         const args = z.object(liveArgs).parse(raw)
         const live = await deps.liveScreen(args.machine_id)
-        return { websocket_url: live.websocketUrl, width: live.width, height: live.height }
+        return {
+          websocket_url: live.websocketUrl,
+          width: live.width,
+          height: live.height,
+          ...(live.liveUrl && { live_url: live.liveUrl, expires_at: live.expiresAt }),
+        }
       }),
   }
 }
@@ -177,7 +181,7 @@ export function registerTaskView(mcp: McpServer, deps: TaskViewDeps): void {
     'sai_view_live',
     {
       description:
-        'Internal to the Sai task view (MCP Apps): a view-only live screen tunnel. Agents: do not call this.',
+        'Internal to the Sai task view (MCP Apps): the live screen tunnel. Agents: do not call this; use sai_live_link.',
       inputSchema: liveArgs,
       _meta: { ui: { resourceUri: TASK_VIEW_URI, visibility: ['app'] } },
     },

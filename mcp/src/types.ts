@@ -140,6 +140,19 @@ export interface MachineRow {
   online?: boolean
 }
 
+/** `POST /v1/agents/machines/:id/live` response. */
+export interface LiveScreen {
+  machineId?: string
+  /** Guacamole tunnel with a session token; it takes input. Never to the model or a log. */
+  websocketUrl: string
+  width: number
+  height: number
+  /** A hosted page a person opens without a Simular sign-in; absent where the server doesn't offer it. */
+  liveUrl?: string
+  /** When `liveUrl` stops working, epoch ms. */
+  expiresAt?: number
+}
+
 /** An OSWorld attempt as cloud-api returns it (routes/osworld-attempts.ts). */
 export interface OsworldAttempt {
   attemptId: string

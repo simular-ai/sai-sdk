@@ -94,6 +94,23 @@ const turn = await session.send('...')
 await turn.abort()
 ```
 
+### Let a person take over
+
+When Sai needs a person (a sign-in, a captcha), `machines.live` returns `liveUrl`: a page with the
+computer's screen that anyone with the link can open, no Simular account needed. They can use the mouse
+and keyboard while no Sai turn is running; then send a message to continue.
+
+```ts
+const view = await sai.machines.live(pc)
+console.log('Sign in here, then tell me:', view.liveUrl) // valid until view.expiresAt (ms)
+// ... once they are done
+await session.run('I signed in. Carry on.')
+await sai.machines.revokeLive(pc) // every open link stops working
+```
+
+`liveUrl` is null where the server does not offer the page. `view.websocketUrl` is the same screen as
+a Guacamole tunnel for a viewer of your own; it takes input too. Both carry a token: keep them private.
+
 ## Get typed results
 
 Any message can also return structured data. Pass `outputSchema` and the turn's record comes back in

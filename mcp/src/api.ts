@@ -1,5 +1,6 @@
 import type {
   ApprovalRequest,
+  LiveScreen,
   MachineRow,
   OsworldAttempt,
   SseEvent,
@@ -261,11 +262,13 @@ export class SaiApi {
   }
 
   /**
-   * `POST /machines/:id/live` — a view-only Guacamole tunnel for the caller's
-   * own machine, for the MCP Apps task view. The URL carries a session token:
-   * hand it to the view only, never to the model or a log.
+   * `POST /machines/:id/live` — the caller's machine's screen. `websocketUrl`
+   * is a Guacamole tunnel for the task view: it carries a session token and
+   * takes input, so hand it to the view only, never to the model or a log.
+   * `liveUrl` is a hosted page for a person; `sai_live_link` gives it to the
+   * model to pass on.
    */
-  liveScreen(machineId: string): Promise<{ websocketUrl: string; width: number; height: number }> {
+  liveScreen(machineId: string): Promise<LiveScreen> {
     return this.json(`/v1/agents/machines/${encodeURIComponent(machineId)}/live`, {
       method: 'POST',
       headers: this.headers(),

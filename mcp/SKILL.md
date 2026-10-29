@@ -9,7 +9,7 @@ Use this skill when the user asks to do something on a computer that this enviro
 
 Do not use it for work that can be done locally in this repository.
 
-If the `sai` MCP tools (`sai_task_start`, `sai_task_wait`, `sai_task_approve`) are available in this session, use them instead: they run the same loop below without shell commands. The HTTP steps here are for sessions without the MCP server.
+If the `sai` MCP tools (`sai_task_start`, `sai_task_wait`, `sai_task_approve`, `sai_live_link`) are available in this session, use them instead: they run the same loop below without shell commands. The HTTP steps here are for sessions without the MCP server.
 
 ## Prerequisites
 
@@ -28,7 +28,7 @@ Run these steps in order. Do not skip the poll.
 3. **On `needs_approval`.** Read the top-level `approval` object in the poll response (same shape as a `data-approval-request` event's `data`) and check `approval.isLinkOnly`.
    - `false`: decide whether the action is what the user asked for. If yes, `POST /v1/agents/approve` with `{"approvalId": ..., "response": "yes"}`. Use `"response": "task"` when the same kind of request will repeat within this task. Use `"no"` when it is outside the task. For `approvalType: "choice"`, add `"selections"`, one inner array per question, using values from `questions[].options[].value`; if the answer is not obvious from the task, ask the user with AskUserQuestion first.
    - `true`: you cannot answer it. Call AskUserQuestion and hand the user `approval.approvalUrl` with one sentence saying what it is for (Google connect, a site password, phone verification). When they confirm they are done, go back to step 2 with the same cursor.
-4. **On `idle`.** Report `text` to the user verbatim, then summarise if it is long.
+4. **On `idle`.** Report `text` to the user verbatim, then summarise if it is long. If Sai says it needs the person on the screen (a sign-in, a captcha, a code), give them a live link: `POST /v1/agents/machines/<machineId>/live` (the machine from `GET /v1/agents/machines`) and hand the user `liveUrl` as a clickable link. Anyone with it can open the screen in a browser without a Simular sign-in and use it while no Sai task is running; it stops working at `expiresAt` (epoch ms). When they confirm they are done, go back to step 1 with a message telling Sai to continue. If the response has no `liveUrl`, send them to https://platform.simular.ai/playground instead. Never show `websocketUrl` to the user or log it.
 5. **On `error`.** Report the `error` event's `errorText`. Do not retry automatically. If the event (or a `tool-output-error`) carries `code`, stop and do not start the task again today:
    - `insufficient_credits`: tell the user their credit is spent. Free plan: it refreshes at `resetsAt` (UTC midnight; convert to their local time). Paid plan: top up at https://platform.simular.ai. Call `GET /v1/agents/account` and include `plan.title` and `credits.usd` in the message.
    - `free_computer_time_exhausted`: tell the user the free plan's daily computer time is used up and the computer was shut down. It resets daily (exact local time in the Sai app); they can come back tomorrow or upgrade. No retry today.
@@ -84,4 +84,4 @@ Build JSON bodies with `jq -n` as above so user text with quotes never breaks th
 
 ## Reference
 
-Full API documentation: https://platform.simular.ai/documentation. Endpoints used here: `POST /v1/agents/message`, `GET /v1/agents/events`, `POST /v1/agents/approve`, `POST /v1/agents/abort`, `GET /v1/agents/machines`, `GET /v1/agents/models`, `GET /v1/agents/account`.
+Full API documentation: https://platform.simular.ai/documentation. Endpoints used here: `POST /v1/agents/message`, `GET /v1/agents/events`, `POST /v1/agents/approve`, `POST /v1/agents/abort`, `GET /v1/agents/machines`, `POST /v1/agents/machines/{machineId}/live`, `GET /v1/agents/models`, `GET /v1/agents/account`.

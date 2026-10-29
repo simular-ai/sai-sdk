@@ -23,7 +23,10 @@ export class Machines {
     return m
   }
 
-  /** A view-only stream of the screen (Apache Guacamole). The machine must be running. */
+  /**
+   * The live screen: `liveUrl`, a page a person can open without a Simular sign-in, and a Guacamole
+   * tunnel for a viewer of your own. The machine must be running.
+   */
   async live(machine: MachineRef): Promise<LiveView> {
     const id = idOf(machine)
     const d = await this.http.json<Record<string, unknown>>(
@@ -32,10 +35,24 @@ export class Machines {
     )
     return {
       machineId: typeof d.machineId === 'string' ? d.machineId : id,
+      liveUrl: typeof d.liveUrl === 'string' ? d.liveUrl : null,
+      expiresAt: typeof d.expiresAt === 'number' ? d.expiresAt : null,
       websocketUrl: String(d.websocketUrl),
       width: Number(d.width ?? 0),
       height: Number(d.height ?? 0),
     }
+  }
+
+  /**
+   * Revokes every `liveUrl` handed out for the machine; resolves with how many. A page already
+   * showing the screen keeps its connection until it closes, but stops taking input within seconds.
+   */
+  async revokeLive(machine: MachineRef): Promise<number> {
+    const d = await this.http.json<Record<string, unknown> | null>(
+      'DELETE',
+      `/v1/agents/machines/${encodeURIComponent(idOf(machine))}/live`,
+    )
+    return Number(d?.revoked ?? 0)
   }
 
   /** @internal */

@@ -14,7 +14,7 @@
       "tenants",
       "tenant_machines"
     ],
-    "machines": ["list", "get", "live"],
+    "machines": ["list", "get", "live", "revoke_live"],
     "sessions": ["create", "resume"],
     "turns": ["get", "wait", "trajectory", "screenshot"],
     "learn": ["create", "get", "wait", "cancel", "rollout"],

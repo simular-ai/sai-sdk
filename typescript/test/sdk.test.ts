@@ -305,6 +305,49 @@ describe('sai typescript sdk', () => {
     ])
   })
 
+  it('opens a live screen with its page link, and revokes the links', async () => {
+    const calls: Call[] = []
+    const sai = client(
+      {
+        'POST /v1/agents/machines/m_1/live': [
+          {
+            machineId: 'm_1',
+            liveUrl: 'https://api.test/live#t=lp1.x.y',
+            expiresAt: 1790001800000,
+            websocketUrl: 'wss://proxy.test/t?token=x',
+            width: 1280,
+            height: 800,
+          },
+          {
+            machineId: 'm_1',
+            websocketUrl: 'wss://proxy.test/t?token=y',
+            width: 1280,
+            height: 800,
+          },
+        ],
+        'DELETE /v1/agents/machines/m_1/live': { machineId: 'm_1', revoked: 2 },
+      },
+      calls,
+    )
+    expect(await sai.machines.live('m_1')).toEqual({
+      machineId: 'm_1',
+      liveUrl: 'https://api.test/live#t=lp1.x.y',
+      expiresAt: 1790001800000,
+      websocketUrl: 'wss://proxy.test/t?token=x',
+      width: 1280,
+      height: 800,
+    })
+    // a server without the page leaves both fields out
+    const plain = await sai.machines.live('m_1')
+    expect([plain.liveUrl, plain.expiresAt]).toEqual([null, null])
+    expect(await sai.machines.revokeLive('m_1')).toBe(2)
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+      'POST /v1/agents/machines/m_1/live',
+      'POST /v1/agents/machines/m_1/live',
+      'DELETE /v1/agents/machines/m_1/live',
+    ])
+  })
+
   it('surfaces credit error codes', async () => {
     const r = await client({
       'POST /v1/agents/message': [202, { sessionId: 'cs_1' }],

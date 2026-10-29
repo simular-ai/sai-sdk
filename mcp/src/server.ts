@@ -187,6 +187,11 @@ export function createServer(): McpServer {
     { description: toolDescriptions.sai_upload, inputSchema: toolSchemas.sai_upload },
     (args) => run(() => tools.upload(args)),
   )
+  mcp.registerTool(
+    'sai_live_link',
+    { description: toolDescriptions.sai_live_link, inputSchema: toolSchemas.sai_live_link },
+    (args) => run(() => tools.liveLink(args)),
+  )
 
   registerTaskView(mcp, viewDeps)
   if (config.control) registerControlTools(mcp, api, run, fail)

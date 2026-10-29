@@ -127,11 +127,17 @@ Ask your agent something like:
 | `sai_task_approve` | Answers a permission request: `approve`, `approve_for_task` or `deny`.     |
 | `sai_task_abort`   | Stops a task.                                                              |
 | `sai_upload`       | Uploads a local file so a task can use it.                                 |
+| `sai_live_link`    | A link to the computer's screen that you can use yourself, no sign-in.     |
 
 A task keeps running on the computer between calls. When Sai asks for
 something only you can do, such as signing in to an account, your agent gives
-you a link to finish it and keeps waiting. Sai remembers earlier tasks on the
-same computer; `new_session: true` starts fresh. `autonomous: true` on `sai_task_start`
+you a link to finish it and keeps waiting. When Sai needs you on the screen
+itself (a sign-in or a captcha it can't get past), your agent gives you a
+`live_url` from `sai_live_link`: open it in any browser, do the step once
+Sai's turn is over, and tell your agent, which asks Sai to continue. Anyone
+with the link can use the screen until it expires, so don't share it.
+
+Sai remembers earlier tasks on the same computer; `new_session: true` starts fresh. `autonomous: true` on `sai_task_start`
 runs that task without permission requests, for work you want done unattended.
 
 There is no screenshot tool: Sai sees the screen itself and reports in text.

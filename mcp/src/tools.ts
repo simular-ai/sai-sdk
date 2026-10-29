@@ -87,6 +87,15 @@ export const toolSchemas = {
   sai_upload: {
     path: z.string().min(1).describe('Absolute or cwd-relative path of a local file (max 25 MB).'),
   },
+  sai_live_link: {
+    machine_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'machine_id from sai_task_start or sai_machines. Optional when the account has exactly one machine.',
+      ),
+  },
 } as const
 
 // ─── Descriptions ─────────────────────────────────────────────────────────────
@@ -135,6 +144,12 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
   sai_upload:
     'Upload a local file (max 25 MB) so Sai can use it. Returns { file_id, name, mime, size }; pass file_id in sai_task_start.file_ids. ' +
     "The uploaded file lands in the machine's Sai files, not at the original path.",
+  sai_live_link:
+    "A link to the machine's screen for a person: { machine_id, live_url, expires_at } (expires_at in epoch ms). " +
+    'Anyone with live_url can open it in a browser without a Simular sign-in, and can use the mouse and keyboard while no Sai task is running. ' +
+    'Call it when Sai needs the person to act on the screen (sign in, solve a captcha, enter a code): give them live_url as a clickable link, ' +
+    'and once they say they are done, send Sai a message with sai_task_start to continue. ' +
+    'The link carries its own token: give it only to the person who should act. The machine must be running.',
 }
 
 export const serverInstructions = [
@@ -150,6 +165,8 @@ export const serverInstructions = [
   '   - idle: `text` is the answer. Report it to the user.',
   '   - error: report `error`; sai_task_start again to retry or rephrase.',
   '4. sai_task_abort to stop a task the user no longer wants.',
+  '',
+  'When Sai says it needs the person on the screen (a sign-in, a captcha, a code) and has finished its turn, call sai_live_link and give the person live_url: they can act on the screen once no task is running. When they say they are done, sai_task_start a message telling Sai to continue.',
   '',
   'One conversation per machine persists on the "api" channel across calls, so follow-up tasks can refer to earlier ones; pass new_session: true when the topic changes.',
   'If sai_task_start returns push: true, do NOT call sai_task_wait — a channel notification (<channel source="sai" session_id=... event=...>) delivers needs_approval / idle / error; continue other work meanwhile.',
@@ -332,6 +349,25 @@ export class SaiTools {
         return { ok: false, reason: 'link_only', ...(url && { approval_url: url }) }
       }
       throw err
+    }
+  }
+
+  async liveLink(args: {
+    machine_id?: string
+  }): Promise<{ machine_id: string; live_url: string; expires_at?: number }> {
+    const machineId = await this.resolveMachineId(args.machine_id)
+    const live = await this.ctx.api.liveScreen(machineId)
+    // Older or unconfigured servers send only the tunnel, which is not for a person or the model.
+    if (!live.liveUrl) {
+      throw new Error(
+        'This Sai server does not offer a live link yet. Send the user to the Playground ' +
+          '(https://platform.simular.ai/playground) or the watch_url from sai_task_start instead.',
+      )
+    }
+    return {
+      machine_id: machineId,
+      live_url: live.liveUrl,
+      ...(live.expiresAt !== undefined && { expires_at: live.expiresAt }),
     }
   }
 
