@@ -10,6 +10,7 @@ import {
   playgroundUrl,
   registerTaskView,
 } from '../app-view.js'
+import { SaiApi } from '../api.js'
 import { TaskLog } from '../task-log.js'
 import {
   applyPoll,
@@ -115,6 +116,49 @@ describe('MCP Apps task view (server)', () => {
       live_url: 'https://api.simular.ai/live#t=lp1.x.y',
       expires_at: 1790001800000,
     })
+  })
+
+  it('returns 409 and 429 from /live as an outcome the view backs off on, with Retry-After', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: 'machine_not_running', message: 'The computer is starting.' }),
+          { status: 409 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'rate_limited', message: 'Too many requests.' }), {
+          status: 429,
+          headers: { 'Retry-After': '42' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'rate_limited', retryAfterSeconds: 7 }), {
+          status: 429,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Machine not found.' }), { status: 404 }),
+      )
+    const api = new SaiApi('https://api.test', 'k', fetchImpl)
+    const { client } = await connect(
+      vi.fn(),
+      vi.fn((id: string) => api.liveScreen(id)),
+    )
+    const call = () => client.callTool({ name: 'sai_view_live', arguments: { machine_id: 'm1' } })
+
+    const booting = await call()
+    expect(booting.isError).toBeFalsy()
+    expect(booting.structuredContent).toEqual({ unavailable: 'machine_not_running', status: 409 })
+    expect((await call()).structuredContent).toEqual({
+      unavailable: 'rate_limited',
+      status: 429,
+      retry_after_s: 42,
+    })
+    expect((await call()).structuredContent).toMatchObject({ status: 429, retry_after_s: 7 })
+    // Anything else is still a failure.
+    expect(await call()).toMatchObject({ isError: true })
   })
 
   it('shows an older task its saved view, not the newer live turn', async () => {

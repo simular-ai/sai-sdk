@@ -14,12 +14,14 @@ import { SERVER_VERSION } from './version.js'
 /**
  * A non-2xx cloud-api response. `body` is the JSON the server sent: `{ error: "<code>",
  * message: "<text>" }` on current servers, `{ error: "<text>" }` on older ones.
+ * `retryAfter` is the server's `Retry-After` in seconds (or the body's `retryAfterSeconds`).
  */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly body: Record<string, unknown>,
     message: string,
+    readonly retryAfter?: number,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -95,7 +97,21 @@ async function readError(res: Response, prefix: string): Promise<ApiError> {
     res.status === 401
       ? ' SAI_API_KEY was rejected — it may be revoked or expired (Firebase ID tokens last one hour).'
       : ''
-  return new ApiError(res.status, body, `${prefix} (${res.status}): ${detail}${hint}`)
+  return new ApiError(
+    res.status,
+    body,
+    `${prefix} (${res.status}): ${detail}${hint}`,
+    retryAfterSeconds(res, body),
+  )
+}
+
+/** Same rule as the TypeScript SDK: the `Retry-After` header wins over the body's field. */
+function retryAfterSeconds(res: Response, body: Record<string, unknown>): number | undefined {
+  const raw = res.headers.get('retry-after')
+  const header = raw !== null && raw.trim() !== '' ? Number(raw) : NaN
+  if (Number.isFinite(header) && header >= 0) return header
+  const field = body.retryAfterSeconds
+  return typeof field === 'number' && Number.isFinite(field) && field >= 0 ? field : undefined
 }
 
 /**

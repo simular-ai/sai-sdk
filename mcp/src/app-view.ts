@@ -10,7 +10,9 @@
  * - `sai_view_poll`: app-only (`visibility: ["app"]`), so the model never sees
  *   it; the view calls it to follow the task.
  * - `sai_view_live`: app-only; a Guacamole tunnel for the task's live screen,
- *   plus the hosted `live_url` page when the server offers one.
+ *   plus the hosted `live_url` page when the server offers one. While the
+ *   computer isn't up (409) or past the rate limit (429) it returns
+ *   `{ unavailable, status, retry_after_s? }` so the view can back off.
  *
  * Hosts without MCP Apps get the same page from local-view.ts instead.
  */
@@ -18,6 +20,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 
+import { ApiError } from './api.js'
 import type { TaskLog } from './task-log.js'
 import type { LiveScreen, WaitResult } from './types.js'
 
@@ -122,7 +125,21 @@ export function taskViewTools(deps: TaskViewDeps): {
     sai_view_live: (raw) =>
       deps.run(async () => {
         const args = z.object(liveArgs).parse(raw)
-        const live = await deps.liveScreen(args.machine_id)
+        let live: LiveScreen
+        try {
+          live = await deps.liveScreen(args.machine_id)
+        } catch (err) {
+          // Expected while a free computer boots (409) or past the rate limit
+          // (429): an outcome the view backs off on, not a failure to show.
+          if (err instanceof ApiError && (err.status === 409 || err.status === 429)) {
+            return {
+              unavailable: typeof err.body.error === 'string' ? err.body.error : 'unavailable',
+              status: err.status,
+              ...(err.retryAfter !== undefined && { retry_after_s: err.retryAfter }),
+            }
+          }
+          throw err
+        }
         return {
           websocket_url: live.websocketUrl,
           width: live.width,
