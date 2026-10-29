@@ -113,18 +113,20 @@ else:
 
 More options, all optional (the SDK sends them to the API as `options`):
 
-| Argument            | What it does                                                                 |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `inputs`            | Fill `{{name}}` placeholders in the message; every placeholder needs a value |
-| `output_schema`     | JSON Schema (at most 32 KB) the output must match                            |
-| `success_criteria`  | A guideline for a judge, or a list of `Check` yes/no checks                  |
-| `idempotency_key`   | The same key again returns the earlier turn and sends nothing                |
-| `record_trajectory` | Keep a screenshot and the action for each step                               |
+| Argument            | What it does                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `inputs`            | Fill `{{name}}` placeholders in the message; every placeholder needs a value                  |
+| `output_schema`     | JSON Schema (at most 32 KB) the output must match                                             |
+| `success_criteria`  | A guideline for a judge, or a list of `Check` yes/no checks                                   |
+| `idempotency_key`   | The same key again returns the earlier turn and sends nothing                                 |
+| `record_trajectory` | Keep a screenshot and the action for each step                                                |
+| `thinking_level`    | `off`, `low`, `medium`, `high` or `xhigh` for this turn; omitted, the account setting applies |
 
 `inputs`, `output_schema` or `success_criteria` make the message _structured_. A structured message
 behaves like any other (same session, same computer); it only adds the typed result. It is refused with
 `ConflictError` (`code == "session_busy"`) while the session is working, because it starts a turn of its
-own. A plain message sent then joins the running turn instead.
+own. A plain message sent then joins the running turn instead. `thinking_level` is refused the same way,
+since it applies to a turn of its own.
 
 ```python
 from sai import Check

@@ -483,6 +483,7 @@ describe('sai typescript sdk', () => {
         ],
         idempotencyKey: 'inv-1001',
         recordTrajectory: true,
+        thinkingLevel: 'high',
       })
       expect(turn.id).toBe('turn_1')
       const result = await settle(turn.wait())
@@ -510,6 +511,7 @@ describe('sai typescript sdk', () => {
         ],
         idempotency_key: 'inv-1001',
         recordTrajectory: true,
+        thinkingLevel: 'high',
       })
       expect(Object.keys(body)).not.toContain('output_schema')
       expect(calls.filter((c) => c.path === '/v1/agents/turns/turn_1')).toHaveLength(3)
@@ -589,6 +591,30 @@ describe('sai typescript sdk', () => {
       expect(bodies[0]?.autonomous).toBe(true)
       expect(bodies[0]?.options).toBeUndefined()
       expect(bodies[1]).not.toHaveProperty('autonomous')
+    })
+
+    it('thinkingLevel goes in options, only when given', async () => {
+      const calls: Call[] = []
+      const sai = client(
+        {
+          'POST /v1/agents/new-session': { sessionId: 'cs_1' },
+          'POST /v1/agents/message': [
+            202,
+            { sessionId: 'cs_1', machineId: 'm_1', turnId: 'turn_5' },
+          ],
+          'GET /v1/agents/events': { sessionId: 'cs_1', status: 'idle', events: [], text: 'Done.' },
+        },
+        calls,
+      )
+      const session = await sai.sessions.create({ machine: 'm_1' })
+      await session.run('hello', { thinkingLevel: 'off' })
+      await session.run('again')
+      const bodies = calls
+        .filter((c) => c.path === '/v1/agents/message')
+        .map((c) => JSON.parse(c.body) as Record<string, unknown>)
+      expect(bodies[0]?.options).toEqual({ thinkingLevel: 'off' })
+      expect(bodies[0]).not.toHaveProperty('thinkingLevel')
+      expect(bodies[1]?.options).toBeUndefined()
     })
 
     it('an idempotency key alone keeps the message plain', async () => {
