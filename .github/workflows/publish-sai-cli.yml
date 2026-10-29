@@ -1,5 +1,8 @@
 name: Publish sai-cli
 
+# DEPRECATED (2026-10-28): @simular-ai/sai-cli is no longer released. The tag trigger and
+# the publish job are gone; the checks below stay until cli/ is removed.
+#
 # CI + npm publish for the @simular-ai/sai-cli package (cli).
 #
 # Checks (lint / typecheck / build / test / smoke) run on every non-draft PR that
@@ -36,9 +39,6 @@ on:
     paths:
       - 'cli/**'
       - '.github/workflows/publish-sai-cli.yml'
-  push:
-    tags:
-      - 'sai-cli-v*'
   workflow_dispatch:
 
 concurrency:
@@ -78,7 +78,6 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
 
-
       - name: Install dependencies
         run: npm ci
 
@@ -102,81 +101,3 @@ jobs:
 
       - name: Smoke test (--help)
         run: node cli/dist/cli.cjs --help
-
-  publish:
-    name: Publish to npm
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/sai-cli-v')
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write # create the GitHub Release for this tag
-      id-token: write # required for npm trusted publishing (OIDC) to npmjs.org
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          # See build job: keep npm's private-dep clones on the App token, not
-          # the repo-scoped GITHUB_TOKEN.
-          persist-credentials: false
-
-      # Intentionally no `registry-url`: setup-node would otherwise write an
-      # ~/.npmrc with `_authToken=${NODE_AUTH_TOKEN}`, which shadows the OIDC
-      # trusted-publishing handshake and breaks `npm publish` (same reasoning
-      # as simulang-js's CI). The repo-level .npmrc already routes @simular-ai
-      # to registry.npmjs.org.
-      - name: Setup Node
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
-        with:
-          node-version-file: '.nvmrc'
-          cache: npm
-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify tag matches package version & determine dist-tag
-        id: release
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG_NAME="${GITHUB_REF#refs/tags/}"
-          TAG_VERSION="${TAG_NAME#sai-cli-v}"
-          PKG_VERSION="$(node -p "require('./cli/package.json').version")"
-
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::Tag version ($TAG_VERSION) does not match cli/package.json version ($PKG_VERSION). Bump the package version to match the tag." >&2
-            exit 1
-          fi
-
-          if echo "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
-          elif echo "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-.+'; then
-            echo "dist-tag=next" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::Tag '$TAG_NAME' is not a release tag (expected sai-cli-vX.Y.Z or sai-cli-vX.Y.Z-prerelease)." >&2
-            exit 1
-          fi
-
-      - name: Build
-        run: npm run build -w @simular-ai/sai-cli
-
-      # prepublishOnly in the package rebuilds the bundle again as a safety net.
-      # No auth token: the npm CLI detects the Actions OIDC environment and
-      # exchanges the id-token for a short-lived publish token on its own.
-      - name: Publish to npmjs.org
-        run: |
-          set -euo pipefail
-          npm publish -w @simular-ai/sai-cli \
-            --access public \
-            --tag "${{ steps.release.outputs.dist-tag }}"
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE_FLAG: ${{ steps.release.outputs.dist-tag == 'next' && '--prerelease' || '' }}
-        run: |
-          gh release create "$TAG_NAME" \
-            --title "$TAG_NAME" \
-            --generate-notes \
-            $PRERELEASE_FLAG

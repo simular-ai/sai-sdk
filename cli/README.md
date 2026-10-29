@@ -1,5 +1,9 @@
 # @simular-ai/sai-cli
 
+> **Deprecated.** `sai-cli` gets no new releases and will be removed. Use the
+> [Sai API](https://platform.simular.ai/documentation), the Python or TypeScript SDK, or the
+> `@simular-ai/sai-mcp` MCP server instead.
+
 Command-line interface for [Sai](https://sai.simular.ai), your Simular AI agent.
 
 `sai` lets you drive your Sai agent from the terminal — send tasks, ask about

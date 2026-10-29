@@ -2,12 +2,12 @@
 
 Client libraries for the Sai API:
 
-| Directory     | Package                        | What it is                   |
-| ------------- | ------------------------------ | ---------------------------- |
-| `python/`     | `sai-sdk` (PyPI), `import sai` | Python SDK                   |
-| `typescript/` | `@simular-ai/sai-sdk` (npm)    | TypeScript SDK               |
-| `mcp/`        | `@simular-ai/sai-mcp` (npm)    | MCP server for coding agents |
-| `cli/`        | `@simular-ai/sai-cli` (npm)    | `sai` command-line interface |
+| Directory     | Package                        | What it is                             |
+| ------------- | ------------------------------ | -------------------------------------- |
+| `python/`     | `sai-sdk` (PyPI), `import sai` | Python SDK                             |
+| `typescript/` | `@simular-ai/sai-sdk` (npm)    | TypeScript SDK                         |
+| `mcp/`        | `@simular-ai/sai-mcp` (npm)    | MCP server for coding agents           |
+| `cli/`        | `@simular-ai/sai-cli` (npm)    | `sai` CLI, deprecated, no new releases |
 
 `mcp`, `cli` and `typescript` are npm workspaces with one lockfile at the root. `python` is a uv
 project with its own lockfile.
@@ -52,7 +52,7 @@ cd python && uv sync && uv run pytest
 
 Releases go through CI only, never by hand:
 
-- `sai-mcp-v*` / `sai-cli-v*` tags publish `@simular-ai/sai-mcp` / `@simular-ai/sai-cli`
+- `sai-mcp-v*` tags publish `@simular-ai/sai-mcp`
   (npm trusted publishing, bound to this repo and the workflow file name).
 - `sai-sdk-py-v*` publishes `sai-sdk` to PyPI (`publish-sai-sdk-py.yml`, trusted publishing through the
   `pypi` environment); `sai-sdk-ts-v*` publishes `@simular-ai/sai-sdk` to npm (`publish-sai-sdk-ts.yml`).
