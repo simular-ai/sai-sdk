@@ -305,6 +305,19 @@ describe('sai typescript sdk', () => {
     ])
   })
 
+  it('parses the machine `os`, and null when the server omits it', async () => {
+    const machines = await client({
+      'GET /v1/agents/machines': {
+        machines: [
+          { machineId: 'm_1', kind: 'cloud', os: 'windows' },
+          { machineId: 'm_2', kind: 'own', os: 'macOS' },
+          { machineId: 'm_3', kind: 'cloud' },
+        ],
+      },
+    }).machines.list()
+    expect(machines.map((m) => m.os)).toEqual(['windows', 'macOS', null])
+  })
+
   it('opens a live screen with its page link, and revokes the links', async () => {
     const calls: Call[] = []
     const sai = client(

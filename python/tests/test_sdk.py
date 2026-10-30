@@ -247,6 +247,18 @@ def test_machine_state() -> None:
     assert [(m.state, m.status) for m in got] == [("asleep", "hibernated"), (None, None)]
 
 
+def test_machine_os() -> None:
+    machines = {
+        "machines": [
+            {"machineId": "m_1", "kind": "cloud", "os": "windows"},
+            {"machineId": "m_2", "kind": "own", "os": "macOS"},
+            {"machineId": "m_3", "kind": "cloud"},
+        ]
+    }
+    got = client({"GET /v1/agents/machines": machines}).machines.list()
+    assert [m.os for m in got] == ["windows", "macOS", None]
+
+
 def test_live_screen_page_link_and_revoke() -> None:
     calls: list[httpx.Request] = []
     sai = client(
