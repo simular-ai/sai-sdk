@@ -139,6 +139,17 @@ describe('machinesResult', () => {
       ]).machines,
     ).toEqual([{ machineId: 'm1', kind: 'cloud', online: false, state: 'asleep' }])
   })
+  it('passes `os` through when the server sends it', () => {
+    expect(
+      machinesResult([
+        { machineId: 'm1', kind: 'cloud', online: true, os: 'windows' },
+        { machineId: 'm2', kind: 'own', online: true },
+      ]).machines,
+    ).toEqual([
+      { machineId: 'm1', kind: 'cloud', online: true, os: 'windows' },
+      { machineId: 'm2', kind: 'own', online: true },
+    ])
+  })
 })
 
 describe('SaiApi errors', () => {

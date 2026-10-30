@@ -138,6 +138,8 @@ export interface MachineRow {
   /** A4 fields — present once cloud-api ships them. */
   kind?: 'cloud' | 'own'
   online?: boolean
+  /** From the platform the machine registered; absent when unknown or on older servers. */
+  os?: 'windows' | 'linux' | 'macOS' | 'android'
 }
 
 /** `POST /v1/agents/machines/:id/live` response. */

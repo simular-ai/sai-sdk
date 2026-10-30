@@ -26,6 +26,8 @@ class Machine:
     raw: dict[str, Any] = field(repr=False)
     state: Optional[str] = None
     """`running`, `starting`, `asleep`, `creating` or `unknown`; None on servers that do not send it yet."""
+    os: Optional[str] = None
+    """`windows`, `linux`, `macOS` or `android`; None when the server does not know it or does not send it yet."""
 
     @classmethod
     def parse(cls, d: dict[str, Any]) -> Machine:
@@ -38,6 +40,7 @@ class Machine:
             can_wake=bool(d.get("canWake")),
             raw=d,
             state=d.get("state"),
+            os=d.get("os"),
         )
 
 

@@ -72,6 +72,8 @@ export interface Machine {
   /** @deprecated The server's internal lifecycle value; it may gain values at any time. Use `state`. */
   status: string | null
   canWake: boolean
+  /** `windows`, `linux`, `macOS` or `android`; `null` when the server does not know it or does not send it yet. */
+  os: string | null
   raw: Json
 }
 
@@ -84,6 +86,7 @@ export function parseMachine(d: Json): Machine {
     state: str(d.state) ?? null,
     status: str(d.status) ?? null,
     canWake: Boolean(d.canWake),
+    os: str(d.os) ?? null,
     raw: d,
   }
 }

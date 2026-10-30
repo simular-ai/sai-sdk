@@ -108,7 +108,7 @@ const NO_SCREENSHOT =
 export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
   sai_machines:
     "List the Sai machines (cloud computers or the user's own desktops) this account can drive. " +
-    'Returns { machines: [{ machineId, name, kind?, online? }], default? } — `default` is set when there is exactly one machine, ' +
+    'Returns { machines: [{ machineId, name, kind?, online?, os? }], default? } — `default` is set when there is exactly one machine, ' +
     'in which case sai_task_start may omit machine_id. Call this once per conversation, not before every task. ' +
     'An empty list means the account has no computer yet: this server cannot create one (it costs money and needs ' +
     'the signed-in user), so send the user to https://platform.simular.ai/playground to create it in one click.',
@@ -206,7 +206,9 @@ export function buildApprovalUrl(userId: string, approvalId: string): string {
 }
 
 export function machinesResult(rows: MachineRow[]): {
-  machines: Array<Pick<MachineRow, 'machineId' | 'name' | 'kind' | 'online' | 'state' | 'status'>>
+  machines: Array<
+    Pick<MachineRow, 'machineId' | 'name' | 'kind' | 'online' | 'state' | 'status' | 'os'>
+  >
   default?: string
 } {
   const machines = rows.map((m) => ({
@@ -215,6 +217,7 @@ export function machinesResult(rows: MachineRow[]): {
     ...(m.kind !== undefined && { kind: m.kind }),
     ...(m.online !== undefined && { online: m.online }),
     ...(m.state !== undefined && { state: m.state }),
+    ...(m.os !== undefined && { os: m.os }),
     // Pre-A4 servers send `status` instead of `online`; pass it through rather than guess.
     ...(m.online === undefined && m.status !== undefined && { status: m.status }),
   }))
