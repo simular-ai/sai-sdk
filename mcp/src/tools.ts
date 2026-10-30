@@ -103,7 +103,7 @@ export const toolSchemas = {
       .min(1)
       .optional()
       .describe(
-        'The task with {{name}} placeholders for the inputs that should become parameters, e.g. "Open {{site}} and read the title of the top story". Omit to let Sai find them.',
+        'The task with {{name}} placeholders for the inputs that should become parameters, e.g. "Open {{newsSite}}, find all {{topic}} news published today and save their headlines as {{fileName}}". Omit to let Sai find them.',
       ),
     guidance: z
       .string()

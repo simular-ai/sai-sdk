@@ -47,7 +47,7 @@ To get the code itself, to keep in your repo and run without the agent, ask
 your coding agent:
 
 ```text
-Use Sai to open Hacker News and read the title of the top story, then turn what it did into code I can rerun.
+Use Sai to open TechCrunch, find all AI news published today, write their headlines into Notepad and save the file as techcrunch_headlines.txt, then turn what it did into code I can rerun.
 ```
 
 It runs the task with `record_trajectory: true` and calls `sai_learn`, which
