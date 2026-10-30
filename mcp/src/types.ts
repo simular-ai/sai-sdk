@@ -37,6 +37,8 @@ export interface ApprovalRequest {
 export type SseEvent =
   | { type: 'start'; messageId?: string }
   | { type: 'data-session'; data: { sessionId: string } }
+  /** The turn this message started; sent right after `data-session`. */
+  | { type: 'data-turn'; data: { turnId: string } }
   | { type: 'data-status'; data: { text: string; sessionId?: string; kind?: string } }
   | { type: 'text-start'; id: string }
   | { type: 'text-delta'; id: string; delta: string }
@@ -109,12 +111,16 @@ export interface StartRequest {
   model?: string
   /** Run the turn this message starts without approval cards; the grant ends with the turn. */
   autonomous?: boolean
+  /** Record the turn's steps, so `POST /learn` can turn it into code. */
+  recordTrajectory?: boolean
 }
 
 export interface StartResult {
   sessionId: string
   machineId: string
   queued: boolean
+  /** The turn this message started, on servers that send it. */
+  turnId?: string
 }
 
 /** `POST /v1/agents/upload` response; also the attachment shape `/message` takes. */

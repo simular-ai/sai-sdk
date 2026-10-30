@@ -203,6 +203,25 @@ describe('StreamCollector', () => {
     )
   })
 
+  it('remembers the turn the data-turn frame names, and sends recordTrajectory when asked', async () => {
+    const stream = scriptedStream()
+    const fetchImpl = vi.fn(async () => stream.response)
+    const collector = new StreamCollector(new SaiApi('https://api.test', 'k', fetchImpl))
+    const started = collector.start({ machineId: 'm1', message: 'ping', recordTrajectory: true })
+    stream.push({ type: 'data-session', data: { sessionId: 's5' } })
+    await started
+    stream.push({ type: 'data-turn', data: { turnId: 'turn_a' } })
+    await tick()
+    expect(collector.turnId('s5')).toBe('turn_a')
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual({
+      machineId: 'm1',
+      message: 'ping',
+      options: { recordTrajectory: true },
+    })
+    stream.close()
+  })
+
   it('wait on an unknown session explains the limitation', async () => {
     const collector = new StreamCollector(new SaiApi('https://api.test', 'k', vi.fn()))
     await expect(collector.wait('ghost', { timeoutMs: 1 })).rejects.toThrow(/Unknown session ghost/)
@@ -228,6 +247,19 @@ describe('EventsPoller (SAI_EVENTS_API=1)', () => {
     })
     const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
     expect(JSON.parse(init.body as string)).toEqual({ machineId: 'm1', message: 'go', wait: false })
+  })
+
+  it('remembers the turn the 202 names', async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ sessionId: 's1', machineId: 'm1', queued: false, turnId: 'turn_b' }),
+          { status: 202 },
+        ),
+    )
+    const poller = new EventsPoller(new SaiApi('https://api.test', 'k', fetchImpl))
+    await poller.start({ machineId: 'm1', message: 'go' })
+    expect(poller.turnId('s1')).toBe('turn_b')
   })
 
   it.each([

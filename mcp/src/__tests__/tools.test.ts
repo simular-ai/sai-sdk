@@ -47,7 +47,7 @@ describe('timeout clamp', () => {
 describe('tool schemas (§7)', () => {
   const names = Object.keys(toolSchemas)
 
-  it('exposes the six §7 tools plus sai_models and sai_live_link, each with a description', () => {
+  it('exposes the six §7 tools plus sai_models, sai_live_link and sai_learn, each with a description', () => {
     expect(names.sort()).toEqual(
       [
         'sai_machines',
@@ -58,6 +58,7 @@ describe('tool schemas (§7)', () => {
         'sai_task_approve',
         'sai_task_abort',
         'sai_upload',
+        'sai_learn',
       ].sort(),
     )
     for (const name of names) {
@@ -92,6 +93,13 @@ describe('tool schemas (§7)', () => {
     expect(schema.safeParse({ approval_id: 'a', decision: 'yes' }).success).toBe(false)
   })
 
+  it('sai_learn requires session_id; the template and guidance are optional', () => {
+    const schema = z.object(toolSchemas.sai_learn)
+    expect(schema.safeParse({ session_id: 's' }).success).toBe(true)
+    expect(schema.safeParse({ session_id: 's', task_template: 'Open {{site}}' }).success).toBe(true)
+    expect(schema.safeParse({}).success).toBe(false)
+  })
+
   it('sai_task_abort and sai_upload take one required string', () => {
     expect(z.object(toolSchemas.sai_task_abort).safeParse({ session_id: 's' }).success).toBe(true)
     expect(z.object(toolSchemas.sai_task_abort).safeParse({}).success).toBe(false)
@@ -112,6 +120,9 @@ describe('tool schemas (§7)', () => {
     expect(serverInstructions).toMatch(/no screenshot/i)
     expect(serverInstructions).toMatch(/sai_live_link.*live_url/)
     expect(toolDescriptions.sai_live_link).toMatch(/without a Simular sign-in/)
+    expect(toolDescriptions.sai_learn).toMatch(/record_trajectory: true/)
+    expect(toolDescriptions.sai_learn).toMatch(/call sai_learn again with the same arguments/)
+    expect(serverInstructions).toMatch(/record_trajectory: true.*sai_learn/)
   })
 })
 
@@ -223,6 +234,7 @@ function fakeSource(overrides: Partial<SessionSource> = {}): SessionSource {
     wait: vi.fn(async () => ({ status: 'idle' as const, events: [], text: 'done', cursor: '0' })),
     findApproval: vi.fn(() => undefined),
     noteApprovalResolved: vi.fn(),
+    turnId: vi.fn(() => undefined),
     ...overrides,
   }
 }
@@ -363,6 +375,23 @@ describe('SaiTools.start', () => {
     expect(source.start).toHaveBeenNthCalledWith(2, { machineId: 'm1', message: 'pong' })
   })
 
+  it('asks the server to record the steps only when asked', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ machines: [{ machineId: 'm1' }] }))
+    const source = fakeSource()
+    const tools = new SaiTools({
+      api: new SaiApi('https://api.test', 'k', fetchImpl),
+      source,
+      push: false,
+      userId: async () => 'uid1',
+    })
+    await tools.start({ task: 'ping', record_trajectory: true })
+    expect(source.start).toHaveBeenCalledWith({
+      machineId: 'm1',
+      message: 'ping',
+      recordTrajectory: true,
+    })
+  })
+
   it('refuses to guess between two machines', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ machines: [{ machineId: 'a', name: 'A' }, { machineId: 'b' }] }),
@@ -482,5 +511,70 @@ describe('SaiTools.abort', () => {
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://api.test/v1/agents/abort')
     expect(JSON.parse(init.body as string)).toEqual({ sessionId: 's' })
+  })
+})
+
+describe('SaiTools.learn', () => {
+  function learnTools(fetchImpl: typeof fetch, turnId: string | undefined): SaiTools {
+    return new SaiTools({
+      api: new SaiApi('https://api.test', 'k', fetchImpl),
+      source: fakeSource({ turnId: vi.fn(() => turnId) }),
+      push: false,
+      userId: async () => undefined,
+    })
+  }
+
+  it("turns the session's last recorded turn into code", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ learnId: 'learn_1', status: 'succeeded', code: 'async function main() {}' }),
+    )
+    const tools = learnTools(fetchImpl, 'turn_a')
+    const result = await tools.learn({ session_id: 's1', task_template: 'Open {{site}}' })
+    expect(result).toMatchObject({ learnId: 'learn_1', code: 'async function main() {}' })
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.test/v1/agents/learn')
+    expect(JSON.parse(init.body as string)).toEqual({
+      turns: ['turn_a'],
+      taskTemplate: 'Open {{site}}',
+    })
+  })
+
+  it('says how to record a task when the session has none', async () => {
+    const fetchImpl = vi.fn()
+    await expect(learnTools(fetchImpl, undefined).learn({ session_id: 's1' })).rejects.toThrow(
+      /record_trajectory: true/,
+    )
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('answers running past the wait, and the next call waits on the same request', async () => {
+    let answer!: (r: Response) => void
+    const fetchImpl = vi.fn(() => new Promise<Response>((r) => (answer = r)))
+    const tools = learnTools(fetchImpl, 'turn_a')
+    expect(await tools.learn({ session_id: 's1' }, 10)).toMatchObject({ status: 'running' })
+    const again = tools.learn({ session_id: 's1' }, 1_000)
+    answer(jsonResponse({ learnId: 'learn_1', status: 'succeeded', code: 'x' }))
+    expect(await again).toMatchObject({ learnId: 'learn_1' })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('learns again once a result was handed over', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ learnId: 'learn_1', status: 'failed', error: 'no_steps' }),
+    )
+    const tools = learnTools(fetchImpl, 'turn_a')
+    await tools.learn({ session_id: 's1' })
+    await tools.learn({ session_id: 's1' })
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('tries again after a failed call', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: 'model_refused', message: 'no' }, 403))
+      .mockResolvedValueOnce(jsonResponse({ learnId: 'learn_2', status: 'succeeded', code: 'x' }))
+    const tools = learnTools(fetchImpl, 'turn_a')
+    await expect(tools.learn({ session_id: 's1' })).rejects.toThrow()
+    expect(await tools.learn({ session_id: 's1' })).toMatchObject({ learnId: 'learn_2' })
   })
 })

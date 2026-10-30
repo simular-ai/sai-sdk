@@ -50,6 +50,8 @@ export interface SessionSource {
   findApproval(approvalId: string): { sessionId: string; approval: ApprovalRequest } | undefined
   /** Local bookkeeping after `POST /approve` succeeded. */
   noteApprovalResolved(approvalId: string): void
+  /** The turn the session's last task started, if this process started it and the server named it. */
+  turnId(sessionId: string): string | undefined
 }
 
 /** Wakes every waiter on `signal()`; each waiter also has its own deadline. */
@@ -85,6 +87,7 @@ interface Tracked {
   machineId: string
   state: SessionState
   notifier: Notifier
+  turnId?: string
 }
 
 function snapshot(state: SessionState, cursor: string | undefined): WaitResult {
@@ -172,6 +175,10 @@ export class StreamCollector implements SessionSource {
               continue
             }
             if (event.type === 'start' || event.type === 'data-session') continue
+            if (event.type === 'data-turn') {
+              tracked.turnId = event.data.turnId
+              continue
+            }
             this.push(tracked, event)
           }
           if (!tracked) {
@@ -249,6 +256,10 @@ export class StreamCollector implements SessionSource {
       tracked.notifier.signal()
     }
   }
+
+  turnId(sessionId: string): string | undefined {
+    return this.sessions.get(sessionId)?.turnId
+  }
 }
 
 /** Max `wait` the server accepts on `/events` (§4). */
@@ -267,6 +278,7 @@ interface Polled {
   machineId?: string
   /** Local fold of what we have seen, so `approval` survives across polls. */
   state: SessionState
+  turnId?: string
 }
 
 /** LATER: A1 + A2. The server owns cursor, status and text; we keep the approval card. */
@@ -286,7 +298,11 @@ export class EventsPoller implements SessionSource {
         `Sai answered without starting a task: ${typeof reply === 'string' ? reply : ''}`.trim(),
       )
     }
-    this.sessions.set(result.sessionId, { machineId: result.machineId, state: initialState() })
+    this.sessions.set(result.sessionId, {
+      machineId: result.machineId,
+      state: initialState(),
+      ...(result.turnId && { turnId: result.turnId }),
+    })
     return result
   }
 
@@ -394,5 +410,9 @@ export class EventsPoller implements SessionSource {
 
   noteApprovalResolved(approvalId: string): void {
     for (const polled of this.sessions.values()) markApprovalResolved(polled.state, approvalId)
+  }
+
+  turnId(sessionId: string): string | undefined {
+    return this.sessions.get(sessionId)?.turnId
   }
 }

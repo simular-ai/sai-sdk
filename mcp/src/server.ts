@@ -188,6 +188,11 @@ export function createServer(): McpServer {
     (args) => run(() => tools.upload(args)),
   )
   mcp.registerTool(
+    'sai_learn',
+    { description: toolDescriptions.sai_learn, inputSchema: toolSchemas.sai_learn },
+    (args) => run(() => tools.learn(args)),
+  )
+  mcp.registerTool(
     'sai_live_link',
     { description: toolDescriptions.sai_live_link, inputSchema: toolSchemas.sai_live_link },
     (args) => run(() => tools.liveLink(args)),

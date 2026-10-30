@@ -43,6 +43,17 @@ already local, or you need exact, byte-for-byte output.
 3. Next time: `Run invoice_export for vendor Acme, month March.` Sai replays
    the code; when a step breaks because the UI changed, the agent takes over.
 
+To get the code itself, to keep in your repo and run without the agent, ask
+your coding agent:
+
+```text
+Use Sai to open TechCrunch, find all AI news published today, write their headlines into Notepad and save the file as techcrunch_headlines.txt, then turn what it did into code I can rerun.
+```
+
+It runs the task with `record_trajectory: true` and calls `sai_learn`, which
+returns `async function main(params = { ... })` with the inputs it found as
+parameters. See [Learned code](https://platform.simular.ai/documentation/concepts/learned-code).
+
 The research behind it: [Neuro-Symbolic Computer Use](https://arxiv.org/abs/2609.36927)
 (Sep 2026). Learned policies cut per-run cost 15–217× and latency 3.4–5.1×, and
 raised Pass^3 by 3.6–15.8 points over the base agent on OSWorld-Verified and
@@ -128,6 +139,7 @@ Ask your agent something like:
 | `sai_task_abort`   | Stops a task.                                                              |
 | `sai_upload`       | Uploads a local file so a task can use it.                                 |
 | `sai_live_link`    | A link to the computer's screen that you can use yourself, no sign-in.     |
+| `sai_learn`        | Turns a finished task into code you can rerun without the agent.           |
 
 A task keeps running on the computer between calls. When Sai asks for
 something only you can do, such as signing in to an account, your agent gives
