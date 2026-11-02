@@ -2,19 +2,21 @@
 
 Client libraries for the Sai API:
 
-| Directory     | Package                            | What it is                             |
-| ------------- | ---------------------------------- | -------------------------------------- |
-| `python/`     | `sai-sdk` (PyPI), `import sai`     | Python SDK                             |
-| `typescript/` | `@simular-ai/sai-sdk` (npm)        | TypeScript SDK                         |
-| `go/`         | `github.com/simular-ai/sai-sdk/go` | Go SDK, unreleased                     |
-| `java/`       | `ai.simular:sai-sdk` (Maven)       | Java SDK, unreleased                   |
-| `dotnet/`     | `Simular.Sai` (NuGet)              | .NET SDK, unreleased                   |
-| `mcp/`        | `@simular-ai/sai-mcp` (npm)        | MCP server for coding agents           |
-| `cli/`        | `@simular-ai/sai-cli` (npm)        | `sai` CLI, deprecated, no new releases |
+| Directory     | Package                               | What it is                             |
+| ------------- | ------------------------------------- | -------------------------------------- |
+| `python/`     | `sai-sdk` (PyPI), `import sai`        | Python SDK                             |
+| `typescript/` | `@simular-ai/sai-sdk` (npm)           | TypeScript SDK                         |
+| `go/`         | `github.com/simular-ai/sai-sdk/go`    | Go SDK, unreleased                     |
+| `java/`       | `ai.simular:sai-sdk` (Maven)          | Java SDK, unreleased                   |
+| `dotnet/`     | `Simular.Sai` (NuGet)                 | .NET SDK, unreleased                   |
+| `ruby/`       | `sai-sdk` (RubyGems), `require "sai"` | Ruby SDK, unreleased                   |
+| `mcp/`        | `@simular-ai/sai-mcp` (npm)           | MCP server for coding agents           |
+| `cli/`        | `@simular-ai/sai-cli` (npm)           | `sai` CLI, deprecated, no new releases |
 
 `mcp`, `cli` and `typescript` are npm workspaces with one lockfile at the root. `python` is a uv
 project with its own lockfile. `go` is a Go module with no dependencies. `java` is a Maven project.
-`dotnet` is a .NET solution (`dotnet/Simular.Sai.sln`).
+`dotnet` is a .NET solution (`dotnet/Simular.Sai.sln`). `ruby` is a Bundler project with its own
+`Gemfile.lock`.
 
 This repo was extracted from `simular-ai/simular-pro-unified-ui` with full history; see
 [MIGRATION.md](MIGRATION.md). PR numbers in old commit messages point at that repo.
@@ -30,10 +32,10 @@ other, and the docs show both side by side.
 2. **Each SDK has a parity test** (`python/tests/test_surface.py`,
    `typescript/test/surface.test.ts`, `go/surface_test.go`,
    `java/src/test/java/ai/simular/sai/SurfaceTest.java`,
-   `dotnet/tests/Simular.Sai.Tests/SurfaceTests.cs`) that fails when its public methods, errors or
-   enums differ from `surface.json`, in either direction. Names map mechanically: Java and .NET name
-   each `FooError` `FooException` (Java: `ConnectionError` is `SaiConnectionException`); .NET drops
-   the `Async` suffix.
+   `dotnet/tests/Simular.Sai.Tests/SurfaceTests.cs`, `ruby/test/surface_test.rb`) that fails when
+   its public methods, errors or enums differ from `surface.json`, in either direction. Names map
+   mechanically: Java and .NET name each `FooError` `FooException` (Java: `ConnectionError` is
+   `SaiConnectionException`); .NET drops the `Async` suffix; Ruby names `SaiError` `Sai::Error`.
 3. **A surface change lands in every SDK in the same PR**: `surface.json`, each SDK's code and tests,
    and each SDK's README. The docs pages live in `simular-ai/sai-platform`
    (`src/docs/content/sdks/*.md`): open the docs PR there and link it from the SDK PR. Never add a
@@ -63,6 +65,7 @@ cd python && uv sync && uv run pytest
 cd go && go vet ./... && go test ./...
 cd java && mvn -B verify
 cd dotnet && dotnet test
+cd ruby && bundle install && bundle exec rake test
 node conformance/selftest.mjs            # the conformance suite's own checks
 ```
 

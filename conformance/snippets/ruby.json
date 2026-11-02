@@ -1,0 +1,569 @@
+{
+  "source": {
+    "repo": "simular-ai/sai-platform",
+    "ref": "feat/sdk-ruby",
+    "commit": "3937daac93ef2fd32890bbe7cd226185264f296e"
+  },
+  "snippets": [
+    {
+      "file": "api-reference/abort.md",
+      "line": 76,
+      "title": "Stop a session's task",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.resume(\"cs_01HZY\")\np session.abort"
+    },
+    {
+      "file": "api-reference/account.md",
+      "line": 71,
+      "title": "Read your plan and credit",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\naccount = sai.account.get\np account"
+    },
+    {
+      "file": "api-reference/approve.md",
+      "line": 78,
+      "title": "Answer an approval",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.resume(\"cs_01HZY\")\nstatus = session.respond(\"ap_7Qw\", \"yes\")\nputs status"
+    },
+    {
+      "file": "api-reference/approve.md",
+      "line": 160,
+      "title": "Answer a choice question",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.resume(\"cs_01HZY\")\nstatus = session.respond(\"ap_9Lm\", \"yes\", selections: [[\"desktop\"]])\nputs status"
+    },
+    {
+      "file": "api-reference/authentication.md",
+      "line": 79,
+      "title": "Check a key",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nme = sai.auth.check\nputs me.user_id, me.auth_type # apiKey"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 74,
+      "title": "Open control of a computer",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nlease = sai.control.open(machine: \"m_7f2a\")"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 203,
+      "title": "Run code in a lease",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsai.control.open(machine: \"m_7f2a\") do |lease|\n  r = lease.exec(\n    \"var r = await machine.exec({ command: 'hostname' }); r.stdout.trim()\",\n    timeout_ms: 60_000\n  )\n  puts r.result\nend"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 343,
+      "title": "Interrupt the running block",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nlease = sai.control.open(machine: \"m_7f2a\")\np lease.interrupt"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 425,
+      "title": "Read the lease",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nlease = sai.control.open(machine: \"m_7f2a\")\np lease.get"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 509,
+      "title": "Close the lease",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nlease = sai.control.open(machine: \"m_7f2a\")\nlease.close"
+    },
+    {
+      "file": "api-reference/events.md",
+      "line": 91,
+      "title": "Poll for events",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.resume(\"cs_01HZY\")\nturn = session.send(\"Open Notepad and type hello\")\nturn.events do |ev|\n  puts \"#{ev.kind} #{ev.text}\"\nend"
+    },
+    {
+      "file": "api-reference/judge.md",
+      "line": 101,
+      "title": "Judge a turn",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\njudgement = sai.judge.create(\n  [\"turn_vzjz62w7j7jvOilZ6zBL\"],\n  [Sai::Check.new(id: \"title\", check: \"The agent reported the title of the top story\", return_evidence: true)]\n)\nputs judgement.verdict"
+    },
+    {
+      "file": "api-reference/judge.md",
+      "line": 214,
+      "title": "Read a judgement",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\njudgement = sai.judge.get(\"judgement_8LmQ2rT0bV\")\np judgement"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 116,
+      "title": "Learn code from a turn",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nlearned = sai.learn.create(\n  [\"turn_vzjz62w7j7jvOilZ6zBL\"],\n  task_template: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\"\n)\nputs learned.code"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 330,
+      "title": "Run learned code in a lease",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nlearned = sai.learn.get(\"learn_3Fq9cT1kZ0aJ\")\nsai.control.open(machine: \"m_7f2a\") do |lease|\n  r = lease.run(learned, { \"newsSite\" => \"TechCrunch\", \"topic\" => \"Fintech\", \"fileName\" => \"techcrunch_fintech.txt\" },\n                timeout_ms: 300_000)\n  p r.result\nend"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 470,
+      "title": "Start a learn job from a task",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\njob = sai.learn.create(\n  task_template: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  criteria: \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n  max_iterations: 3,\n  rollouts: 3\n)\ndone = sai.learn.wait(job)\np done.status, done.test_result, done.code"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 555,
+      "title": "Read a learn job",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\njob = sai.learn.get(\"learn_LIEHFGsRU4H3\")\np job.status, job.progress"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 668,
+      "title": "Read a run of a learn job",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\njob = sai.learn.get(\"learn_LIEHFGsRU4H3\")\np job.status, job.progress",
+      "code": "run = sai.learn.rollout(\"learn_LIEHFGsRU4H3\", 1, 2)\np run.run, run.judgement"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 702,
+      "title": "Cancel a learn job",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\njob = sai.learn.get(\"learn_LIEHFGsRU4H3\")\np job.status, job.progress",
+      "code": "sai.learn.cancel(\"learn_LIEHFGsRU4H3\")"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 785,
+      "title": "Read a learn result",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nlearned = sai.learn.get(\"learn_3Fq9cT1kZ0aJ\")\nputs learned.status"
+    },
+    {
+      "file": "api-reference/machines.md",
+      "line": 77,
+      "title": "List your computers",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsai.machines.list.each do |machine|\n  puts [machine.id, machine.name, machine.kind, machine.online].join(\" \")\nend"
+    },
+    {
+      "file": "api-reference/machines.md",
+      "line": 248,
+      "title": "Watch a computer's screen",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nlive = sai.machines.live(\"m_7f2a\")\np live"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 125,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nreport = sai.files.upload(\"report.pdf\") # attachments take what upload returns\nsession = sai.sessions.create(machine: \"m_7f2a\")\nturn = session.send(\n  \"Open Notepad, type hello, save it to the desktop as hello.txt\",\n  attachments: [report]\n)\nputs turn.id"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 275,
+      "title": "Give Sai a task with typed output",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.create\nturn = session.send(\n  \"Open https://news.ycombinator.com and read the title of the top story.\",\n  output_schema: {\n    type: \"object\",\n    properties: { title: { type: \"string\" } },\n    required: [\"title\"]\n  }\n)\nputs turn.id"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 383,
+      "title": "Run a task without approvals",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.create\nturn = session.send(\"Export last month's invoices to CSV\", autonomous: true)\nputs turn.id"
+    },
+    {
+      "file": "api-reference/models.md",
+      "line": 77,
+      "title": "List models",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsai.models.list.each do |model|\n  puts \"#{model.id} #{model.allowed}\"\nend"
+    },
+    {
+      "file": "api-reference/new-session.md",
+      "line": 72,
+      "title": "Start a new session",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.create(machine: \"m_7f2a\")"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 73,
+      "title": "Read a turn",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nrecord = sai.turns.get(\"turn_vzjz62w7j7jvOilZ6zBL\")\np record"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 193,
+      "title": "Read a turn's steps",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsai.turns.trajectory(\"turn_vzjz62w7j7jvOilZ6zBL\").each do |step|\n  puts \"#{step.index} #{step.title}\"\nend"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 306,
+      "title": "Download a step's screenshot",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\njpeg = sai.turns.screenshot(\"turn_vzjz62w7j7jvOilZ6zBL\", 0)\nFile.binwrite(\"step-0.jpg\", jpeg)"
+    },
+    {
+      "file": "api-reference/upload.md",
+      "line": 80,
+      "title": "Upload a file",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nattachment = sai.files.upload(\"./report.pdf\", name: \"report.pdf\")\np attachment"
+    },
+    {
+      "file": "concepts/approvals.md",
+      "line": 94,
+      "title": "Answer a command approval",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.resume(\"cs_01HZY\")\nsession.respond(\"ap_7Qw\", \"yes\")"
+    },
+    {
+      "file": "concepts/approvals.md",
+      "line": 196,
+      "title": "Answer a choice question",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.resume(\"cs_01HZY\")\nsession.respond(\"ap_9Lm\", \"yes\", selections: [[\"desktop\"]])"
+    },
+    {
+      "file": "concepts/billing-and-limits.md",
+      "line": 75,
+      "title": "Check your balance",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\np sai.account.get"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 139,
+      "title": "Record a task",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\nsession = sai.sessions.create(machine: pc)\nturn = session.send(\n  \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  record_trajectory: true\n)\nputs turn.id"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 258,
+      "title": "Learn, run and repair",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\nsession = sai.sessions.create(machine: pc)\nturn = session.send(\n  \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  record_trajectory: true\n)\nputs turn.id",
+      "code": "learned = sai.learn.create([turn])\nsai.control.open(machine: pc) do |lease|\n  inputs = { \"newsSite\" => \"TechCrunch\", \"topic\" => \"Fintech\", \"fileName\" => \"techcrunch_fintech.txt\" }\n  r = lease.run(learned, inputs)\n  unless r.ok?\n    learned = sai.learn.create(\n      initial_code: learned.code,\n      evaluations: [Sai::Evaluation.new(inputs: inputs, result: r, passed: false)]\n    )\n  end\nend"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 375,
+      "title": "Learn a reliable function from a task",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\nsession = sai.sessions.create(machine: pc)\nturn = session.send(\n  \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  record_trajectory: true\n)\nputs turn.id",
+      "code": "job = sai.learn.create(\n  task_template: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  criteria: \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n  max_iterations: 3,\n  rollouts: 3,\n  # Before the agent run and before every run: close the browser tabs and Notepad.\n  reset: { code: <<~JS },\n    for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n    for (const w of await machine.getWindow(\"Notepad\")) await w.close()\n  JS\n)\ndone = sai.learn.wait(job)\np done.test_result # passed 3 of 3 runs, on these inputs\nputs done.code"
+    },
+    {
+      "file": "concepts/sessions.md",
+      "line": 140,
+      "title": "List sessions",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsai.sessions.list(machine: sai.machines.list.first).each do |s|\n  puts \"#{s.id} #{s.title} #{s.active}\"\nend"
+    },
+    {
+      "file": "concepts/structured-output.md",
+      "line": 134,
+      "title": "Ask for typed output",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.create\nturn = session.send(\n  \"Open https://news.ycombinator.com and read the title of the top story.\",\n  output_schema: {\n    type: \"object\",\n    properties: { title: { type: \"string\" } },\n    required: [\"title\"]\n  }\n)\nputs turn.id"
+    },
+    {
+      "file": "concepts/structured-output.md",
+      "line": 450,
+      "title": "Give Sai a task with every option",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.create\nturn = session.send(\n  \"Sign in to the {{vendor}} portal and list the invoices dated in {{month}}.\",\n  inputs: { \"vendor\" => \"Acme\", \"month\" => \"September 2026\" },\n  output_schema: {\n    type: \"object\",\n    properties: {\n      invoices: {\n        type: \"array\",\n        items: {\n          type: \"object\",\n          properties: {\n            number: { type: \"string\" },\n            date: { type: \"string\", pattern: '^\\d{4}-\\d{2}-\\d{2}$' },\n            total: { type: \"number\" }\n          },\n          required: %w[number date total]\n        }\n      }\n    },\n    required: [\"invoices\"]\n  },\n  success_criteria: [\n    { id: \"signed_in\", check: \"Sai signed in and saw the invoice list.\" },\n    {\n      id: \"all_listed\",\n      check: \"Every invoice dated in the month is in the answer.\",\n      return_evidence: true\n    }\n  ],\n  idempotency_key: \"acme-invoices-2026-09\",\n  record_trajectory: true\n)\nputs turn.id"
+    },
+    {
+      "file": "organisations/enrollment.md",
+      "line": 78,
+      "title": "Create an enrollment code",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\nenrollment = org.tenants.create_enrollment(\"Xk2p9QzR4tLm8vNa3bCd\")\nputs enrollment.token, enrollment.expires_at # hand the token to your installer"
+    },
+    {
+      "file": "organisations/orgs.md",
+      "line": 211,
+      "title": "This month's usage, by Tenant",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"), org_id: ENV.fetch(\"SAI_ORG_ID\"))\nusage = org.usage.get(granularity: \"month\", from: \"2026-10\", to: \"2026-10\")\nusage.totals.by_tenant.each_value do |tenant|\n  puts \"#{tenant.name} #{tenant.cost_cents}\"\nend"
+    },
+    {
+      "file": "organisations/session-spend.md",
+      "line": 119,
+      "title": "List a Tenant's session spend for October",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"), org_id: ENV.fetch(\"SAI_ORG_ID\"))\ncursor = nil\nloop do\n  page = org.usage.sessions(\"Xk2p9QzR4tLm8vNa3bCd\", from: \"2026-10-01\", to: \"2026-10-31\", cursor: cursor)\n  page.sessions.each { |s| puts \"#{s.session_id} #{s.title} #{s.cost_usd}\" }\n  cursor = page.next_cursor\n  break if cursor.nil?\nend"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 217,
+      "title": "List a Tenant's machines",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\norg.tenant_machines.list(\"Xk2p9QzR4tLm8vNa3bCd\").each do |machine|\n  puts \"#{machine.id} #{machine.name} #{machine.state}\"\nend"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 321,
+      "title": "Get a Tenant machine",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\nmachine = org.tenant_machines.get(\"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\")"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 395,
+      "title": "Revoke a Tenant machine",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\norg.tenant_machines.revoke(\"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\")"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 77,
+      "title": "Exchange an Organisation Key for a Tenant token",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"), org_id: \"org_3f9a1c0b7e2d4a6f8c10\")\ntoken = org.tenants.token(\"Xk2p9QzR4tLm8vNa3bCd\")\nputs token.token, token.expires_at"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 184,
+      "title": "Send a message as the Tenant",
+      "context": "",
+      "code": "require \"sai\"\n\ntenant_token = \"eyJhbGciOiJSUzI1NiIs...\"\nsai = Sai::Client.new(api_key: tenant_token)\nsession = sai.sessions.create\nturn = session.send(\"Open the calendar and read today’s appointments\")"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 268,
+      "title": "Act as the Tenant",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"), org_id: \"org_3f9a1c0b7e2d4a6f8c10\")\nclinic = org.tenants.client(\"Xk2p9QzR4tLm8vNa3bCd\")\nsession = clinic.sessions.create\nturn = session.send(\"Open the calendar and read today’s appointments\")"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 138,
+      "title": "Create a Tenant",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\ntenant = org.tenants.create(\n  \"Riverside Clinic\",\n  external_id: \"clinic-4821\",\n  metadata: { \"plan\" => \"pro\" }\n)\nputs tenant.id"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 272,
+      "title": "List active Tenants",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\ncursor = nil\nloop do\n  page = org.tenants.list(status: \"active\", limit: 50, cursor: cursor)\n  page.tenants.each { |tenant| puts \"#{tenant.id} #{tenant.name}\" }\n  cursor = page.next_cursor\n  break if cursor.nil?\nend"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 366,
+      "title": "Find a Tenant by your own id",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\ntenant = org.tenants.list(external_id: \"clinic-4821\").tenants.first # nil when there is none"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 436,
+      "title": "Get a Tenant",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\ntenant = org.tenants.get(\"Xk2p9QzR4tLm8vNa3bCd\")"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 527,
+      "title": "Rename a Tenant and replace its metadata",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\ntenant = org.tenants.update(\n  \"Xk2p9QzR4tLm8vNa3bCd\",\n  name: \"Riverside Clinic East\",\n  metadata: { \"plan\" => \"enterprise\" }\n)"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 662,
+      "title": "Disable a Tenant",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\ntenant = org.tenants.update(\"Xk2p9QzR4tLm8vNa3bCd\", status: \"disabled\")"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 736,
+      "title": "Delete a Tenant",
+      "context": "",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"))\norg.tenants.delete(\"Xk2p9QzR4tLm8vNa3bCd\")"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 92,
+      "title": "List your computers",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsai.machines.list.each do |machine|\n  puts [machine.id, machine.name, machine.kind, machine.online].join(\" \")\nend"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 172,
+      "title": "Check your account",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\np sai.account.get"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 264,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.create\nturn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nputs turn.id, turn.queued"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 328,
+      "title": "Poll for events",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.create\nturn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nputs turn.id, turn.queued",
+      "code": "# `turn` is what session.send returned in step 4; events polls until the turn ends.\nturn.events do |ev|\n  puts \"#{ev.kind} #{ev.text}\"\nend"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 428,
+      "title": "Answer an approval",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\nsession = sai.sessions.resume(\"cs_01HZY\")\nsession.respond(\"ap_7Qw\", \"yes\")"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 622,
+      "title": "Learn code for a task",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\njob = sai.learn.create(\n  task_template: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  criteria: \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n  reset: { code: <<~JS },\n    for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n    for (const w of await machine.getWindow(\"Notepad\")) await w.close()\n  JS\n  max_iterations: 2,\n  rollouts: 2,\n  machine: pc\n)\ndone = sai.learn.wait(job)\nputs done.status, done.test_result.status\nputs done.code"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 743,
+      "title": "Run the learned code",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\njob = sai.learn.create(\n  task_template: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  criteria: \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n  reset: { code: <<~JS },\n    for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n    for (const w of await machine.getWindow(\"Notepad\")) await w.close()\n  JS\n  max_iterations: 2,\n  rollouts: 2,\n  machine: pc\n)\ndone = sai.learn.wait(job)\nputs done.status, done.test_result.status\nputs done.code",
+      "code": "# Continue from the code above.\nsai.control.open(machine: pc) do |lease|\n  p lease.run(done).result\nend"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 819,
+      "title": "Run a task",
+      "context": "",
+      "code": "require \"sai\"\n\nresult = Sai::Client.new.sessions.create.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nputs result.text"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 29,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 51,
+      "title": "Watch the events",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "turn = session.send(\"Find last month's invoices in Downloads and total them\")\nturn.events do |ev|\n  case ev.kind\n  when \"step\" then puts \"   #{ev.text}\"\n  when \"approval\" then turn.respond(ev.approval, \"yes\")\n  end\nend\nresult = turn.wait"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 77,
+      "title": "Approval handler",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "result = session.run(\"Clean up the temp folder\") do |approval|\n  if approval.link_only?\n    puts \"Approve in a browser: #{approval.url}\"\n    next nil # a person answers it; keep waiting\n  end\n  next [\"yes\", approval.questions.map { |q| [q[\"options\"][0][\"value\"]] }] if approval.type == \"choice\"\n\n  \"yes\"\nend"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 93,
+      "title": "Unattended run",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "session.run(\"Export last month's invoices to CSV\", autonomous: true)"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 99,
+      "title": "Files, models, stopping",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "report = sai.files.upload(\"report.pdf\") # or data: bytes, name: \"report.pdf\"\nsession.run(\"Summarise the attached report\", attachments: [report])\n\nallowed = sai.models.list.select(&:allowed).map(&:id)\nsession.run(\"...\", model: \"anthropic/claude-opus-5-5\") # sticks to the session\n\nturn = session.send(\"...\")\nturn.abort"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 116,
+      "title": "Typed output",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "result = session.run(\n  \"Open https://news.ycombinator.com and read the title of the top story.\",\n  output_schema: { type: \"object\", properties: { title: { type: \"string\" } }, required: [\"title\"] }\n)\nif result.ok?\n  puts result.record.output[\"title\"]\nelse\n  puts result.record.reason_code # e.g. output_invalid\nend"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 130,
+      "title": "Read a turn later",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "turn = session.send(\"...\", record_trajectory: true)\nrecord = sai.turns.wait(turn) # until succeeded, failed or needs_input\nsai.turns.trajectory(turn).each do |step|\n  puts \"#{step.index} #{step.title}\"\nend"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 142,
+      "title": "Learn and repair code",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "turn = session.send(\n  \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  record_trajectory: true\n)\nsai.turns.wait(turn)\n\nlearned = sai.learn.create([turn]) # waits for the code; longer for a longer task\ninputs = { \"newsSite\" => \"TechCrunch\", \"topic\" => \"Fintech\", \"fileName\" => \"techcrunch_fintech.txt\" }\nr = sai.control.open(machine: pc) do |lease|\n  lease.run(learned, inputs) # inputs over the defaults\nend\np r.result\n\nfixed = sai.learn.create(\n  initial_code: learned.code,\n  evaluations: [Sai::Evaluation.new(inputs: inputs, result: r, passed: false)]\n)\njudgement = sai.judge.create([turn], [Sai::Check.new(id: \"file\", check: \"The agent saved the headlines to the file\")])"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 168,
+      "title": "Run, judge and repair on a computer",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "job = sai.learn.create(\n  task_template: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n  inputs: { \"newsSite\" => \"TechCrunch\", \"topic\" => \"AI\", \"fileName\" => \"techcrunch_headlines.txt\" },\n  machine: pc,\n  criteria: \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n  max_iterations: 3,         # up to 3 code versions; 0 (the default) only writes the code\n  rollouts: 3,               # each version must pass 3 runs in a row\n  reset: { code: <<~JS },\n    for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n    for (const w of await machine.getWindow(\"Notepad\")) await w.close()\n  JS\n  continue_with_agent: true  # after a failed run, the agent finishes the task and the repair learns from it\n)\ndone = sai.learn.wait(job)   # can take an hour; timeout: to stop waiting\np done.status, done.stop_reason, done.test_result\nputs done.code               # the latest version\ndone.iterations.each do |it|\n  p [it.index, it.changes, it.rollouts.map(&:verdict)]\nend\n\nrun = sai.learn.rollout(job, 1, 1) # what one run returned and logged, and its judgement\nsai.learn.cancel(job)              # stops at once and keeps the last complete results"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 199,
+      "title": "Drive a computer",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "sai.control.open(machine: pc) do |lease|\n  puts lease.shell(\"hostname\").stdout\n\n  lease.write_file('C:\\data\\note.txt', \"hello\")\n  puts lease.read_file('C:\\data\\note.txt')\n\n  r = lease.exec(<<~JS)\n    var page = await machine.browser.newtab('https://example.com')\n    var snap = await page.snapshot()\n    snap.title\n  JS\n  p r.result # Example Domain\n  ext = r.screenshot_mime_type.split(\"/\")[1] # jpeg or png\n  File.binwrite(\"page.#{ext}\", r.screenshot)\nend"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 228,
+      "title": "Other calls",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "sai.account.get             # plan and spendable credit\nsai.models.list             # models, with `allowed` for this plan\nsai.machines.live(pc)       # a link to the screen for a person, and a stream for your viewer; see Live view\nsai.machines.revoke_live(pc) # every live_url stops working and its screen sessions end; returns how many"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 237,
+      "title": "Who the key is, and its sessions",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "sai.auth.check                  # the user, and the Tenant and Organisation for a Tenant token\nsai.sessions.list(machine: pc)  # the computer's API sessions, most recent first"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 248,
+      "title": "Hand the screen to a person",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "view = sai.machines.live(pc)\nputs \"Sign in here, then tell me: #{view.live_url}\" # valid until view.expires_at (ms)\n# ... once they are done\nsession.run(\"I signed in. Carry on.\")\nsai.machines.revoke_live(pc) # returns the number of links revoked"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 264,
+      "title": "Tenants",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"), org_id: \"org_3f9a1c0b7e2d4a6f8c10\")\n\ntenant = org.tenants.create(\"Riverside Clinic\", external_id: \"clinic-4821\")\nenrollment = org.tenants.create_enrollment(tenant) # hand enrollment.token to your installer\np org.tenant_machines.list(tenant)\n\nclinic = org.tenants.client(tenant) # acts as the Tenant\nclinic.sessions.create.run(\"Open the calendar and read today's appointments\")"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 285,
+      "title": "Cloud machines",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "require \"sai\"\nrequire \"securerandom\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"), org_id: \"org_3f9a1c0b7e2d4a6f8c10\")\n\nmachine = org.tenant_machines.create(\n  \"Xk2p9QzR4tLm8vNa3bCd\",\n  os: \"windows\",\n  name: \"Riverside intake\",\n  request_id: SecureRandom.uuid,\n  wait: true\n)\nclinic = org.tenants.client(\"Xk2p9QzR4tLm8vNa3bCd\")\nclinic.sessions.create(machine: machine.id).run(\"Open Notepad and type hello\")\norg.tenant_machines.delete(\"Xk2p9QzR4tLm8vNa3bCd\", machine)"
+    },
+    {
+      "file": "sdks/ruby.md",
+      "line": 315,
+      "title": "Usage",
+      "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
+      "code": "require \"sai\"\n\norg = Sai::Client.new(api_key: ENV.fetch(\"SAI_ORG_KEY\"), org_id: \"org_3f9a1c0b7e2d4a6f8c10\")\nusage = org.usage.get(granularity: \"month\", from: \"2026-10\", to: \"2026-10\")\nusage.totals.by_tenant.each_value do |t|\n  puts \"#{t.name} #{t.cost_cents}\"\nend\n\npage = org.usage.sessions(\"Xk2p9QzR4tLm8vNa3bCd\", from: \"2026-10-01\", to: \"2026-10-31\")\npage.sessions.each do |s|\n  puts \"#{s.session_id} #{s.cost_usd}\"\nend"
+    }
+  ]
+}

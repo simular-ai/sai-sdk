@@ -1,0 +1,23 @@
+PATH
+  remote: .
+  specs:
+    sai-sdk (0.1.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    minitest (5.27.0)
+    rake (13.4.2)
+
+PLATFORMS
+  arm64-darwin-27
+  ruby
+  x86_64-linux
+
+DEPENDENCIES
+  minitest (~> 5.25)
+  rake (~> 13.0)
+  sai-sdk!
+
+BUNDLED WITH
+   2.6.9
