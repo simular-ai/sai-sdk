@@ -52,7 +52,11 @@ Use Sai to open TechCrunch, find all AI news published today, write their headli
 
 It runs the task with `record_trajectory: true` and calls `sai_learn`, which
 returns `async function main(params = { ... })` with the inputs it found as
-parameters. See [Learned code](https://platform.simular.ai/documentation/concepts/learned-code).
+parameters. Session `idle` means execution ended; turn finalization may still be
+running. `sai_learn` waits up to six minutes for finalization before submitting the
+conversion. If a tool call returns `running`, call it again with the same arguments
+to keep waiting on the same operation. Other API errors are returned unchanged.
+See [Learned code](https://platform.simular.ai/documentation/concepts/learned-code).
 
 The research behind it: [Neuro-Symbolic Computer Use](https://arxiv.org/abs/2609.36927)
 (Sep 2026). Learned policies cut per-run cost 15–217× and latency 3.4–5.1×, and

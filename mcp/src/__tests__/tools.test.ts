@@ -516,8 +516,10 @@ describe('SaiTools.abort', () => {
 
 describe('SaiTools.learn', () => {
   function learnTools(fetchImpl: typeof fetch, turnId: string | undefined): SaiTools {
+    const api = new SaiApi('https://api.test', 'k', fetchImpl)
+    vi.spyOn(api, 'turn').mockResolvedValue({ status: 'succeeded' })
     return new SaiTools({
-      api: new SaiApi('https://api.test', 'k', fetchImpl),
+      api,
       source: fakeSource({ turnId: vi.fn(() => turnId) }),
       push: false,
       userId: async () => undefined,

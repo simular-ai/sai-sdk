@@ -351,6 +351,15 @@ export class SaiApi {
     })
   }
 
+  /** Read the turn itself: session idle can precede turn finalization. */
+  turn(turnId: string, signal: AbortSignal): Promise<{ status: string }> {
+    return this.json(`/v1/agents/turns/${encodeURIComponent(turnId)}`, {
+      headers: this.headers(),
+      signal,
+      prefix: 'Reading task finalization failed',
+    })
+  }
+
   /**
    * `POST /v1/agents/learn` without `maxIterations`: writes the code from recorded turns and
    * answers when it is written, which can take minutes.

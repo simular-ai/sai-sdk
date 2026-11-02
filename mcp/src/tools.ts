@@ -154,7 +154,7 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
     `Block up to timeout_s (default ${WAIT_DEFAULT_S}, max ${WAIT_MAX_S}) for the task to leave the "running" state. ` +
     'Returns { status, events, text, approval?, usage?, sessionUsage?, cursor, error? }. usage is this task\'s model tokens and cost so far (inputTokens, outputTokens, cacheReadTokens, costUsd, byModel); sessionUsage is the same across the session\'s tasks.  status: "running" = timed out, call again passing the returned cursor; ' +
     '"needs_approval" = Sai is paused on `approval` — if approval.isLinkOnly is false decide with sai_task_approve, if true give approval.approvalUrl to the human and call sai_task_wait again; ' +
-    '"idle" = done, `text` is Sai\'s answer; "error" = failed, see `error`. ' +
+    '"idle" = execution ended (turn finalization may still be running), `text` is Sai\'s answer; "error" = failed, see `error`. ' +
     '`text` is the assistant text of the whole turn so far; `events` are only the frames since `cursor`. ' +
     NO_SCREENSHOT,
   sai_task_approve:
@@ -172,6 +172,7 @@ export const toolDescriptions: Record<keyof typeof toolSchemas, string> = {
     'Turn the last task in a session into Simulang code the user owns: `async function main(params = { ... })`, ' +
     'with the inputs found in the task (a site, a name, a date) as parameters. The code runs again without the agent, faster and cheaper. ' +
     'The task must have been started with record_trajectory: true and be finished (sai_task_wait status "idle"). ' +
+    'sai_learn automatically waits up to six minutes for turn finalization before submitting the conversion. ' +
     'Returns the learn result: { learnId, status, title, template, parameters, code, validation, usage }. ' +
     'Writing the code can take a few minutes: when this returns { status: "running" }, call sai_learn again with the same arguments to keep waiting on the same request. ' +
     'Save `code` to a file when the user asks. To run it, open direct control and run the code with `await main({ ... })` as the last line of the block. Research preview.',
@@ -269,7 +270,10 @@ export class SaiTools {
    * Learn calls not yet handed to the agent, by request body. A call that outlives one tool call
    * keeps running here, and the next sai_learn with the same arguments waits on it.
    */
-  private readonly learning = new Map<string, Promise<Record<string, unknown>>>()
+  private readonly learning = new Map<
+    string,
+    { promise: Promise<Record<string, unknown>>; phase: 'finalizing' | 'learning' }
+  >()
 
   constructor(private readonly ctx: ToolContext) {}
 
@@ -418,22 +422,72 @@ export class SaiTools {
     const key = JSON.stringify(body)
     let call = this.learning.get(key)
     if (!call) {
-      call = this.ctx.api.learn(body)
+      const operation: {
+        promise: Promise<Record<string, unknown>>
+        phase: 'finalizing' | 'learning'
+      } = {
+        phase: 'finalizing',
+        promise: this.learnAfterFinalization(body, () => {
+          operation.phase = 'learning'
+        }),
+      }
+      call = operation
       this.learning.set(key, call)
-      // A failed call is dropped, so asking again tries again.
-      call.catch(() => this.learning.delete(key))
+      // Keep a background failure until a caller receives it; otherwise polling after the
+      // finalization deadline would silently start a fresh deadline forever.
+      void call.promise.catch(() => undefined)
     }
-    const result = await Promise.race([call, timeout(waitMs)])
+    let result: Record<string, unknown> | undefined
+    try {
+      result = await Promise.race([call.promise, timeout(waitMs)])
+    } catch (err) {
+      if (this.learning.get(key) === call) this.learning.delete(key)
+      throw err
+    }
     if (!result) {
       return {
         status: 'running',
         message:
-          'Still writing the code. Call sai_learn again with the same arguments to keep waiting.',
+          (call.phase === 'finalizing'
+            ? 'Waiting for task finalization. '
+            : 'Still writing the code. ') +
+          'Call sai_learn again with the same arguments to keep waiting.',
       }
     }
     // Handed over: asking again later learns again.
-    this.learning.delete(key)
+    if (this.learning.get(key) === call) this.learning.delete(key)
     return result
+  }
+
+  private async learnAfterFinalization(
+    body: Parameters<SaiApi['learn']>[0],
+    onReady: () => void,
+  ): Promise<Record<string, unknown>> {
+    // Outlast the server's five-minute finalization lease, including recovery of a lost report.
+    // This deadline belongs to the operation, not each resumable MCP tool invocation.
+    const deadline = Date.now() + 6 * 60_000
+    let delayMs = 1000
+    for (;;) {
+      const remaining = deadline - Date.now()
+      if (remaining <= 0) {
+        throw new Error(
+          `Task finalization timed out for ${body.turns[0]}; no learn request was submitted.`,
+        )
+      }
+      const turn = await this.ctx.api.turn(body.turns[0]!, AbortSignal.timeout(remaining))
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `Task finalization timed out for ${body.turns[0]}; no learn request was submitted.`,
+        )
+      }
+      // Preserve the API's validation for running/needs_input, missing trajectories, etc.
+      // Only finalizing is transient here. Never retry a learn POST.
+      if (turn.status !== 'finalizing') break
+      await timeout(Math.min(delayMs, deadline - Date.now()))
+      delayMs = Math.min(delayMs * 2, 5000)
+    }
+    onReady()
+    return this.ctx.api.learn(body)
   }
 
   async liveLink(args: {
