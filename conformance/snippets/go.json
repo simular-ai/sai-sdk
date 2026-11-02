@@ -1,0 +1,576 @@
+{
+  "source": {
+    "repo": "simular-ai/sai-platform",
+    "ref": "feat/sdk-go",
+    "commit": "530a1ffb0a39bf6fbe4bfaa9b4b7c40ebfe4e1cf"
+  },
+  "snippets": [
+    {
+      "file": "api-reference/abort.md",
+      "line": 37,
+      "title": "Stop a session's task",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession := client.Sessions.Resume(\"cs_01HZY\", nil)\naborted, err := session.Abort(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(aborted)"
+    },
+    {
+      "file": "api-reference/account.md",
+      "line": 33,
+      "title": "Read your plan and credit",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\naccount, err := client.Account.Get(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%+v\\n\", account)"
+    },
+    {
+      "file": "api-reference/approve.md",
+      "line": 37,
+      "title": "Answer an approval",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession := client.Sessions.Resume(\"cs_01HZY\", nil)\nstatus, err := session.Respond(ctx, &sai.Approval{ID: \"ap_7Qw\"}, \"yes\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(status)"
+    },
+    {
+      "file": "api-reference/approve.md",
+      "line": 90,
+      "title": "Answer a choice question",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession := client.Sessions.Resume(\"cs_01HZY\", nil)\nstatus, err := session.Respond(ctx, &sai.Approval{ID: \"ap_9Lm\"}, \"yes\", &sai.RespondOptions{Selections: [][]string{{\"desktop\"}}})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(status)"
+    },
+    {
+      "file": "api-reference/authentication.md",
+      "line": 41,
+      "title": "Check a key",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nme, err := client.Auth.Check(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(me.UserID, me.AuthType) // apiKey"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 39,
+      "title": "Open control of a computer",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlease, err := client.Control.Open(ctx, \"m_7f2a\")\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer lease.Close(ctx)"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 125,
+      "title": "Run code in a lease",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"time\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlease, err := client.Control.Open(ctx, \"m_7f2a\")\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer lease.Close(ctx)\nr, err := lease.Exec(ctx,\n\t\"var r = await machine.exec({ command: 'hostname' }); r.stdout.trim()\",\n\t&sai.ExecOptions{Timeout: 60 * time.Second},\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(r.Result)"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 239,
+      "title": "Interrupt the running block",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlease, err := client.Control.Open(ctx, \"m_7f2a\")\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer lease.Close(ctx)\ninterrupted, err := lease.Interrupt(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(interrupted)"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 296,
+      "title": "Read the lease",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlease, err := client.Control.Open(ctx, \"m_7f2a\")\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer lease.Close(ctx)\nstate, err := lease.Get(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(state)"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 359,
+      "title": "Close the lease",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlease, err := client.Control.Open(ctx, \"m_7f2a\")\nif err != nil {\n\tlog.Fatal(err)\n}\nif err := lease.Close(ctx); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "api-reference/events.md",
+      "line": 38,
+      "title": "Poll for events",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession := client.Sessions.Resume(\"cs_01HZY\", nil)\nturn, err := session.Send(ctx, \"Open Notepad and type hello\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfor ev, err := range turn.Events(ctx, nil) {\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tfmt.Println(ev.Kind, ev.Text)\n}"
+    },
+    {
+      "file": "api-reference/judge.md",
+      "line": 53,
+      "title": "Judge a turn",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\njudgement, err := client.Judge.Create(ctx,\n\t[]string{\"turn_vzjz62w7j7jvOilZ6zBL\"},\n\tsai.Checks{{ID: \"title\", Check: \"The agent reported the title of the top story\", ReturnEvidence: true}},\n\tnil,\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(judgement.Verdict)"
+    },
+    {
+      "file": "api-reference/judge.md",
+      "line": 142,
+      "title": "Read a judgement",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\njudgement, err := client.Judge.Get(ctx, \"judgement_8LmQ2rT0bV\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%+v\\n\", judgement)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 68,
+      "title": "Learn code from a turn",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlearned, err := client.Learn.Create(ctx, []string{\"turn_vzjz62w7j7jvOilZ6zBL\"}, &sai.LearnOptions{\n\tTaskTemplate: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(learned.Code)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 228,
+      "title": "Run learned code in a lease",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"time\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlearned, err := client.Learn.Get(ctx, \"learn_3Fq9cT1kZ0aJ\")\nif err != nil {\n\tlog.Fatal(err)\n}\nlease, err := client.Control.Open(ctx, \"m_7f2a\")\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer lease.Close(ctx)\nr, err := lease.Run(ctx, learned,\n\tmap[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"Fintech\", \"fileName\": \"techcrunch_fintech.txt\"},\n\t&sai.ExecOptions{Timeout: 5 * time.Minute},\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(r.Result)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 321,
+      "title": "Start a learn job from a task",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\njob, err := client.Learn.Create(ctx, nil, &sai.LearnOptions{\n\tTaskTemplate:  \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\tInputs:        map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\tCriteria:      sai.CriteriaText(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\"),\n\tMaxIterations: 3,\n\tRollouts:      3,\n})\nif err != nil {\n\tlog.Fatal(err)\n}\ndone, err := client.Learn.Wait(ctx, job.ID, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%s %+v\\n%s\\n\", done.Status, done.TestResult, done.Code)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 384,
+      "title": "Read a learn job",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\njob, err := client.Learn.Get(ctx, \"learn_LIEHFGsRU4H3\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%s %+v\\n\", job.Status, job.Progress)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 492,
+      "title": "Read a run of a learn job",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\njob, err := client.Learn.Get(ctx, \"learn_LIEHFGsRU4H3\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%s %+v\\n\", job.Status, job.Progress)",
+      "code": "run, err := client.Learn.Rollout(ctx, \"learn_LIEHFGsRU4H3\", 1, 2)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(run.Run, run.Judgement)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 515,
+      "title": "Cancel a learn job",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\njob, err := client.Learn.Get(ctx, \"learn_LIEHFGsRU4H3\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%s %+v\\n\", job.Status, job.Progress)",
+      "code": "if err := client.Learn.Cancel(ctx, \"learn_LIEHFGsRU4H3\"); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 562,
+      "title": "Read a learn result",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlearned, err := client.Learn.Get(ctx, \"learn_3Fq9cT1kZ0aJ\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(learned.Status)"
+    },
+    {
+      "file": "api-reference/machines.md",
+      "line": 34,
+      "title": "List your computers",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, machine := range machines {\n\tfmt.Println(machine.ID, machine.Name, machine.Kind, machine.Online)\n}"
+    },
+    {
+      "file": "api-reference/machines.md",
+      "line": 181,
+      "title": "Watch a computer's screen",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nlive, err := client.Machines.Live(ctx, \"m_7f2a\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%+v\\n\", live)"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 59,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nf, err := os.Open(\"report.pdf\")\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer f.Close()\nreport, err := client.Files.Upload(ctx, \"report.pdf\", f) // attachments take what Upload returns\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: \"m_7f2a\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", &sai.SendOptions{\n\tAttachments: []*sai.Attachment{report},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 164,
+      "title": "Give Sai a task with typed output",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx, \"Open https://news.ycombinator.com and read the title of the top story.\", &sai.SendOptions{\n\tOutputSchema: map[string]any{\n\t\t\"type\":       \"object\",\n\t\t\"properties\": map[string]any{\"title\": map[string]any{\"type\": \"string\"}},\n\t\t\"required\":   []string{\"title\"},\n\t},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 241,
+      "title": "Run a task without approvals",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx, \"Export last month's invoices to CSV\", &sai.SendOptions{Autonomous: true})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)"
+    },
+    {
+      "file": "api-reference/models.md",
+      "line": 34,
+      "title": "List models",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmodels, err := client.Models.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, model := range models {\n\tfmt.Println(model.ID, model.Allowed)\n}"
+    },
+    {
+      "file": "api-reference/new-session.md",
+      "line": 36,
+      "title": "Start a new session",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: \"m_7f2a\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(session.ID)"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 35,
+      "title": "Read a turn",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nrecord, err := client.Turns.Get(ctx, \"turn_vzjz62w7j7jvOilZ6zBL\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%+v\\n\", record)"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 125,
+      "title": "Read a turn's steps",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsteps, err := client.Turns.Trajectory(ctx, \"turn_vzjz62w7j7jvOilZ6zBL\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, step := range steps {\n\tfmt.Println(step.Index, step.Title)\n}"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 211,
+      "title": "Download a step's screenshot",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\njpeg, err := client.Turns.Screenshot(ctx, \"turn_vzjz62w7j7jvOilZ6zBL\", 0)\nif err != nil {\n\tlog.Fatal(err)\n}\nif err := os.WriteFile(\"step-0.jpg\", jpeg, 0o644); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "api-reference/upload.md",
+      "line": 35,
+      "title": "Upload a file",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nf, err := os.Open(\"./report.pdf\")\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer f.Close()\nattachment, err := client.Files.Upload(ctx, \"report.pdf\", f)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%+v\\n\", attachment)"
+    },
+    {
+      "file": "concepts/approvals.md",
+      "line": 58,
+      "title": "Answer a command approval",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession := client.Sessions.Resume(\"cs_01HZY\", nil)\nif _, err := session.Respond(ctx, &sai.Approval{ID: \"ap_7Qw\"}, \"yes\", nil); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "concepts/approvals.md",
+      "line": 134,
+      "title": "Answer a choice question",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession := client.Sessions.Resume(\"cs_01HZY\", nil)\nif _, err := session.Respond(ctx, &sai.Approval{ID: \"ap_9Lm\"}, \"yes\", &sai.RespondOptions{Selections: [][]string{{\"desktop\"}}}); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "concepts/billing-and-limits.md",
+      "line": 40,
+      "title": "Check your balance",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\naccount, err := client.Account.Get(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%+v\\n\", account)"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 65,
+      "title": "Record a task",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx,\n\t\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\t&sai.SendOptions{\n\t\tInputs:           map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\t\tRecordTrajectory: true,\n\t},\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 144,
+      "title": "Learn, run and repair",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx,\n\t\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\t&sai.SendOptions{\n\t\tInputs:           map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\t\tRecordTrajectory: true,\n\t},\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)",
+      "code": "learned, err := client.Learn.Create(ctx, []string{turn.ID}, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nlease, err := client.Control.Open(ctx, pc.ID)\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer lease.Close(ctx)\ninputs := map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"Fintech\", \"fileName\": \"techcrunch_fintech.txt\"}\nr, err := lease.Run(ctx, learned, inputs, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nif !r.OK {\n\tlearned, err = client.Learn.Create(ctx, nil, &sai.LearnOptions{\n\t\tInitialCode: learned.Code,\n\t\tEvaluations: []sai.Evaluation{{Inputs: inputs, Result: r, Passed: sai.Ptr(false)}},\n\t})\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n}\nfmt.Println(learned.Code)"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 215,
+      "title": "Learn a reliable function from a task",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx,\n\t\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\t&sai.SendOptions{\n\t\tInputs:           map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\t\tRecordTrajectory: true,\n\t},\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)",
+      "code": "job, err := client.Learn.Create(ctx, nil, &sai.LearnOptions{\n\tTaskTemplate:  \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\tInputs:        map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\tCriteria:      sai.CriteriaText(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\"),\n\tMaxIterations: 3,\n\tRollouts:      3,\n\t// Before the agent run and before every run: close the browser tabs and Notepad.\n\tReset: &sai.ResetAction{Code: `for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()`},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\ndone, err := client.Learn.Wait(ctx, job.ID, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%+v\\n\", done.TestResult) // passed 3 of 3 runs, on these inputs\nfmt.Println(done.Code)"
+    },
+    {
+      "file": "concepts/sessions.md",
+      "line": 95,
+      "title": "List sessions",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nsessions, err := client.Sessions.List(ctx, &sai.SessionOptions{Machine: machines[0].ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, s := range sessions {\n\tfmt.Println(s.ID, s.Title, s.Active)\n}"
+    },
+    {
+      "file": "concepts/structured-output.md",
+      "line": 65,
+      "title": "Ask for typed output",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx, \"Open https://news.ycombinator.com and read the title of the top story.\", &sai.SendOptions{\n\tOutputSchema: map[string]any{\n\t\t\"type\":       \"object\",\n\t\t\"properties\": map[string]any{\"title\": map[string]any{\"type\": \"string\"}},\n\t\t\"required\":   []string{\"title\"},\n\t},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)"
+    },
+    {
+      "file": "concepts/structured-output.md",
+      "line": 262,
+      "title": "Give Sai a task with every option",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx,\n\t\"Sign in to the {{vendor}} portal and list the invoices dated in {{month}}.\",\n\t&sai.SendOptions{\n\t\tInputs: map[string]any{\"vendor\": \"Acme\", \"month\": \"September 2026\"},\n\t\tOutputSchema: map[string]any{\n\t\t\t\"type\": \"object\",\n\t\t\t\"properties\": map[string]any{\n\t\t\t\t\"invoices\": map[string]any{\n\t\t\t\t\t\"type\": \"array\",\n\t\t\t\t\t\"items\": map[string]any{\n\t\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\t\"properties\": map[string]any{\n\t\t\t\t\t\t\t\"number\": map[string]any{\"type\": \"string\"},\n\t\t\t\t\t\t\t\"date\":   map[string]any{\"type\": \"string\", \"pattern\": `^\\d{4}-\\d{2}-\\d{2}$`},\n\t\t\t\t\t\t\t\"total\":  map[string]any{\"type\": \"number\"},\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"required\": []string{\"number\", \"date\", \"total\"},\n\t\t\t\t\t},\n\t\t\t\t},\n\t\t\t},\n\t\t\t\"required\": []string{\"invoices\"},\n\t\t},\n\t\tSuccessCriteria: sai.Checks{\n\t\t\t{ID: \"signed_in\", Check: \"Sai signed in and saw the invoice list.\"},\n\t\t\t{ID: \"all_listed\", Check: \"Every invoice dated in the month is in the answer.\", ReturnEvidence: true},\n\t\t},\n\t\tIdempotencyKey:   \"acme-invoices-2026-09\",\n\t\tRecordTrajectory: true,\n\t},\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)"
+    },
+    {
+      "file": "organisations/enrollment.md",
+      "line": 39,
+      "title": "Create an enrollment code",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\nenrollment, err := org.Tenants.CreateEnrollment(ctx, \"Xk2p9QzR4tLm8vNa3bCd\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(enrollment.Token, enrollment.ExpiresAt) // hand the token to your installer"
+    },
+    {
+      "file": "organisations/orgs.md",
+      "line": 159,
+      "title": "This month's usage, by Tenant",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: os.Getenv(\"SAI_ORG_ID\")})\nif err != nil {\n\tlog.Fatal(err)\n}\nusage, err := org.Usage.Get(ctx, &sai.UsageOptions{Granularity: \"month\", From: \"2026-10\", To: \"2026-10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, tenant := range usage.Totals.ByTenant {\n\tfmt.Println(tenant.Name, tenant.CostCents)\n}"
+    },
+    {
+      "file": "organisations/session-spend.md",
+      "line": 51,
+      "title": "List a Tenant's session spend for October",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: os.Getenv(\"SAI_ORG_ID\")})\nif err != nil {\n\tlog.Fatal(err)\n}\ncursor := \"\"\nfor {\n\tpage, err := org.Usage.Sessions(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.UsageSessionsOptions{\n\t\tFrom:   \"2026-10-01\",\n\t\tTo:     \"2026-10-31\",\n\t\tCursor: cursor,\n\t})\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tfor _, s := range page.Sessions {\n\t\tfmt.Println(s.SessionID, s.Title, s.CostUSD)\n\t}\n\tif page.NextCursor == \"\" {\n\t\tbreak\n\t}\n\tcursor = page.NextCursor\n}"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 173,
+      "title": "List a Tenant's machines",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := org.TenantMachines.List(ctx, \"Xk2p9QzR4tLm8vNa3bCd\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, machine := range machines {\n\tfmt.Println(machine.ID, machine.Name, machine.State)\n}"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 255,
+      "title": "Get a Tenant machine",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachine, err := org.TenantMachines.Get(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(machine.State)"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 311,
+      "title": "Revoke a Tenant machine",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\nif err := org.TenantMachines.Revoke(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\"); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 34,
+      "title": "Exchange an Organisation Key for a Tenant token",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: \"org_3f9a1c0b7e2d4a6f8c10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\ntoken, err := org.Tenants.Token(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(token.Token, token.ExpiresAt)"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 109,
+      "title": "Send a message as the Tenant",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\ntenantToken := \"eyJhbGciOiJSUzI1NiIs...\"\nclient, err := sai.New(sai.Options{APIKey: tenantToken})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx, \"Open the calendar and read today’s appointments\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 156,
+      "title": "Act as the Tenant",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: \"org_3f9a1c0b7e2d4a6f8c10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nclinic, err := org.Tenants.Client(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := clinic.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx, \"Open the calendar and read today’s appointments\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID)"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 89,
+      "title": "Create a Tenant",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\ntenant, err := org.Tenants.Create(ctx, \"Riverside Clinic\", &sai.TenantCreateOptions{\n\tExternalID: \"clinic-4821\",\n\tMetadata:   map[string]string{\"plan\": \"pro\"},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(tenant.ID)"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 177,
+      "title": "List active Tenants",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\ncursor := \"\"\nfor {\n\tpage, err := org.Tenants.List(ctx, &sai.TenantListOptions{Status: \"active\", Limit: 50, Cursor: cursor})\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tfor _, tenant := range page.Tenants {\n\t\tfmt.Println(tenant.ID, tenant.Name)\n\t}\n\tif page.NextCursor == \"\" {\n\t\tbreak\n\t}\n\tcursor = page.NextCursor\n}"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 246,
+      "title": "Find a Tenant by your own id",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\npage, err := org.Tenants.List(ctx, &sai.TenantListOptions{ExternalID: \"clinic-4821\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nif len(page.Tenants) > 0 {\n\tfmt.Println(page.Tenants[0].ID)\n}"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 296,
+      "title": "Get a Tenant",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\ntenant, err := org.Tenants.Get(ctx, \"Xk2p9QzR4tLm8vNa3bCd\")\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(tenant.Name)"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 354,
+      "title": "Rename a Tenant and replace its metadata",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\ntenant, err := org.Tenants.Update(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.TenantUpdateOptions{\n\tName:     \"Riverside Clinic East\",\n\tMetadata: map[string]string{\"plan\": \"enterprise\"},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(tenant.Name)"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 465,
+      "title": "Disable a Tenant",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\ntenant, err := org.Tenants.Update(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.TenantUpdateOptions{Status: \"disabled\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(tenant.Status)"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 521,
+      "title": "Delete a Tenant",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\")})\nif err != nil {\n\tlog.Fatal(err)\n}\nif err := org.Tenants.Delete(ctx, \"Xk2p9QzR4tLm8vNa3bCd\"); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 49,
+      "title": "List your computers",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, machine := range machines {\n\tfmt.Println(machine.ID, machine.Name, machine.Kind, machine.Online)\n}"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 108,
+      "title": "Check your account",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\naccount, err := client.Account.Get(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%+v\\n\", account)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 169,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID, turn.Queued)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 224,
+      "title": "Poll for events",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nturn, err := session.Send(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(turn.ID, turn.Queued)",
+      "code": "// `turn` is what session.Send returned in step 4; Events polls until the turn ends.\nfor ev, err := range turn.Events(ctx, nil) {\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tfmt.Println(ev.Kind, ev.Text)\n}"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 291,
+      "title": "Answer an approval",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession := client.Sessions.Resume(\"cs_01HZY\", nil)\nif _, err := session.Respond(ctx, &sai.Approval{ID: \"ap_7Qw\"}, \"yes\", nil); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 403,
+      "title": "Learn code for a task",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\njob, err := client.Learn.Create(ctx, nil, &sai.LearnOptions{\n\tTaskTemplate: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\tInputs:       map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\tCriteria:     sai.CriteriaText(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\"),\n\tReset: &sai.ResetAction{Code: `for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()`},\n\tMaxIterations: 2,\n\tRollouts:      2,\n\tMachine:       pc.ID,\n})\nif err != nil {\n\tlog.Fatal(err)\n}\ndone, err := client.Learn.Wait(ctx, job.ID, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nif done.TestResult != nil {\n\tfmt.Println(done.Status, done.TestResult.Status)\n}\nfmt.Println(done.Code)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 517,
+      "title": "Run the learned code",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\njob, err := client.Learn.Create(ctx, nil, &sai.LearnOptions{\n\tTaskTemplate: \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\tInputs:       map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\tCriteria:     sai.CriteriaText(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\"),\n\tReset: &sai.ResetAction{Code: `for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()`},\n\tMaxIterations: 2,\n\tRollouts:      2,\n\tMachine:       pc.ID,\n})\nif err != nil {\n\tlog.Fatal(err)\n}\ndone, err := client.Learn.Wait(ctx, job.ID, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nif done.TestResult != nil {\n\tfmt.Println(done.Status, done.TestResult.Status)\n}\nfmt.Println(done.Code)",
+      "code": "// Continue from the code above.\nlease, err := client.Control.Open(ctx, pc.ID)\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer lease.Close(ctx)\nr, err := lease.Run(ctx, done, nil, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(r.Result)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 557,
+      "title": "Run a task",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{})\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := client.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(result.Text)"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 29,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 71,
+      "title": "Watch the events",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "turn, err := session.Send(ctx, \"Find last month's invoices in Downloads and total them\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfor ev, err := range turn.Events(ctx, nil) {\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tswitch ev.Kind {\n\tcase sai.EventStep:\n\t\tfmt.Println(\"  \", ev.Text)\n\tcase sai.EventApproval:\n\t\tif _, err := turn.Respond(ctx, ev.Approval, \"yes\", nil); err != nil {\n\t\t\tlog.Fatal(err)\n\t\t}\n\t}\n}\nresult, err := turn.Wait(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(result.Text)"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 111,
+      "title": "Approval handler",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "result, err := session.Run(ctx, \"Clean up the temp folder\", &sai.RunOptions{\n\tOnApproval: func(a *sai.Approval) *sai.ApprovalAnswer {\n\t\tif a.IsLinkOnly {\n\t\t\tfmt.Println(\"Approve in a browser:\", a.URL)\n\t\t\treturn nil // a person answers it; keep waiting\n\t\t}\n\t\tif a.Type == \"choice\" {\n\t\t\tvar selections [][]string\n\t\t\tfor _, q := range a.Questions {\n\t\t\t\tfirst := q[\"options\"].([]any)[0].(map[string]any)\n\t\t\t\tselections = append(selections, []string{first[\"value\"].(string)})\n\t\t\t}\n\t\t\treturn &sai.ApprovalAnswer{Response: \"yes\", Selections: selections}\n\t\t}\n\t\treturn &sai.ApprovalAnswer{Response: \"yes\"}\n\t},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(result.Status)"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 139,
+      "title": "Unattended run",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "if _, err := session.Run(ctx, \"Export last month's invoices to CSV\", &sai.RunOptions{Autonomous: true}); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 147,
+      "title": "Files, models, stopping",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "import \"os\"\n\nf, err := os.Open(\"report.pdf\")\nif err != nil {\n\tlog.Fatal(err)\n}\nreport, err := client.Files.Upload(ctx, \"report.pdf\", f) // any io.Reader, with the file's name\nf.Close()\nif err != nil {\n\tlog.Fatal(err)\n}\nif _, err := session.Run(ctx, \"Summarise the attached report\", &sai.RunOptions{Attachments: []*sai.Attachment{report}}); err != nil {\n\tlog.Fatal(err)\n}\n\nmodels, err := client.Models.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\nvar allowed []string\nfor _, m := range models {\n\tif m.Allowed {\n\t\tallowed = append(allowed, m.ID)\n\t}\n}\nfmt.Println(allowed)\nif _, err := session.Run(ctx, \"...\", &sai.RunOptions{Model: \"anthropic/claude-opus-5-5\"}); err != nil { // sticks to the session\n\tlog.Fatal(err)\n}\n\nturn, err := session.Send(ctx, \"...\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nif _, err := turn.Abort(ctx); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 193,
+      "title": "Typed output",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "result, err := session.Run(ctx, \"Open https://news.ycombinator.com and read the title of the top story.\", &sai.RunOptions{\n\tOutputSchema: map[string]any{\n\t\t\"type\":       \"object\",\n\t\t\"properties\": map[string]any{\"title\": map[string]any{\"type\": \"string\"}},\n\t\t\"required\":   []string{\"title\"},\n\t},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nif result.OK {\n\tfmt.Println(result.Record.Output.(map[string]any)[\"title\"])\n} else if result.Record != nil {\n\tfmt.Println(result.Record.ReasonCode) // e.g. output_invalid\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 213,
+      "title": "Read a turn later",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "turn, err := session.Send(ctx, \"...\", &sai.SendOptions{RecordTrajectory: true})\nif err != nil {\n\tlog.Fatal(err)\n}\nrecord, err := client.Turns.Wait(ctx, turn.ID) // until succeeded, failed or needs_input\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(record.Status)\nsteps, err := client.Turns.Trajectory(ctx, turn.ID)\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, step := range steps {\n\tfmt.Println(step.Index, step.Title)\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 236,
+      "title": "Learn and repair code",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "turn, err := session.Send(ctx,\n\t\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\t&sai.SendOptions{\n\t\tInputs:           map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\t\tRecordTrajectory: true,\n\t},\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nif _, err := client.Turns.Wait(ctx, turn.ID); err != nil {\n\tlog.Fatal(err)\n}\n\nlearned, err := client.Learn.Create(ctx, []string{turn.ID}, nil) // waits for the code; longer for a longer task\nif err != nil {\n\tlog.Fatal(err)\n}\nlease, err := client.Control.Open(ctx, pc.ID)\nif err != nil {\n\tlog.Fatal(err)\n}\ninputs := map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"Fintech\", \"fileName\": \"techcrunch_fintech.txt\"}\nr, err := lease.Run(ctx, learned, inputs, nil) // inputs over the defaults\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(r.Result)\nif err := lease.Close(ctx); err != nil {\n\tlog.Fatal(err)\n}\n\nfixed, err := client.Learn.Create(ctx, nil, &sai.LearnOptions{\n\tInitialCode: learned.Code,\n\tEvaluations: []sai.Evaluation{{Inputs: inputs, Result: r, Passed: sai.Ptr(false)}},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(fixed.Changes)\njudgement, err := client.Judge.Create(ctx,\n\t[]string{turn.ID},\n\tsai.Checks{{ID: \"file\", Check: \"The agent saved the headlines to the file\"}},\n\tnil,\n)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(judgement.Verdict)"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 292,
+      "title": "Run, judge and repair on a computer",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "job, err := client.Learn.Create(ctx, nil, &sai.LearnOptions{\n\tTaskTemplate:  \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n\tInputs:        map[string]any{\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n\tMachine:       pc.ID,\n\tCriteria:      sai.CriteriaText(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\"),\n\tMaxIterations: 3, // up to 3 code versions; 0 (the default) only writes the code\n\tRollouts:      3, // each version must pass 3 runs in a row\n\tReset: &sai.ResetAction{Code: `for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()`},\n\tContinueWithAgent: true, // after a failed run, the agent finishes the task and the repair learns from it\n})\nif err != nil {\n\tlog.Fatal(err)\n}\ndone, err := client.Learn.Wait(ctx, job.ID, nil) // can take an hour; a context deadline stops waiting\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Printf(\"%s %s %+v\\n\", done.Status, done.StopReason, done.TestResult)\nfmt.Println(done.Code) // the latest version\nfor _, it := range done.Iterations {\n\tvar verdicts []string\n\tfor _, r := range it.Rollouts {\n\t\tverdicts = append(verdicts, r.Verdict)\n\t}\n\tfmt.Println(it.Index, it.Changes, verdicts)\n}\n\nrun, err := client.Learn.Rollout(ctx, job.ID, 1, 1) // what one run returned and logged, and its judgement\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(run.Run)\nif err := client.Learn.Cancel(ctx, job.ID); err != nil { // stops at once and keeps the last complete results\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 335,
+      "title": "Drive a computer",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "import (\n\t\"os\"\n\t\"strings\"\n)\n\nlease, err := client.Control.Open(ctx, pc.ID)\nif err != nil {\n\tlog.Fatal(err)\n}\ndefer lease.Close(ctx)\n\nout, err := lease.Shell(ctx, \"hostname\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(out.Stdout)\n\nif err := lease.WriteFile(ctx, `C:\\data\\note.txt`, \"hello\"); err != nil {\n\tlog.Fatal(err)\n}\ntext, err := lease.ReadFile(ctx, `C:\\data\\note.txt`)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(text)\n\nr, err := lease.Exec(ctx, `\n\tvar page = await machine.browser.newtab('https://example.com')\n\tvar snap = await page.snapshot()\n\tsnap.title\n`, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(r.Result) // Example Domain\n\next := strings.TrimPrefix(r.ScreenshotMimeType, \"image/\") // jpeg or png\nif err := os.WriteFile(\"page.\"+ext, r.Screenshot, 0o644); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 388,
+      "title": "Other calls",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "account, err := client.Account.Get(ctx) // plan and spendable credit\nif err != nil {\n\tlog.Fatal(err)\n}\nmodels, err := client.Models.List(ctx) // models, with Allowed for this plan\nif err != nil {\n\tlog.Fatal(err)\n}\nview, err := client.Machines.Live(ctx, pc.ID) // a link to the screen for a person, and a stream for your viewer; see Live view\nif err != nil {\n\tlog.Fatal(err)\n}\nrevoked, err := client.Machines.RevokeLive(ctx, pc.ID) // every LiveURL stops working and its screen sessions end; returns how many\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(account.PlanTitle, len(models), view.LiveURL, revoked)"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 409,
+      "title": "Who the key is, and its sessions",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "me, err := client.Auth.Check(ctx) // the user, and the Tenant and Organisation for a Tenant token\nif err != nil {\n\tlog.Fatal(err)\n}\nsessions, err := client.Sessions.List(ctx, &sai.SessionOptions{Machine: pc.ID}) // the computer's API sessions, most recent first\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(me.UserID, len(sessions))"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 426,
+      "title": "Hand the screen to a person",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "view, err := client.Machines.Live(ctx, pc.ID)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(\"Sign in here, then tell me:\", view.LiveURL) // valid until view.ExpiresAt (ms)\n// ... once they are done\nif _, err := session.Run(ctx, \"I signed in. Carry on.\", nil); err != nil {\n\tlog.Fatal(err)\n}\nif _, err := client.Machines.RevokeLive(ctx, pc.ID); err != nil { // returns the number of links revoked\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 449,
+      "title": "Tenants",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: \"org_3f9a1c0b7e2d4a6f8c10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\n\ntenant, err := org.Tenants.Create(ctx, \"Riverside Clinic\", &sai.TenantCreateOptions{ExternalID: \"clinic-4821\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nenrollment, err := org.Tenants.CreateEnrollment(ctx, tenant.ID) // hand enrollment.Token to your installer\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := org.TenantMachines.List(ctx, tenant.ID)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(enrollment.ExpiresAt, len(machines))\n\nclinic, err := org.Tenants.Client(ctx, tenant.ID, nil) // acts as the Tenant\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := clinic.Sessions.Create(ctx, nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nif _, err := session.Run(ctx, \"Open the calendar and read today's appointments\", nil); err != nil {\n\tlog.Fatal(err)\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 500,
+      "title": "Cloud machines",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: \"org_3f9a1c0b7e2d4a6f8c10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\n\nmachine, err := org.TenantMachines.Create(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.TenantMachineCreateOptions{\n\tOS:        \"windows\",\n\tName:      \"Riverside intake\",\n\tRequestID: \"riverside-intake-1\", // send the same id again if you retry this create\n\tWait:      true,\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nclinic, err := org.Tenants.Client(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\nsession, err := clinic.Sessions.Create(ctx, &sai.SessionOptions{Machine: machine.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nif _, err := session.Run(ctx, \"Open Notepad and type hello\", nil); err != nil {\n\tlog.Fatal(err)\n}\nstate, err := org.TenantMachines.Delete(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", machine.ID)\nif err != nil {\n\tlog.Fatal(err)\n}\nfmt.Println(state) // deleting"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 554,
+      "title": "Usage",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: \"org_3f9a1c0b7e2d4a6f8c10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nusage, err := org.Usage.Get(ctx, &sai.UsageOptions{Granularity: \"month\", From: \"2026-10\", To: \"2026-10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, t := range usage.Totals.ByTenant {\n\tfmt.Println(t.Name, t.CostCents)\n}\n\npage, err := org.Usage.Sessions(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.UsageSessionsOptions{From: \"2026-10-01\", To: \"2026-10-31\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, s := range page.Sessions {\n\tfmt.Println(s.SessionID, s.CostUSD)\n}"
+    },
+    {
+      "file": "sdks/go.md",
+      "line": 609,
+      "title": "Handle an error",
+      "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
+      "code": "import \"errors\"\n\n_, err := client.Machines.Get(ctx, \"m_missing\")\nvar notFound *sai.NotFoundError\nif errors.As(err, &notFound) {\n\tfmt.Println(notFound.Status, notFound.Message) // 404\n}\nvar saiErr *sai.SaiError\nif errors.As(err, &saiErr) {\n\tfmt.Println(saiErr.Code, saiErr.RetryAfter)\n}"
+    }
+  ]
+}
