@@ -14,7 +14,7 @@
  * on its own line is left out, and is not context for the next.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -102,7 +102,11 @@ export function extract(lang, dir) {
   return out
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// realpath: the script may be reached through a symlink.
+if (
+  process.argv[1] &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+) {
   const arg = (name) => {
     const i = process.argv.indexOf(`--${name}`)
     return i > 0 ? process.argv[i + 1] : undefined

@@ -20,7 +20,7 @@
  * See README.md for the case format.
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -816,7 +816,11 @@ export function startServer({ port = 0, casesDir = CASES_DIR } = {}) {
   })
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// realpath: the script may be reached through a symlink.
+if (
+  process.argv[1] &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+) {
   const i = process.argv.indexOf('--port')
   const port = i > 0 ? Number(process.argv[i + 1]) : 0
   const server = await startServer({ port })
