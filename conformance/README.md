@@ -198,13 +198,19 @@ What a call returns is turned into JSON for `expect.result`:
 node conformance/snippets.mjs --lang go --docs ../sai-platform/src/docs/content
 ```
 
-It prints JSON: `[{ "file", "line", "title", "code" }]`, one entry per fenced block in that
-language. A block after `<!-- snippet: skip -->` on its own line is left out (a fragment that
-cannot run, such as a type signature). Each SDK's snippet test builds and runs every block as a
-program against the fake API, with `SAI_API_KEY`, `SAI_API_URL` and `SAI_ORG_ID` set, and fails
-if one does not compile or exits non-zero. A block is a whole program: its imports, a client, and
-the calls. The SDK pages (`sdks/<language>.md`) are the exception: their blocks continue one
-another, so the test joins a page's blocks into one program.
+It prints JSON: `[{ "file", "line", "title", "context", "code" }]`, one entry per fenced block
+in that language. A block after `<!-- snippet: skip -->` on its own line is left out (a fragment
+that cannot run, such as a type signature). Each SDK's snippet test builds and runs every block as
+a program against the fake API, with `SAI_API_KEY`, `SAI_ORG_KEY`, `SAI_API_URL` and `SAI_ORG_ID`
+set and a copy of [`fixtures/`](fixtures/) as the working directory, and fails if one does not
+compile or exits non-zero.
+
+A block that imports something starts a program: its imports, a client, and the calls. A block that
+imports nothing continues the last block before it on its page that did, which `context` holds. On
+an SDK page (`sdks/<language>.md`), every block after the first gets the page's first block as its
+context. A test puts the context first and the block after it, in a scope of its own where the
+language has one, with the imports of both at the top and de-duplicated. In a language that cannot
+shadow a local (Java, C#), a block must not redeclare its context's names.
 
 The docs live in `simular-ai/sai-platform`; the tests read them from `SAI_DOCS_DIR`, by default
 `../sai-platform/src/docs/content` next to this checkout. CI checks that repository out.
