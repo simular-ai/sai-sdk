@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "feat/sdk-java",
-    "commit": "24e6fc4c04dd36d323f536e43797c02a14aa0231"
+    "ref": "feat/sdk-dotnet",
+    "commit": "2bbb5a5407114a96a6265238898c01b12f2ba3c1"
   },
   "snippets": [
     {
@@ -28,7 +28,7 @@
     },
     {
       "file": "api-reference/approve.md",
-      "line": 122,
+      "line": 131,
       "title": "Answer a choice question",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport java.util.List;\n\nSai sai = new Sai();\nSession session = sai.sessions().resume(\"cs_01HZY\");\nString status = session.respond(\"ap_9Lm\", \"yes\", List.of(List.of(\"desktop\")));\nSystem.out.println(status);"
@@ -49,28 +49,28 @@
     },
     {
       "file": "api-reference/control.md",
-      "line": 163,
+      "line": 170,
       "title": "Run code in a lease",
       "context": "",
       "code": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.ExecResult;\nimport ai.simular.sai.Sai;\nimport java.time.Duration;\n\nSai sai = new Sai();\ntry (ControlLease lease = sai.control().open(\"m_7f2a\")) {\n  ExecResult r = lease.exec(\n      \"var r = await machine.exec({ command: 'hostname' }); r.stdout.trim()\",\n      Duration.ofSeconds(60));\n  System.out.println(r.result());\n}"
     },
     {
       "file": "api-reference/control.md",
-      "line": 288,
+      "line": 306,
       "title": "Interrupt the running block",
       "context": "",
       "code": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nControlLease lease = sai.control().open(\"m_7f2a\");\nSystem.out.println(lease.interrupt());"
     },
     {
       "file": "api-reference/control.md",
-      "line": 354,
+      "line": 380,
       "title": "Read the lease",
       "context": "",
       "code": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nControlLease lease = sai.control().open(\"m_7f2a\");\nSystem.out.println(lease.get());"
     },
     {
       "file": "api-reference/control.md",
-      "line": 422,
+      "line": 456,
       "title": "Close the lease",
       "context": "",
       "code": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nControlLease lease = sai.control().open(\"m_7f2a\");\nlease.close();"
@@ -91,7 +91,7 @@
     },
     {
       "file": "api-reference/judge.md",
-      "line": 176,
+      "line": 186,
       "title": "Read a judgement",
       "context": "",
       "code": "import ai.simular.sai.Judgement;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nJudgement judgement = sai.judge().get(\"judgement_8LmQ2rT0bV\");\nSystem.out.println(judgement);"
@@ -105,42 +105,42 @@
     },
     {
       "file": "api-reference/learn.md",
-      "line": 275,
+      "line": 287,
       "title": "Run learned code in a lease",
       "context": "",
       "code": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.ExecResult;\nimport ai.simular.sai.LearnResult;\nimport ai.simular.sai.Sai;\nimport java.time.Duration;\nimport java.util.Map;\n\nSai sai = new Sai();\nLearnResult learned = sai.learn().get(\"learn_3Fq9cT1kZ0aJ\");\ntry (ControlLease lease = sai.control().open(\"m_7f2a\")) {\n  ExecResult r = lease.run(\n      learned,\n      Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"Fintech\", \"fileName\", \"techcrunch_fintech.txt\"),\n      Duration.ofMinutes(5));\n  System.out.println(r.result());\n}"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 384,
+      "line": 409,
       "title": "Start a learn job from a task",
       "context": "",
       "code": "import ai.simular.sai.LearnOptions;\nimport ai.simular.sai.LearnResult;\nimport ai.simular.sai.Sai;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nLearnResult job = sai.learn().create(List.of(), new LearnOptions()\n    .taskTemplate(\n        \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\")\n    .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n    .criteria(\n        \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\")\n    .maxIterations(3)\n    .rollouts(3));\nLearnResult done = sai.learn().waitFor(job);\nSystem.out.println(done.status() + \" \" + done.testResult() + \" \" + done.code());"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 457,
+      "line": 500,
       "title": "Read a learn job",
       "context": "",
       "code": "import ai.simular.sai.LearnResult;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nLearnResult job = sai.learn().get(\"learn_LIEHFGsRU4H3\");\nSystem.out.println(job.status() + \" \" + job.progress());"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 561,
+      "line": 612,
       "title": "Read a run of a learn job",
       "context": "import ai.simular.sai.LearnResult;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nLearnResult job = sai.learn().get(\"learn_LIEHFGsRU4H3\");\nSystem.out.println(job.status() + \" \" + job.progress());",
       "code": "var run = sai.learn().rollout(\"learn_LIEHFGsRU4H3\", 1, 2);\nSystem.out.println(run.run() + \" \" + run.judgement());"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 587,
+      "line": 643,
       "title": "Cancel a learn job",
       "context": "import ai.simular.sai.LearnResult;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nLearnResult job = sai.learn().get(\"learn_LIEHFGsRU4H3\");\nSystem.out.println(job.status() + \" \" + job.progress());",
       "code": "sai.learn().cancel(\"learn_LIEHFGsRU4H3\");"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 653,
+      "line": 713,
       "title": "Read a learn result",
       "context": "",
       "code": "import ai.simular.sai.LearnResult;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nLearnResult learned = sai.learn().get(\"learn_3Fq9cT1kZ0aJ\");\nSystem.out.println(learned.status());"
@@ -154,7 +154,7 @@
     },
     {
       "file": "api-reference/machines.md",
-      "line": 212,
+      "line": 222,
       "title": "Watch a computer's screen",
       "context": "",
       "code": "import ai.simular.sai.LiveView;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nLiveView live = sai.machines().live(\"m_7f2a\");\nSystem.out.println(live);"
@@ -168,14 +168,14 @@
     },
     {
       "file": "api-reference/message.md",
-      "line": 212,
+      "line": 224,
       "title": "Give Sai a task with typed output",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.SendOptions;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nSession session = sai.sessions().create();\nTurn turn = session.send(\n    \"Open https://news.ycombinator.com and read the title of the top story.\",\n    new SendOptions().outputSchema(Map.of(\n        \"type\", \"object\",\n        \"properties\", Map.of(\"title\", Map.of(\"type\", \"string\")),\n        \"required\", List.of(\"title\"))));\nSystem.out.println(turn.id());"
     },
     {
       "file": "api-reference/message.md",
-      "line": 302,
+      "line": 333,
       "title": "Run a task without approvals",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.SendOptions;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\n\nSai sai = new Sai();\nSession session = sai.sessions().create();\nTurn turn = session.send(\"Export last month's invoices to CSV\", new SendOptions().autonomous(true));\nSystem.out.println(turn.id());"
@@ -203,14 +203,14 @@
     },
     {
       "file": "api-reference/turns.md",
-      "line": 157,
+      "line": 165,
       "title": "Read a turn's steps",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.TrajectoryStep;\n\nSai sai = new Sai();\nfor (TrajectoryStep step : sai.turns().trajectory(\"turn_vzjz62w7j7jvOilZ6zBL\")) {\n  System.out.println(step.index() + \" \" + step.title());\n}"
     },
     {
       "file": "api-reference/turns.md",
-      "line": 253,
+      "line": 271,
       "title": "Download a step's screenshot",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\n\nSai sai = new Sai();\nbyte[] jpeg = sai.turns().screenshot(\"turn_vzjz62w7j7jvOilZ6zBL\", 0);\nFiles.write(Path.of(\"step-0.jpg\"), jpeg);"
@@ -231,7 +231,7 @@
     },
     {
       "file": "concepts/approvals.md",
-      "line": 162,
+      "line": 170,
       "title": "Answer a choice question",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport java.util.List;\n\nSai sai = new Sai();\nSession session = sai.sessions().resume(\"cs_01HZY\");\nsession.respond(\"ap_9Lm\", \"yes\", List.of(List.of(\"desktop\")));"
@@ -252,14 +252,14 @@
     },
     {
       "file": "concepts/learned-code.md",
-      "line": 193,
+      "line": 209,
       "title": "Learn, run and repair",
       "context": "import ai.simular.sai.Evaluation;\nimport ai.simular.sai.LearnOptions;\nimport ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.SendOptions;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\nSession session = sai.sessions().create(pc);\nTurn turn = session.send(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    new SendOptions()\n        .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n        .recordTrajectory(true));\nSystem.out.println(turn.id());",
       "code": "var learned = sai.learn().create(List.of(turn));\ntry (var lease = sai.control().open(pc)) {\n  var r = lease.run(learned, Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"Fintech\", \"fileName\", \"techcrunch_fintech.txt\"));\n  if (!r.ok()) {\n    learned = sai.learn().create(List.of(), new LearnOptions()\n        .initialCode(learned.code())\n        .evaluations(List.of(\n            new Evaluation(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"Fintech\", \"fileName\", \"techcrunch_fintech.txt\"))\n                .result(r)\n                .passed(false))));\n  }\n}"
     },
     {
       "file": "concepts/learned-code.md",
-      "line": 274,
+      "line": 310,
       "title": "Learn a reliable function from a task",
       "context": "import ai.simular.sai.Evaluation;\nimport ai.simular.sai.LearnOptions;\nimport ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.SendOptions;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\nSession session = sai.sessions().create(pc);\nTurn turn = session.send(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    new SendOptions()\n        .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n        .recordTrajectory(true));\nSystem.out.println(turn.id());",
       "code": "var job = sai.learn().create(List.of(), new LearnOptions()\n    .taskTemplate(\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\")\n    .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n    .criteria(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\")\n    .maxIterations(3)\n    .rollouts(3)\n    // Before the agent run and before every run: close the browser tabs and Notepad.\n    .reset(Map.of(\"code\", \"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\"\"\")));\nvar done = sai.learn().waitFor(job);\nSystem.out.println(done.testResult()); // passed 3 of 3 runs, on these inputs\nSystem.out.println(done.code());"
@@ -280,7 +280,7 @@
     },
     {
       "file": "concepts/structured-output.md",
-      "line": 335,
+      "line": 354,
       "title": "Give Sai a task with every option",
       "context": "",
       "code": "import ai.simular.sai.Check;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.SendOptions;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nSession session = sai.sessions().create();\nTurn turn = session.send(\n    \"Sign in to the {{vendor}} portal and list the invoices dated in {{month}}.\",\n    new SendOptions()\n        .inputs(Map.of(\"vendor\", \"Acme\", \"month\", \"September 2026\"))\n        .outputSchema(Map.of(\n            \"type\", \"object\",\n            \"properties\", Map.of(\n                \"invoices\", Map.of(\n                    \"type\", \"array\",\n                    \"items\", Map.of(\n                        \"type\", \"object\",\n                        \"properties\", Map.of(\n                            \"number\", Map.of(\"type\", \"string\"),\n                            \"date\", Map.of(\"type\", \"string\", \"pattern\", \"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"),\n                            \"total\", Map.of(\"type\", \"number\")),\n                        \"required\", List.of(\"number\", \"date\", \"total\")))),\n            \"required\", List.of(\"invoices\")))\n        .successCriteria(List.of(\n            new Check(\"signed_in\", \"Sai signed in and saw the invoice list.\"),\n            new Check(\"all_listed\", \"Every invoice dated in the month is in the answer.\", true)))\n        .idempotencyKey(\"acme-invoices-2026-09\")\n        .recordTrajectory(true));\nSystem.out.println(turn.id());"
@@ -315,14 +315,14 @@
     },
     {
       "file": "organisations/tenant-machines.md",
-      "line": 287,
+      "line": 297,
       "title": "Get a Tenant machine",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.TenantMachine;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).build();\nTenantMachine machine = org.tenantMachines().get(\"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\");"
     },
     {
       "file": "organisations/tenant-machines.md",
-      "line": 348,
+      "line": 365,
       "title": "Revoke a Tenant machine",
       "context": "",
       "code": "import ai.simular.sai.Sai;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).build();\norg.tenantMachines().revoke(\"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\");"
@@ -336,14 +336,14 @@
     },
     {
       "file": "organisations/tenant-tokens.md",
-      "line": 144,
+      "line": 156,
       "title": "Send a message as the Tenant",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\n\nString tenantToken = \"eyJhbGciOiJSUzI1NiIs...\";\nSai sai = Sai.builder().apiKey(tenantToken).build();\nSession session = sai.sessions().create();\nTurn turn = session.send(\"Open the calendar and read today’s appointments\");"
     },
     {
       "file": "organisations/tenant-tokens.md",
-      "line": 206,
+      "line": 227,
       "title": "Act as the Tenant",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).orgId(\"org_3f9a1c0b7e2d4a6f8c10\").build();\nSai clinic = org.tenants().client(\"Xk2p9QzR4tLm8vNa3bCd\");\nSession session = clinic.sessions().create();\nTurn turn = session.send(\"Open the calendar and read today’s appointments\");"
@@ -357,42 +357,42 @@
     },
     {
       "file": "organisations/tenants.md",
-      "line": 221,
+      "line": 232,
       "title": "List active Tenants",
       "context": "",
       "code": "import ai.simular.sai.ListTenantsOptions;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Tenant;\nimport ai.simular.sai.TenantPage;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).build();\nString cursor = null;\ndo {\n  TenantPage page = org.tenants().list(new ListTenantsOptions().status(\"active\").limit(50).cursor(cursor));\n  for (Tenant tenant : page.tenants()) System.out.println(tenant.id() + \" \" + tenant.name());\n  cursor = page.nextCursor();\n} while (cursor != null);"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 298,
+      "line": 322,
       "title": "Find a Tenant by your own id",
       "context": "",
       "code": "import ai.simular.sai.ListTenantsOptions;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Tenant;\nimport java.util.List;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).build();\nList<Tenant> tenants = org.tenants().list(new ListTenantsOptions().externalId(\"clinic-4821\")).tenants();\nTenant tenant = tenants.isEmpty() ? null : tenants.get(0);"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 357,
+      "line": 389,
       "title": "Get a Tenant",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Tenant;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).build();\nTenant tenant = org.tenants().get(\"Xk2p9QzR4tLm8vNa3bCd\");"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 426,
+      "line": 465,
       "title": "Rename a Tenant and replace its metadata",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Tenant;\nimport ai.simular.sai.UpdateTenantOptions;\nimport java.util.Map;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).build();\nTenant tenant = org.tenants().update(\"Xk2p9QzR4tLm8vNa3bCd\", new UpdateTenantOptions()\n    .name(\"Riverside Clinic East\")\n    .metadata(Map.of(\"plan\", \"enterprise\")));"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 546,
+      "line": 596,
       "title": "Disable a Tenant",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Tenant;\nimport ai.simular.sai.UpdateTenantOptions;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).build();\nTenant tenant = org.tenants().update(\"Xk2p9QzR4tLm8vNa3bCd\", new UpdateTenantOptions().status(\"disabled\"));"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 608,
+      "line": 665,
       "title": "Delete a Tenant",
       "context": "",
       "code": "import ai.simular.sai.Sai;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).build();\norg.tenants().delete(\"Xk2p9QzR4tLm8vNa3bCd\");"
@@ -406,49 +406,49 @@
     },
     {
       "file": "quickstart.md",
-      "line": 139,
+      "line": 149,
       "title": "Check your account",
       "context": "",
       "code": "import ai.simular.sai.Sai;\n\nSai sai = new Sai();\nSystem.out.println(sai.account().get());"
     },
     {
       "file": "quickstart.md",
-      "line": 211,
+      "line": 228,
       "title": "Give Sai a task",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\n\nSai sai = new Sai();\nSession session = sai.sessions().create();\nTurn turn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nSystem.out.println(turn.id() + \" \" + turn.queued());"
     },
     {
       "file": "quickstart.md",
-      "line": 262,
+      "line": 288,
       "title": "Poll for events",
       "context": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\n\nSai sai = new Sai();\nSession session = sai.sessions().create();\nTurn turn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nSystem.out.println(turn.id() + \" \" + turn.queued());",
       "code": "// `turn` is what session.send() returned in step 4; events() polls until the turn ends.\nfor (var ev : turn.events()) {\n  System.out.println(ev.kind() + \" \" + ev.text());\n}"
     },
     {
       "file": "quickstart.md",
-      "line": 345,
+      "line": 379,
       "title": "Answer an approval",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\n\nSai sai = new Sai();\nSession session = sai.sessions().resume(\"cs_01HZY\");\nsession.respond(\"ap_7Qw\", \"yes\");"
     },
     {
       "file": "quickstart.md",
-      "line": 489,
+      "line": 531,
       "title": "Learn code for a task",
       "context": "",
       "code": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.LearnOptions;\nimport ai.simular.sai.LearnResult;\nimport ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\nLearnResult job = sai.learn().create(List.of(), new LearnOptions()\n    .taskTemplate(\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\")\n    .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n    .criteria(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\")\n    .reset(Map.of(\"code\", \"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\"\"\"))\n    .maxIterations(2)\n    .rollouts(2)\n    .machine(pc));\nLearnResult done = sai.learn().waitFor(job);\nSystem.out.println(done.status() + \" \" + (done.testResult() != null ? done.testResult().status() : null));\nSystem.out.println(done.code());"
     },
     {
       "file": "quickstart.md",
-      "line": 601,
+      "line": 668,
       "title": "Run the learned code",
       "context": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.LearnOptions;\nimport ai.simular.sai.LearnResult;\nimport ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\nLearnResult job = sai.learn().create(List.of(), new LearnOptions()\n    .taskTemplate(\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\")\n    .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n    .criteria(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\")\n    .reset(Map.of(\"code\", \"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\"\"\"))\n    .maxIterations(2)\n    .rollouts(2)\n    .machine(pc));\nLearnResult done = sai.learn().waitFor(job);\nSystem.out.println(done.status() + \" \" + (done.testResult() != null ? done.testResult().status() : null));\nSystem.out.println(done.code());",
       "code": "// Continue from the code above.\ntry (ControlLease lease = sai.control().open(pc)) {\n  System.out.println(lease.run(done).result());\n}"
     },
     {
       "file": "quickstart.md",
-      "line": 659,
+      "line": 732,
       "title": "Run a task",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSession session = new Sai().sessions().create();\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nSystem.out.println(result.text());"

@@ -1,0 +1,569 @@
+{
+  "source": {
+    "repo": "simular-ai/sai-platform",
+    "ref": "feat/sdk-dotnet",
+    "commit": "2bbb5a5407114a96a6265238898c01b12f2ba3c1"
+  },
+  "snippets": [
+    {
+      "file": "api-reference/abort.md",
+      "line": 68,
+      "title": "Stop a session's task",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = sai.Sessions.Resume(\"cs_01HZY\");\nConsole.WriteLine(await session.AbortAsync());"
+    },
+    {
+      "file": "api-reference/account.md",
+      "line": 63,
+      "title": "Read your plan and credit",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar account = await sai.Account.GetAsync();\nConsole.WriteLine(account);"
+    },
+    {
+      "file": "api-reference/approve.md",
+      "line": 69,
+      "title": "Answer an approval",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = sai.Sessions.Resume(\"cs_01HZY\");\nvar status = await session.RespondAsync(\"ap_7Qw\", \"yes\");\nConsole.WriteLine(status);"
+    },
+    {
+      "file": "api-reference/approve.md",
+      "line": 142,
+      "title": "Answer a choice question",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = sai.Sessions.Resume(\"cs_01HZY\");\nvar status = await session.RespondAsync(\"ap_9Lm\", \"yes\", selections: [[\"desktop\"]]);\nConsole.WriteLine(status);"
+    },
+    {
+      "file": "api-reference/authentication.md",
+      "line": 71,
+      "title": "Check a key",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar me = await sai.Auth.CheckAsync();\nConsole.WriteLine($\"{me.UserId} {me.AuthType}\"); // apiKey"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 67,
+      "title": "Open control of a computer",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar lease = await sai.Control.OpenAsync(\"m_7f2a\");"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 185,
+      "title": "Run code in a lease",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nawait using var lease = await sai.Control.OpenAsync(\"m_7f2a\"); // closed at the end of the scope\nvar r = await lease.ExecAsync(\n    \"var r = await machine.exec({ command: 'hostname' }); r.stdout.trim()\",\n    timeout: TimeSpan.FromSeconds(60));\nConsole.WriteLine(r.Result);"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 315,
+      "title": "Interrupt the running block",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar lease = await sai.Control.OpenAsync(\"m_7f2a\");\nConsole.WriteLine(await lease.InterruptAsync());"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 389,
+      "title": "Read the lease",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar lease = await sai.Control.OpenAsync(\"m_7f2a\");\nConsole.WriteLine(await lease.GetAsync());"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 465,
+      "title": "Close the lease",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar lease = await sai.Control.OpenAsync(\"m_7f2a\");\nawait lease.CloseAsync();"
+    },
+    {
+      "file": "api-reference/events.md",
+      "line": 79,
+      "title": "Poll for events",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = sai.Sessions.Resume(\"cs_01HZY\");\nvar turn = await session.SendAsync(\"Open Notepad and type hello\");\nawait foreach (var ev in turn.EventsAsync())\n{\n    Console.WriteLine($\"{ev.Kind} {ev.Text}\");\n}"
+    },
+    {
+      "file": "api-reference/judge.md",
+      "line": 91,
+      "title": "Judge a turn",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar judgement = await sai.Judge.CreateAsync(\n    [\"turn_vzjz62w7j7jvOilZ6zBL\"],\n    new[] { new Check(\"title\", \"The agent reported the title of the top story\", ReturnEvidence: true) });\nConsole.WriteLine(judgement.Verdict);"
+    },
+    {
+      "file": "api-reference/judge.md",
+      "line": 195,
+      "title": "Read a judgement",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar judgement = await sai.Judge.GetAsync(\"judgement_8LmQ2rT0bV\");\nConsole.WriteLine(judgement);"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 104,
+      "title": "Learn code from a turn",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar learned = await sai.Learn.CreateAsync([\"turn_vzjz62w7j7jvOilZ6zBL\"], new LearnOptions\n{\n    TaskTemplate =\n        \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n});\nConsole.WriteLine(learned.Code);"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 306,
+      "title": "Run learned code in a lease",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar learned = await sai.Learn.GetAsync(\"learn_3Fq9cT1kZ0aJ\");\nawait using var lease = await sai.Control.OpenAsync(\"m_7f2a\");\nvar r = await lease.RunAsync(\n    learned,\n    new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"Fintech\", [\"fileName\"] = \"techcrunch_fintech.txt\" },\n    timeout: TimeSpan.FromMinutes(5));\nConsole.WriteLine(r.Result);"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 429,
+      "title": "Start a learn job from a task",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar job = await sai.Learn.CreateAsync([], new LearnOptions\n{\n    TaskTemplate =\n        \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n    Criteria =\n        \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    MaxIterations = 3,\n    Rollouts = 3,\n});\nvar done = await sai.Learn.WaitAsync(job);\nConsole.WriteLine($\"{done.Status} {done.TestResult} {done.Code}\");"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 509,
+      "title": "Read a learn job",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar job = await sai.Learn.GetAsync(\"learn_LIEHFGsRU4H3\");\nConsole.WriteLine($\"{job.Status} {job.Progress}\");"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 617,
+      "title": "Read a run of a learn job",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar job = await sai.Learn.GetAsync(\"learn_LIEHFGsRU4H3\");\nConsole.WriteLine($\"{job.Status} {job.Progress}\");",
+      "code": "var run = await sai.Learn.RolloutAsync(\"learn_LIEHFGsRU4H3\", 1, 2);\nConsole.WriteLine($\"{run.Run} {run.Judgement}\");"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 647,
+      "title": "Cancel a learn job",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar job = await sai.Learn.GetAsync(\"learn_LIEHFGsRU4H3\");\nConsole.WriteLine($\"{job.Status} {job.Progress}\");",
+      "code": "await sai.Learn.CancelAsync(\"learn_LIEHFGsRU4H3\");"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 722,
+      "title": "Read a learn result",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar learned = await sai.Learn.GetAsync(\"learn_3Fq9cT1kZ0aJ\");\nConsole.WriteLine(learned.Status);"
+    },
+    {
+      "file": "api-reference/machines.md",
+      "line": 67,
+      "title": "List your computers",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nforeach (var machine in await sai.Machines.ListAsync())\n{\n    Console.WriteLine($\"{machine.Id} {machine.Name} {machine.Kind} {machine.Online}\");\n}"
+    },
+    {
+      "file": "api-reference/machines.md",
+      "line": 231,
+      "title": "Watch a computer's screen",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar live = await sai.Machines.LiveAsync(\"m_7f2a\");\nConsole.WriteLine(live);"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 113,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar report = await sai.Files.UploadAsync(\"report.pdf\"); // attachments take what UploadAsync returns\nvar session = await sai.Sessions.CreateAsync(machine: \"m_7f2a\");\nvar turn = await session.SendAsync(\n    \"Open Notepad, type hello, save it to the desktop as hello.txt\",\n    new SendOptions { Attachments = [report] });\nConsole.WriteLine(turn.Id);"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 243,
+      "title": "Give Sai a task with typed output",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = await sai.Sessions.CreateAsync();\nvar turn = await session.SendAsync(\n    \"Open https://news.ycombinator.com and read the title of the top story.\",\n    new SendOptions\n    {\n        OutputSchema = new\n        {\n            type = \"object\",\n            properties = new { title = new { type = \"string\" } },\n            required = new[] { \"title\" },\n        },\n    });\nConsole.WriteLine(turn.Id);"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 345,
+      "title": "Run a task without approvals",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = await sai.Sessions.CreateAsync();\nvar turn = await session.SendAsync(\"Export last month's invoices to CSV\", new SendOptions { Autonomous = true });\nConsole.WriteLine(turn.Id);"
+    },
+    {
+      "file": "api-reference/models.md",
+      "line": 67,
+      "title": "List models",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nforeach (var model in await sai.Models.ListAsync())\n{\n    Console.WriteLine($\"{model.Id} {model.Allowed}\");\n}"
+    },
+    {
+      "file": "api-reference/new-session.md",
+      "line": 65,
+      "title": "Start a new session",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = await sai.Sessions.CreateAsync(machine: \"m_7f2a\");"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 65,
+      "title": "Read a turn",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar record = await sai.Turns.GetAsync(\"turn_vzjz62w7j7jvOilZ6zBL\");\nConsole.WriteLine(record);"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 175,
+      "title": "Read a turn's steps",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nforeach (var step in await sai.Turns.TrajectoryAsync(\"turn_vzjz62w7j7jvOilZ6zBL\"))\n{\n    Console.WriteLine($\"{step.Index} {step.Title}\");\n}"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 281,
+      "title": "Download a step's screenshot",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar jpeg = await sai.Turns.ScreenshotAsync(\"turn_vzjz62w7j7jvOilZ6zBL\", 0);\nawait File.WriteAllBytesAsync(\"step-0.jpg\", jpeg);"
+    },
+    {
+      "file": "api-reference/upload.md",
+      "line": 72,
+      "title": "Upload a file",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar attachment = await sai.Files.UploadAsync(\"./report.pdf\", name: \"report.pdf\");\nConsole.WriteLine(attachment);"
+    },
+    {
+      "file": "concepts/approvals.md",
+      "line": 86,
+      "title": "Answer a command approval",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = sai.Sessions.Resume(\"cs_01HZY\");\nawait session.RespondAsync(\"ap_7Qw\", \"yes\");"
+    },
+    {
+      "file": "concepts/approvals.md",
+      "line": 180,
+      "title": "Answer a choice question",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = sai.Sessions.Resume(\"cs_01HZY\");\nawait session.RespondAsync(\"ap_9Lm\", \"yes\", selections: [[\"desktop\"]]);"
+    },
+    {
+      "file": "concepts/billing-and-limits.md",
+      "line": 68,
+      "title": "Check your balance",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nConsole.WriteLine(await sai.Account.GetAsync());"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 123,
+      "title": "Record a task",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar turn = await session.SendAsync(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    new SendOptions\n    {\n        Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n        RecordTrajectory = true,\n    });\nConsole.WriteLine(turn.Id);"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 224,
+      "title": "Learn, run and repair",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar turn = await session.SendAsync(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    new SendOptions\n    {\n        Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n        RecordTrajectory = true,\n    });\nConsole.WriteLine(turn.Id);",
+      "code": "var learned = await sai.Learn.CreateAsync([turn]);\nawait using var lease = await sai.Control.OpenAsync(pc);\nvar inputs = new Dictionary<string, object>\n{\n    [\"newsSite\"] = \"TechCrunch\",\n    [\"topic\"] = \"Fintech\",\n    [\"fileName\"] = \"techcrunch_fintech.txt\",\n};\nvar r = await lease.RunAsync(learned, inputs);\nif (!r.Ok)\n{\n    learned = await sai.Learn.CreateAsync([], new LearnOptions\n    {\n        InitialCode = learned.Code,\n        Evaluations = [new Evaluation(inputs, r, Passed: false)],\n    });\n}"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 326,
+      "title": "Learn a reliable function from a task",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar turn = await session.SendAsync(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    new SendOptions\n    {\n        Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n        RecordTrajectory = true,\n    });\nConsole.WriteLine(turn.Id);",
+      "code": "var job = await sai.Learn.CreateAsync([], new LearnOptions\n{\n    TaskTemplate =\n        \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n    Criteria =\n        \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    MaxIterations = 3,\n    Rollouts = 3,\n    // Before the agent run and before every run: close the browser tabs and Notepad.\n    Reset = Reset.Code(\"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\n        \"\"\"),\n});\nvar done = await sai.Learn.WaitAsync(job);\nConsole.WriteLine(done.TestResult); // passed 3 of 3 runs, on these inputs\nConsole.WriteLine(done.Code);"
+    },
+    {
+      "file": "concepts/sessions.md",
+      "line": 132,
+      "title": "List sessions",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\nforeach (var s in await sai.Sessions.ListAsync(machine: pc)) Console.WriteLine($\"{s.Id} {s.Title} {s.Active}\");"
+    },
+    {
+      "file": "concepts/structured-output.md",
+      "line": 115,
+      "title": "Ask for typed output",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = await sai.Sessions.CreateAsync();\nvar turn = await session.SendAsync(\n    \"Open https://news.ycombinator.com and read the title of the top story.\",\n    new SendOptions\n    {\n        OutputSchema = new\n        {\n            type = \"object\",\n            properties = new { title = new { type = \"string\" } },\n            required = new[] { \"title\" },\n        },\n    });\nConsole.WriteLine(turn.Id);"
+    },
+    {
+      "file": "concepts/structured-output.md",
+      "line": 390,
+      "title": "Give Sai a task with every option",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = await sai.Sessions.CreateAsync();\nvar turn = await session.SendAsync(\n    \"Sign in to the {{vendor}} portal and list the invoices dated in {{month}}.\",\n    new SendOptions\n    {\n        Inputs = new Dictionary<string, object> { [\"vendor\"] = \"Acme\", [\"month\"] = \"September 2026\" },\n        OutputSchema = new\n        {\n            type = \"object\",\n            properties = new\n            {\n                invoices = new\n                {\n                    type = \"array\",\n                    items = new\n                    {\n                        type = \"object\",\n                        properties = new\n                        {\n                            number = new { type = \"string\" },\n                            date = new { type = \"string\", pattern = @\"^\\d{4}-\\d{2}-\\d{2}$\" },\n                            total = new { type = \"number\" },\n                        },\n                        required = new[] { \"number\", \"date\", \"total\" },\n                    },\n                },\n            },\n            required = new[] { \"invoices\" },\n        },\n        SuccessCriteria = new[]\n        {\n            new Check(\"signed_in\", \"Sai signed in and saw the invoice list.\"),\n            new Check(\"all_listed\", \"Every invoice dated in the month is in the answer.\", ReturnEvidence: true),\n        },\n        IdempotencyKey = \"acme-invoices-2026-09\",\n        RecordTrajectory = true,\n    });\nConsole.WriteLine(turn.Id);"
+    },
+    {
+      "file": "organisations/enrollment.md",
+      "line": 70,
+      "title": "Create an enrollment code",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nvar enrollment = await org.Tenants.CreateEnrollmentAsync(\"Xk2p9QzR4tLm8vNa3bCd\");\nConsole.WriteLine($\"{enrollment.Token} {enrollment.ExpiresAt}\"); // hand the token to your installer"
+    },
+    {
+      "file": "organisations/orgs.md",
+      "line": 196,
+      "title": "This month's usage, by Tenant",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = Environment.GetEnvironmentVariable(\"SAI_ORG_ID\"),\n});\nvar usage = await org.Usage.GetAsync(granularity: \"month\", from: \"2026-10\", to: \"2026-10\");\nforeach (var tenant in usage.Totals.ByTenant.Values)\n{\n    Console.WriteLine($\"{tenant.Name} {tenant.CostCents}\");\n}"
+    },
+    {
+      "file": "organisations/session-spend.md",
+      "line": 102,
+      "title": "List a Tenant's session spend for October",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = Environment.GetEnvironmentVariable(\"SAI_ORG_ID\"),\n});\nstring? cursor = null;\ndo\n{\n    var page = await org.Usage.SessionsAsync(\"Xk2p9QzR4tLm8vNa3bCd\", from: \"2026-10-01\", to: \"2026-10-31\", cursor: cursor);\n    foreach (var s in page.Sessions) Console.WriteLine($\"{s.SessionId} {s.Title} {s.CostUsd}\");\n    cursor = page.NextCursor;\n} while (cursor is not null);"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 207,
+      "title": "List a Tenant's machines",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nforeach (var machine in await org.TenantMachines.ListAsync(\"Xk2p9QzR4tLm8vNa3bCd\"))\n{\n    Console.WriteLine($\"{machine.Id} {machine.Name} {machine.State}\");\n}"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 305,
+      "title": "Get a Tenant machine",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nvar machine = await org.TenantMachines.GetAsync(\"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\");"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 372,
+      "title": "Revoke a Tenant machine",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nawait org.TenantMachines.RevokeAsync(\"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\");"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 65,
+      "title": "Exchange an Organisation Key for a Tenant token",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = \"org_3f9a1c0b7e2d4a6f8c10\",\n});\nvar token = await org.Tenants.TokenAsync(\"Xk2p9QzR4tLm8vNa3bCd\");\nConsole.WriteLine($\"{token.Token} {token.ExpiresAt}\");"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 167,
+      "title": "Send a message as the Tenant",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar tenantToken = \"eyJhbGciOiJSUzI1NiIs...\";\nvar sai = new SaiClient(new SaiClientOptions { ApiKey = tenantToken });\nvar session = await sai.Sessions.CreateAsync();\nvar turn = await session.SendAsync(\"Open the calendar and read today’s appointments\");"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 238,
+      "title": "Act as the Tenant",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = \"org_3f9a1c0b7e2d4a6f8c10\",\n});\nvar clinic = await org.Tenants.ClientAsync(\"Xk2p9QzR4tLm8vNa3bCd\");\nvar session = await clinic.Sessions.CreateAsync();\nvar turn = await session.SendAsync(\"Open the calendar and read today’s appointments\");"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 127,
+      "title": "Create a Tenant",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nvar tenant = await org.Tenants.CreateAsync(\n    \"Riverside Clinic\",\n    externalId: \"clinic-4821\",\n    metadata: new Dictionary<string, string> { [\"plan\"] = \"pro\" });\nConsole.WriteLine(tenant.Id);"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 247,
+      "title": "List active Tenants",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nstring? cursor = null;\ndo\n{\n    var page = await org.Tenants.ListAsync(status: \"active\", limit: 50, cursor: cursor);\n    foreach (var tenant in page.Tenants) Console.WriteLine($\"{tenant.Id} {tenant.Name}\");\n    cursor = page.NextCursor;\n} while (cursor is not null);"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 333,
+      "title": "Find a Tenant by your own id",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nvar page = await org.Tenants.ListAsync(externalId: \"clinic-4821\");\nvar tenant = page.Tenants.FirstOrDefault();"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 397,
+      "title": "Get a Tenant",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nvar tenant = await org.Tenants.GetAsync(\"Xk2p9QzR4tLm8vNa3bCd\");"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 477,
+      "title": "Rename a Tenant and replace its metadata",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nvar tenant = await org.Tenants.UpdateAsync(\"Xk2p9QzR4tLm8vNa3bCd\", new TenantUpdate\n{\n    Name = \"Riverside Clinic East\",\n    Metadata = new Dictionary<string, string> { [\"plan\"] = \"enterprise\" },\n});"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 605,
+      "title": "Disable a Tenant",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nvar tenant = await org.Tenants.UpdateAsync(\"Xk2p9QzR4tLm8vNa3bCd\", new TenantUpdate { Status = \"disabled\" });"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 672,
+      "title": "Delete a Tenant",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions { ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\") });\nawait org.Tenants.DeleteAsync(\"Xk2p9QzR4tLm8vNa3bCd\");"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 82,
+      "title": "List your computers",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nforeach (var machine in await sai.Machines.ListAsync())\n{\n    Console.WriteLine($\"{machine.Id} {machine.Name} {machine.Kind} {machine.Online}\");\n}"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 156,
+      "title": "Check your account",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nConsole.WriteLine(await sai.Account.GetAsync());"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 239,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = await sai.Sessions.CreateAsync();\nvar turn = await session.SendAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nConsole.WriteLine($\"{turn.Id} {turn.Queued}\");"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 295,
+      "title": "Poll for events",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = await sai.Sessions.CreateAsync();\nvar turn = await session.SendAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nConsole.WriteLine($\"{turn.Id} {turn.Queued}\");",
+      "code": "// `turn` is what session.SendAsync() returned in step 4; EventsAsync() polls until the turn ends.\nawait foreach (var ev in turn.EventsAsync())\n{\n    Console.WriteLine($\"{ev.Kind} {ev.Text}\");\n}"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 388,
+      "title": "Answer an approval",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar session = sai.Sessions.Resume(\"cs_01HZY\");\nawait session.RespondAsync(\"ap_7Qw\", \"yes\");"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 557,
+      "title": "Learn code for a task",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\nvar job = await sai.Learn.CreateAsync([], new LearnOptions\n{\n    TaskTemplate =\n        \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n    Criteria =\n        \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    Reset = Reset.Code(\"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\n        \"\"\"),\n    MaxIterations = 2,\n    Rollouts = 2,\n    Machine = pc,\n});\nvar done = await sai.Learn.WaitAsync(job);\nConsole.WriteLine($\"{done.Status} {done.TestResult?.Status}\");\nConsole.WriteLine(done.Code);"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 675,
+      "title": "Run the learned code",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\nvar job = await sai.Learn.CreateAsync([], new LearnOptions\n{\n    TaskTemplate =\n        \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n    Criteria =\n        \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    Reset = Reset.Code(\"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\n        \"\"\"),\n    MaxIterations = 2,\n    Rollouts = 2,\n    Machine = pc,\n});\nvar done = await sai.Learn.WaitAsync(job);\nConsole.WriteLine($\"{done.Status} {done.TestResult?.Status}\");\nConsole.WriteLine(done.Code);",
+      "code": "// Continue from the code above.\nawait using var lease = await sai.Control.OpenAsync(pc);\nConsole.WriteLine((await lease.RunAsync(done)).Result);"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 742,
+      "title": "Run a task",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar session = await new SaiClient().Sessions.CreateAsync();\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nConsole.WriteLine(result.Text);"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 29,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 51,
+      "title": "Watch the events",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "var turn = await session.SendAsync(\"Find last month's invoices in Downloads and total them\");\nawait foreach (var ev in turn.EventsAsync())\n{\n    if (ev.Kind == EventKind.Step) Console.WriteLine($\"   {ev.Text}\");\n    else if (ev.Kind == EventKind.Approval) await turn.RespondAsync(ev.Approval!, \"yes\");\n}\nvar answer = await turn.WaitAsync();"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 76,
+      "title": "Approval handler",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "var cleaned = await session.RunAsync(\"Clean up the temp folder\", new RunOptions\n{\n    OnApproval = approval =>\n    {\n        if (approval.IsLinkOnly)\n        {\n            Console.WriteLine($\"Approve in a browser: {approval.Url}\");\n            return null; // a person answers it; keep waiting\n        }\n        if (approval.Type == \"choice\")\n        {\n            var selections = approval.Questions\n                .Select(q => new[] { q.GetProperty(\"options\")[0].GetProperty(\"value\").GetString()! })\n                .ToArray();\n            return new ApprovalAnswer(\"yes\", selections);\n        }\n        return \"yes\";\n    },\n});"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 102,
+      "title": "Unattended run",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "await session.RunAsync(\"Export last month's invoices to CSV\", new RunOptions { Autonomous = true });"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 108,
+      "title": "Files, models, stopping",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "var report = await sai.Files.UploadAsync(\"report.pdf\"); // or UploadAsync(bytes, \"report.pdf\")\nawait session.RunAsync(\"Summarise the attached report\", new RunOptions { Attachments = [report] });\n\nvar allowed = (await sai.Models.ListAsync()).Where(m => m.Allowed).Select(m => m.Id).ToList();\nawait session.RunAsync(\"...\", new RunOptions { Model = \"anthropic/claude-opus-5-5\" }); // sticks to the session\n\nvar turn = await session.SendAsync(\"...\");\nawait turn.AbortAsync();"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 125,
+      "title": "Typed output",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "var typed = await session.RunAsync(\n    \"Open https://news.ycombinator.com and read the title of the top story.\",\n    new RunOptions\n    {\n        OutputSchema = new\n        {\n            type = \"object\",\n            properties = new { title = new { type = \"string\" } },\n            required = new[] { \"title\" },\n        },\n    });\nif (typed.Ok) Console.WriteLine(typed.Record?.Output?.GetProperty(\"title\").GetString());\nelse Console.WriteLine(typed.Record?.ReasonCode); // e.g. output_invalid"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 143,
+      "title": "Read a turn later",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "var turn = await session.SendAsync(\"...\", new SendOptions { RecordTrajectory = true });\nvar record = await sai.Turns.WaitAsync(turn); // until succeeded, failed or needs_input\nforeach (var step in await sai.Turns.TrajectoryAsync(turn))\n{\n    Console.WriteLine($\"{step.Index} {step.Title}\");\n}"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 156,
+      "title": "Learn and repair code",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "var turn = await session.SendAsync(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    new SendOptions\n    {\n        Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n        RecordTrajectory = true,\n    });\nawait sai.Turns.WaitAsync(turn);\n\nvar learned = await sai.Learn.CreateAsync([turn]); // waits for the code; longer for a longer task\nvar fintech = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"Fintech\", [\"fileName\"] = \"techcrunch_fintech.txt\" };\nvar lease = await sai.Control.OpenAsync(pc);\nvar r = await lease.RunAsync(learned, fintech); // inputs over the defaults\nConsole.WriteLine(r.Result);\nawait lease.CloseAsync();\n\nvar repaired = await sai.Learn.CreateAsync([], new LearnOptions\n{\n    InitialCode = learned.Code,\n    Evaluations = [new Evaluation(fintech, r, Passed: false)],\n});\nvar judgement = await sai.Judge.CreateAsync(\n    [turn],\n    new[] { new Check(\"file\", \"The agent saved the headlines to the file\") });"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 187,
+      "title": "Run, judge and repair on a computer",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "var job = await sai.Learn.CreateAsync([], new LearnOptions\n{\n    TaskTemplate =\n        \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    Inputs = new Dictionary<string, object> { [\"newsSite\"] = \"TechCrunch\", [\"topic\"] = \"AI\", [\"fileName\"] = \"techcrunch_headlines.txt\" },\n    Machine = pc,\n    Criteria =\n        \"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    MaxIterations = 3, // up to 3 code versions; 0 (the default) only writes the code\n    Rollouts = 3, // each version must pass 3 runs in a row\n    Reset = Reset.Code(\"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\n        \"\"\"),\n    ContinueWithAgent = true, // after a failed run, the agent finishes the task and the repair learns from it\n});\nvar done = await sai.Learn.WaitAsync(job); // can take an hour; pass timeout: to stop waiting\nConsole.WriteLine($\"{done.Status} {done.StopReason} {done.TestResult}\");\nConsole.WriteLine(done.Code); // the latest version\nforeach (var it in done.Iterations)\n{\n    Console.WriteLine($\"{it.Index} {it.Changes} {string.Join(\", \", it.Rollouts.Select(x => x.Verdict))}\");\n}\n\nvar run = await sai.Learn.RolloutAsync(job, 1, 1); // what one run returned and logged, and its judgement\nawait sai.Learn.CancelAsync(job); // stops at once and keeps the last complete results"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 220,
+      "title": "Drive a computer",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "await using (var lease = await sai.Control.OpenAsync(pc))\n{\n    Console.WriteLine((await lease.ShellAsync(\"hostname\")).Stdout);\n\n    await lease.WriteFileAsync(@\"C:\\data\\note.txt\", \"hello\");\n    Console.WriteLine(await lease.ReadFileAsync(@\"C:\\data\\note.txt\"));\n\n    var r = await lease.ExecAsync(\"\"\"\n        var page = await machine.browser.newtab('https://example.com')\n        var snap = await page.snapshot()\n        snap.title\n        \"\"\");\n    Console.WriteLine(r.Result); // Example Domain\n    await File.WriteAllBytesAsync($\"page.{r.ScreenshotMimeType!.Split('/')[1]}\", r.Screenshot!); // jpeg or png\n}"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 248,
+      "title": "Other calls",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "await sai.Account.GetAsync(); // plan and spendable credit\nawait sai.Models.ListAsync(); // models, with Allowed for this plan\nawait sai.Machines.LiveAsync(pc); // a link to the screen for a person, and a stream for your viewer; see Live view\nawait sai.Machines.RevokeLiveAsync(pc); // every LiveUrl stops working and its screen sessions end; returns how many"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 256,
+      "title": "Who the key is, and its sessions",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "await sai.Auth.CheckAsync(); // the user, and the Tenant and Organisation for a Tenant token\nawait sai.Sessions.ListAsync(machine: pc); // the computer's API sessions, most recent first"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 266,
+      "title": "Hand the screen to a person",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "var view = await sai.Machines.LiveAsync(pc);\nConsole.WriteLine($\"Sign in here, then tell me: {view.LiveUrl}\"); // valid until view.ExpiresAt (ms)\n// ... once they are done\nawait session.RunAsync(\"I signed in. Carry on.\");\nawait sai.Machines.RevokeLiveAsync(pc); // returns the number of links revoked"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 282,
+      "title": "Tenants",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = \"org_3f9a1c0b7e2d4a6f8c10\",\n});\n\nvar tenant = await org.Tenants.CreateAsync(\"Riverside Clinic\", externalId: \"clinic-4821\");\nvar enrollment = await org.Tenants.CreateEnrollmentAsync(tenant); // hand enrollment.Token to your installer\nConsole.WriteLine(string.Join(\", \", await org.TenantMachines.ListAsync(tenant)));\n\nvar clinic = await org.Tenants.ClientAsync(tenant); // acts as the Tenant\nvar visit = await clinic.Sessions.CreateAsync();\nawait visit.RunAsync(\"Open the calendar and read today's appointments\");"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 308,
+      "title": "Cloud machines",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = \"org_3f9a1c0b7e2d4a6f8c10\",\n});\n\nvar machine = await org.TenantMachines.CreateAsync(\n    \"Xk2p9QzR4tLm8vNa3bCd\",\n    os: \"windows\",\n    name: \"Riverside intake\",\n    requestId: Guid.NewGuid().ToString(),\n    wait: true);\nvar clinic = await org.Tenants.ClientAsync(\"Xk2p9QzR4tLm8vNa3bCd\");\nvar visit = await clinic.Sessions.CreateAsync(machine: machine.Id);\nawait visit.RunAsync(\"Open Notepad and type hello\");\nawait org.TenantMachines.DeleteAsync(\"Xk2p9QzR4tLm8vNa3bCd\", machine);"
+    },
+    {
+      "file": "sdks/dotnet.md",
+      "line": 340,
+      "title": "Usage",
+      "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = \"org_3f9a1c0b7e2d4a6f8c10\",\n});\nvar usage = await org.Usage.GetAsync(granularity: \"month\", from: \"2026-10\", to: \"2026-10\");\nforeach (var t in usage.Totals.ByTenant.Values) Console.WriteLine($\"{t.Name} {t.CostCents}\");\n\nvar page = await org.Usage.SessionsAsync(\"Xk2p9QzR4tLm8vNa3bCd\", from: \"2026-10-01\", to: \"2026-10-31\");\nforeach (var s in page.Sessions) Console.WriteLine($\"{s.SessionId} {s.CostUsd}\");"
+    }
+  ]
+}
