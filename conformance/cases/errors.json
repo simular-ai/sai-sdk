@@ -1,0 +1,353 @@
+{
+  "cases": [
+    {
+      "id": "errors.headers",
+      "doc": "Every request carries the key as a bearer token and a sai-<language>/<version> User-Agent; version_tag adds x-sai-version.",
+      "client": { "api_key": "sapi_abc", "version_tag": "rev-7" },
+      "steps": [{ "call": "models.list", "expect": { "result": [] } }],
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/models",
+            "headers": {
+              "authorization": "Bearer sapi_abc",
+              "user-agent": { "$regex": "^sai-[a-z]+/\\d+\\.\\d+\\.\\d+" },
+              "x-sai-version": "rev-7"
+            }
+          },
+          "response": { "json": { "models": [] } }
+        }
+      ]
+    },
+    {
+      "id": "errors.401",
+      "doc": "401 is AuthenticationError, and the message says the key was rejected.",
+      "steps": [
+        {
+          "call": "machines.list",
+          "expect": {
+            "error": {
+              "class": "AuthenticationError",
+              "status": 401,
+              "code": null,
+              "message": { "$regex": "^Invalid API key \\(SAI_API_KEY was rejected" }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "status": 401, "json": { "error": "Invalid API key" } }
+        }
+      ]
+    },
+    {
+      "id": "errors.code-and-message",
+      "doc": "A { error: code, message } body gives code and message.",
+      "steps": [
+        {
+          "call": "control.open",
+          "args": { "machine": "m_1" },
+          "expect": {
+            "error": {
+              "class": "ConflictError",
+              "status": 409,
+              "code": "machine_busy",
+              "message": "A task holds it"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/machines/m_1/control" },
+          "response": {
+            "status": 409,
+            "json": { "error": "machine_busy", "message": "A task holds it" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "errors.human-error-text",
+      "doc": "An { error } body with human text is the message, with no code.",
+      "steps": [
+        {
+          "call": "machines.list",
+          "expect": {
+            "error": {
+              "class": "BadRequestError",
+              "status": 400,
+              "code": null,
+              "message": "Several computers on this account"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "status": 400, "json": { "error": "Several computers on this account" } }
+        }
+      ]
+    },
+    {
+      "id": "errors.bare-code",
+      "doc": "An { error } body that looks like a code (lowercase, no spaces) is both the code and the message.",
+      "steps": [
+        {
+          "call": "machines.list",
+          "expect": {
+            "error": {
+              "class": "PermissionDeniedError",
+              "status": 403,
+              "code": "forbidden",
+              "message": "forbidden"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "status": 403, "json": { "error": "forbidden" } }
+        }
+      ]
+    },
+    {
+      "id": "errors.not-json",
+      "doc": "A body that is not JSON is the message, and body.error holds it.",
+      "steps": [
+        {
+          "call": "machines.list",
+          "expect": {
+            "error": {
+              "class": "ServiceUnavailableError",
+              "status": 503,
+              "message": "upstream unavailable",
+              "body": { "error": "upstream unavailable" }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "status": 503, "text": "upstream unavailable" }
+        }
+      ]
+    },
+    {
+      "id": "errors.retry-after-header",
+      "doc": "429 is RateLimitError with retry_after from the Retry-After header.",
+      "steps": [
+        {
+          "call": "machines.list",
+          "expect": { "error": { "class": "RateLimitError", "status": 429, "retry_after": 12 } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": {
+            "status": 429,
+            "headers": { "retry-after": "12" },
+            "json": { "error": "Message rate limit exceeded. Maximum 600 messages per hour." }
+          }
+        }
+      ]
+    },
+    {
+      "id": "errors.retry-after-body",
+      "doc": "Without the header, retry_after comes from retryAfterSeconds in the body.",
+      "steps": [
+        {
+          "call": "machines.list",
+          "expect": {
+            "error": {
+              "class": "RateLimitError",
+              "code": "rate_limited",
+              "message": "Too many requests.",
+              "retry_after": 42
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": {
+            "status": 429,
+            "json": {
+              "error": "rate_limited",
+              "message": "Too many requests.",
+              "retryAfterSeconds": 42
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "errors.spend-cap",
+      "doc": "403 spend_cap_reached is SpendCapReachedError (a PermissionDeniedError) with resets_at.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.send",
+          "args": { "message": "hello" },
+          "expect": {
+            "error": {
+              "class": "SpendCapReachedError",
+              "status": 403,
+              "code": "spend_cap_reached",
+              "message": "This key reached its limit.",
+              "resets_at": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "status": 403,
+            "json": {
+              "error": "spend_cap_reached",
+              "message": "This key reached its limit.",
+              "resetsAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "errors.gone",
+      "doc": "410 is GoneError, with the body kept.",
+      "steps": [
+        { "call": "control.open", "args": { "machine": "m_1" }, "save": "lease" },
+        {
+          "call": "lease.exec",
+          "args": { "code": "1" },
+          "expect": {
+            "error": {
+              "class": "GoneError",
+              "status": 410,
+              "code": "control_closed",
+              "body": { "reason": "unresponsive" }
+            }
+          }
+        },
+        { "call": "lease.close", "expect": { "result": null } }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/machines/m_1/control" },
+          "response": { "json": { "machineId": "m_1", "expiresAfterIdleSec": 600 } }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/machines/m_1/control/exec" },
+          "response": {
+            "status": 410,
+            "json": {
+              "error": "control_closed",
+              "message": "The computer stopped answering, so this control lease was closed.",
+              "reason": "unresponsive"
+            }
+          }
+        },
+        {
+          "request": { "method": "DELETE", "path": "/v1/machines/m_1/control" },
+          "response": { "status": 204 }
+        }
+      ]
+    },
+    {
+      "id": "errors.other-status",
+      "doc": "A status with no class of its own (402, 500) is SaiError.",
+      "steps": [
+        {
+          "call": "tenant_machines.create",
+          "args": { "tenant": "t_1", "os": "windows" },
+          "expect": {
+            "error": {
+              "class": "SaiError",
+              "status": 402,
+              "code": "insufficient_credits",
+              "message": "No credit.",
+              "body": { "error": "insufficient_credits", "message": "No credit." }
+            }
+          }
+        },
+        {
+          "call": "tenant_machines.create",
+          "args": { "tenant": "t_1", "os": "windows" },
+          "expect": {
+            "error": {
+              "class": "SaiError",
+              "status": 500,
+              "code": "internal",
+              "body": { "errorId": "e_1" }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/tenants/t_1/machines" },
+          "response": {
+            "status": 402,
+            "json": { "error": "insufficient_credits", "message": "No credit." }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/tenants/t_1/machines" },
+          "response": {
+            "status": 500,
+            "json": { "error": "internal", "message": "Quote errorId.", "errorId": "e_1" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "errors.not-found-with-code",
+      "doc": "404 is NotFoundError.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.abort",
+          "expect": {
+            "error": {
+              "class": "NotFoundError",
+              "status": 404,
+              "code": "not_found",
+              "message": "Session not found."
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/abort",
+            "json": { "sessionId": "cs_1" }
+          },
+          "response": {
+            "status": 404,
+            "json": { "error": "not_found", "message": "Session not found." }
+          }
+        }
+      ]
+    }
+  ]
+}

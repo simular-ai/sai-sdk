@@ -1,0 +1,1011 @@
+{
+  "cases": [
+    {
+      "id": "sessions.create.one-machine",
+      "doc": "Without machine, create() uses the account's only computer and starts a fresh conversation on the api channel.",
+      "steps": [
+        {
+          "call": "sessions.create",
+          "save": "session",
+          "expect": { "result": { "id": "cs_1", "machine_id": "m_1" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "json": { "machines": [{ "machineId": "m_1", "name": "Work PC" }] } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/new-session",
+            "json": { "machineId": "m_1", "channel": "api" }
+          },
+          "response": { "json": { "sessionId": "cs_1" } }
+        }
+      ]
+    },
+    {
+      "id": "sessions.create.several-machines",
+      "doc": "Several computers and no machine is BadRequestError; none is BadRequestError too.",
+      "steps": [
+        {
+          "call": "sessions.create",
+          "expect": {
+            "error": {
+              "class": "BadRequestError",
+              "status": 400,
+              "message": { "$regex": "m_1 \\(Work PC\\), m_2" }
+            }
+          }
+        },
+        {
+          "call": "sessions.create",
+          "expect": { "error": { "class": "BadRequestError", "status": 400 } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": {
+            "json": {
+              "machines": [{ "machineId": "m_1", "name": "Work PC" }, { "machineId": "m_2" }]
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "json": { "machines": [] } }
+        }
+      ]
+    },
+    {
+      "id": "sessions.create.given-machine",
+      "doc": "With machine, create() does not list machines.",
+      "steps": [
+        {
+          "call": "sessions.create",
+          "args": { "machine": "m_2" },
+          "expect": { "result": { "id": "cs_9", "machine_id": "m_2" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/new-session",
+            "json": { "machineId": "m_2", "channel": "api" }
+          },
+          "response": { "json": { "sessionId": "cs_9" } }
+        }
+      ]
+    },
+    {
+      "id": "sessions.create.no-conversation-yet",
+      "doc": "A 404 from new-session (a free computer between claims) is a session with no id; the first message starts one.",
+      "steps": [
+        {
+          "call": "sessions.create",
+          "args": { "machine": "m_1" },
+          "save": "session",
+          "expect": { "result": { "id": null, "machine_id": "m_1" } }
+        },
+        {
+          "call": "session.send",
+          "args": { "message": "hi" },
+          "expect": { "result": { "id": "turn_1", "queued": false } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/new-session" },
+          "response": { "status": 404, "json": { "error": "No session" } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/message",
+            "json": { "message": "hi", "wait": false, "machineId": "m_1" }
+          },
+          "response": {
+            "status": 202,
+            "json": {
+              "sessionId": "cs_new",
+              "machineId": "m_1",
+              "turnId": "turn_1",
+              "queued": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "sessions.list",
+      "doc": "list() reads the api channel's sessions on the computer, resolving the machine like create().",
+      "steps": [
+        {
+          "call": "sessions.list",
+          "expect": {
+            "result": [
+              {
+                "id": "cs_2",
+                "title": "Total the invoices",
+                "updated_at": 1790000500000,
+                "active": true
+              },
+              { "id": "cs_1", "title": "", "updated_at": 1790000000000, "active": false }
+            ]
+          }
+        },
+        { "call": "sessions.list", "args": { "machine": "m 2" }, "expect": { "result": [] } }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "json": { "machines": [{ "machineId": "m_1" }] } }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/sessions",
+            "query": { "machineId": "m_1", "channel": "api" }
+          },
+          "response": {
+            "json": {
+              "sessions": [
+                {
+                  "sessionId": "cs_2",
+                  "title": "Total the invoices",
+                  "updatedAt": 1790000500000,
+                  "active": true
+                },
+                { "sessionId": "cs_1", "updatedAt": 1790000000000, "active": false }
+              ]
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/sessions",
+            "query": { "machineId": "m 2", "channel": "api" }
+          },
+          "response": { "json": { "sessions": [] } }
+        }
+      ]
+    },
+    {
+      "id": "sessions.resume",
+      "doc": "resume() makes no request.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_7" },
+          "expect": { "result": { "id": "cs_7", "machine_id": null } }
+        },
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_7", "machine": "m_1" },
+          "expect": { "result": { "id": "cs_7", "machine_id": "m_1" } }
+        }
+      ],
+      "exchanges": []
+    },
+    {
+      "id": "session.send.poll",
+      "doc": "send() returns at once; events() polls with the cursor until idle, skipping framing frames; the result has the text and usage.",
+      "steps": [
+        { "call": "sessions.create", "args": { "machine": "m_1" }, "save": "session" },
+        {
+          "call": "session.send",
+          "args": { "message": "type hello", "model": "auto" },
+          "save": "turn",
+          "expect": { "result": { "id": "turn_1", "queued": false } }
+        },
+        {
+          "call": "turn.events",
+          "expect": {
+            "result": [
+              {
+                "kind": "step",
+                "type": "data-progress",
+                "text": "Opening Notepad",
+                "approval": null,
+                "code": null
+              },
+              { "kind": "message", "type": "text-delta", "text": "Saved." },
+              { "kind": "finished", "type": "finish", "text": null }
+            ]
+          }
+        },
+        {
+          "call": "turn.wait",
+          "expect": {
+            "result": {
+              "status": "idle",
+              "text": "Saved.",
+              "ok": true,
+              "session_id": "cs_1",
+              "usage": {
+                "input_tokens": 10,
+                "output_tokens": 2,
+                "cost_usd": 0.01,
+                "model_calls": 1
+              }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/new-session",
+            "json": { "machineId": "m_1", "channel": "api" }
+          },
+          "response": { "json": { "sessionId": "cs_1" } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/message",
+            "json": {
+              "message": "type hello",
+              "wait": false,
+              "machineId": "m_1",
+              "sessionId": "cs_1",
+              "model": "auto"
+            }
+          },
+          "response": {
+            "status": 202,
+            "json": { "sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_1", "queued": false }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/events",
+            "query": { "sessionId": "cs_1", "wait": "30" }
+          },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "running",
+              "events": [
+                { "type": "reasoning-delta", "id": "r", "delta": "thinking" },
+                {
+                  "type": "data-progress",
+                  "data": { "text": "Opening Notepad", "tool": "execute" }
+                }
+              ],
+              "text": "",
+              "cursor": "c1"
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/events",
+            "query": { "sessionId": "cs_1", "wait": "30", "since": "c1" }
+          },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "idle",
+              "events": [
+                { "type": "text-delta", "id": "t", "delta": "Saved." },
+                { "type": "finish", "finishReason": "stop" }
+              ],
+              "text": "Saved.",
+              "cursor": "c2",
+              "usage": { "inputTokens": 10, "outputTokens": 2, "costUsd": 0.01, "modelCalls": 1 }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/events",
+            "query": { "sessionId": "cs_1", "wait": "30", "since": "c2" }
+          },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "idle",
+              "events": [],
+              "text": "Saved.",
+              "cursor": "c2",
+              "usage": { "inputTokens": 10, "outputTokens": 2, "costUsd": 0.01, "modelCalls": 1 }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.events.raw",
+      "doc": "events(raw) also yields framing and reasoning frames as other; poll_wait sets wait.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        { "call": "session.send", "args": { "message": "x" }, "save": "turn" },
+        {
+          "call": "turn.events",
+          "args": { "raw": true, "poll_wait": 5 },
+          "expect": {
+            "result": [
+              { "kind": "other", "type": "start" },
+              { "kind": "other", "type": "reasoning-delta", "text": "thinking" },
+              { "kind": "tool_error", "type": "tool-output-error", "text": "click missed" },
+              { "kind": "finished" }
+            ]
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1", "turnId": "turn_1" } }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/events",
+            "query": { "sessionId": "cs_1", "wait": "5" }
+          },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "idle",
+              "events": [
+                { "type": "start" },
+                { "type": "reasoning-delta", "id": "r", "delta": "thinking" },
+                { "type": "tool-output-error", "errorText": "click missed" },
+                { "type": "finish" }
+              ],
+              "text": "",
+              "cursor": "c1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.send.options",
+      "doc": "Everything beyond a plain message goes in options, in the API's names; attachments and autonomous go on the message.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "files.upload",
+          "args": { "data_base64": "YWJj", "name": "a.txt" },
+          "save": "file"
+        },
+        {
+          "call": "session.send",
+          "args": {
+            "message": "Save {{file_name}}",
+            "attachments": [{ "$ref": "file" }],
+            "inputs": { "file_name": "inv-1001.txt" },
+            "output_schema": {
+              "type": "object",
+              "properties": { "path": { "type": "string" } },
+              "required": ["path"]
+            },
+            "success_criteria": [
+              {
+                "id": "saved",
+                "check": "The file is saved on the Desktop",
+                "return_evidence": true
+              }
+            ],
+            "idempotency_key": "inv-1001",
+            "record_trajectory": true,
+            "thinking_level": "high",
+            "autonomous": true
+          },
+          "expect": { "result": { "id": "turn_1", "queued": false } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/upload" },
+          "response": {
+            "json": {
+              "path": "uploads/a.txt",
+              "name": "a.txt",
+              "mime": "text/plain",
+              "size": 3,
+              "fileId": "f_1"
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/message",
+            "json": {
+              "message": "Save {{file_name}}",
+              "wait": false,
+              "machineId": "m_1",
+              "sessionId": "cs_1",
+              "attachments": [
+                {
+                  "path": "uploads/a.txt",
+                  "name": "a.txt",
+                  "mime": "text/plain",
+                  "size": 3,
+                  "fileId": "f_1"
+                }
+              ],
+              "autonomous": true,
+              "options": {
+                "inputs": { "file_name": "inv-1001.txt" },
+                "output_schema": {
+                  "type": "object",
+                  "properties": { "path": { "type": "string" } },
+                  "required": ["path"]
+                },
+                "success_criteria": [
+                  {
+                    "id": "saved",
+                    "check": "The file is saved on the Desktop",
+                    "returnEvidence": true
+                  }
+                ],
+                "idempotency_key": "inv-1001",
+                "recordTrajectory": true,
+                "thinkingLevel": "high"
+              }
+            }
+          },
+          "response": {
+            "status": 202,
+            "json": { "sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_1", "queued": false }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.send.criteria-string",
+      "doc": "success_criteria may be a sentence for a judge.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        {
+          "call": "session.send",
+          "args": { "message": "x", "success_criteria": "The file is saved" }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/message",
+            "json": {
+              "message": "x",
+              "wait": false,
+              "sessionId": "cs_1",
+              "options": { "success_criteria": "The file is saved" }
+            }
+          },
+          "response": { "status": 202, "json": { "sessionId": "cs_1", "turnId": "turn_1" } }
+        }
+      ]
+    },
+    {
+      "id": "session.send.steer",
+      "doc": "A message to a busy session steers the running turn: queued, with that turn's id.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.send",
+          "args": { "message": "also this" },
+          "expect": { "result": { "id": "turn_running", "queued": true } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "status": 202,
+            "json": {
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "queued": true,
+              "turnId": "turn_running"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.send.busy",
+      "doc": "A structured message to a busy session is ConflictError session_busy.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.send",
+          "args": { "message": "x", "output_schema": { "type": "object" } },
+          "expect": { "error": { "class": "ConflictError", "status": 409, "code": "session_busy" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "status": 409,
+            "json": { "error": "session_busy", "message": "The session is still working." }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.send.acknowledged",
+      "doc": "A message answered without a task has no turn id and no events; its text is reply, or error on older servers.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.send",
+          "args": { "message": "hello" },
+          "save": "turn",
+          "expect": { "result": { "id": null } }
+        },
+        { "call": "turn.events", "expect": { "result": [] } },
+        {
+          "call": "turn.wait",
+          "expect": {
+            "result": {
+              "status": "idle",
+              "text": "Hi! What should I do?",
+              "ok": true,
+              "record": null
+            }
+          }
+        },
+        {
+          "call": "session.run",
+          "args": { "message": "hello" },
+          "expect": { "result": { "status": "idle", "text": "Hello again." } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "json": { "handled": true, "reply": "Hi! What should I do?", "error": "old" }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "json": { "error": "Hello again." } }
+        }
+      ]
+    },
+    {
+      "id": "session.run.needs-approval",
+      "doc": "Without on_approval, run() returns on a pending approval with status needs_approval.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.run",
+          "args": { "message": "clean up" },
+          "expect": {
+            "result": {
+              "status": "needs_approval",
+              "ok": false,
+              "approval": {
+                "id": "ap_1",
+                "title": "Command Approval Required",
+                "description": "",
+                "type": "exec",
+                "is_link_only": false,
+                "url": null,
+                "command": "del temp",
+                "questions": []
+              }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1", "machineId": "m_1" } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "needs_approval",
+              "events": [
+                {
+                  "type": "data-approval-request",
+                  "data": {
+                    "approvalId": "ap_1",
+                    "title": "Command Approval Required",
+                    "description": "",
+                    "approvalType": "exec",
+                    "isLinkOnly": false,
+                    "command": "del temp"
+                  }
+                }
+              ],
+              "text": "",
+              "cursor": "c1",
+              "approval": {
+                "approvalId": "ap_1",
+                "title": "Command Approval Required",
+                "description": "",
+                "approvalType": "exec",
+                "isLinkOnly": false,
+                "command": "del temp"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.run.on-approval",
+      "doc": "on_approval's answer is sent once per approval and waiting continues; a null answer leaves it pending and keeps waiting.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        {
+          "call": "session.run",
+          "args": { "message": "clean up", "on_approval": { "answers": [null, "no"] } },
+          "expect": { "result": { "status": "idle", "text": "Done", "ok": true } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1", "machineId": "m_1" } }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/events",
+            "query": { "sessionId": "cs_1", "wait": "30" }
+          },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "needs_approval",
+              "events": [],
+              "text": "",
+              "cursor": "c1",
+              "approval": { "approvalId": "ap_1", "title": "Run?", "approvalType": "exec" }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/events",
+            "query": { "sessionId": "cs_1", "wait": "30", "since": "c1" }
+          },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "needs_approval",
+              "events": [],
+              "text": "",
+              "cursor": "c2",
+              "approval": { "approvalId": "ap_1", "title": "Run?", "approvalType": "exec" }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/events",
+            "query": { "sessionId": "cs_1", "wait": "30", "since": "c2" }
+          },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "needs_approval",
+              "events": [],
+              "text": "",
+              "cursor": "c3",
+              "approval": { "approvalId": "ap_2", "title": "Delete?", "approvalType": "exec" }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/approve",
+            "json": { "approvalId": "ap_2", "response": "no" }
+          },
+          "response": { "json": { "ok": true, "status": "denied" } }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/events",
+            "query": { "sessionId": "cs_1", "wait": "30", "since": "c3" }
+          },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "idle",
+              "events": [],
+              "text": "Done",
+              "cursor": "c4"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.run.on-approval-choice",
+      "doc": "A handler can answer a choice with [response, selections]; an approval answered elsewhere (409) is not an error.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        {
+          "call": "session.run",
+          "args": { "message": "pick", "on_approval": { "answers": [["yes", [["blue"]]]] } },
+          "expect": { "result": { "status": "idle", "text": "Blue it is." } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1" } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "needs_approval",
+              "events": [],
+              "text": "",
+              "cursor": "c1",
+              "approval": {
+                "approvalId": "ap_1",
+                "title": "Which colour?",
+                "approvalType": "choice",
+                "questions": [
+                  { "question": "Colour", "options": [{ "value": "blue", "label": "Blue" }] }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/approve",
+            "json": { "approvalId": "ap_1", "response": "yes", "selections": [["blue"]] }
+          },
+          "response": { "status": 409, "json": { "error": "Approval is no longer pending" } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "idle",
+              "events": [],
+              "text": "Blue it is.",
+              "cursor": "c2"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.respond",
+      "doc": "respond() sends the approval id, response and selections, and returns the status; a link-only approval is refused locally with its URL.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        {
+          "call": "session.respond",
+          "args": { "approval": "ap_1" },
+          "expect": { "result": "approved" }
+        },
+        {
+          "call": "session.respond",
+          "args": { "approval": "ap_2", "response": "task" },
+          "expect": { "result": "approved_task" }
+        },
+        { "call": "session.send", "args": { "message": "x" }, "save": "turn" },
+        { "call": "turn.wait", "save": "approval", "pick": "approval" },
+        {
+          "call": "turn.respond",
+          "args": { "approval": { "$ref": "approval" } },
+          "expect": {
+            "error": {
+              "class": "LinkOnlyApprovalError",
+              "status": 409,
+              "code": "link_only",
+              "approval_url": "https://platform.simular.ai/approve/ap_3"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/approve",
+            "json": { "approvalId": "ap_1", "response": "yes" }
+          },
+          "response": { "json": { "ok": true, "status": "approved" } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/approve",
+            "json": { "approvalId": "ap_2", "response": "task" }
+          },
+          "response": { "json": { "ok": true, "status": "approved_task" } }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1" } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "needs_approval",
+              "events": [],
+              "text": "",
+              "cursor": "c1",
+              "approval": {
+                "approvalId": "ap_3",
+                "title": "Sign in",
+                "approvalType": "link",
+                "isLinkOnly": true,
+                "approvalUrl": "https://platform.simular.ai/approve/ap_3"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.run.error-code",
+      "doc": "An error turn keeps the error text and code of its error event.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        {
+          "call": "session.run",
+          "args": { "message": "x" },
+          "expect": {
+            "result": {
+              "status": "error",
+              "ok": false,
+              "error": "out of credit",
+              "error_code": "insufficient_credits"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1" } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "error",
+              "events": [
+                { "type": "error", "errorText": "out of credit", "code": "insufficient_credits" }
+              ],
+              "text": "",
+              "cursor": "c"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.poll.rate-limited",
+      "doc": "A rate-limited poll waits Retry-After seconds and polls again.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        {
+          "call": "session.run",
+          "args": { "message": "x" },
+          "expect": { "result": { "status": "idle", "text": "ok" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1" } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "status": 429,
+            "headers": { "retry-after": "0" },
+            "json": { "error": "rate_limited", "message": "Slow down" }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "idle",
+              "events": [],
+              "text": "ok",
+              "cursor": "c"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "session.abort",
+      "doc": "abort() stops the session's turn; false when nothing was running, and no request without a session id.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        { "call": "session.abort", "expect": { "result": true } },
+        { "call": "session.send", "args": { "message": "x" }, "save": "turn" },
+        { "call": "turn.abort", "expect": { "result": false } },
+        { "call": "sessions.create", "args": { "machine": "m_1" }, "save": "empty" },
+        { "call": "empty.abort", "expect": { "result": false } }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/abort",
+            "json": { "sessionId": "cs_1" }
+          },
+          "response": { "json": { "ok": true, "aborted": true } }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1", "turnId": "turn_1" } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/abort",
+            "json": { "sessionId": "cs_1" }
+          },
+          "response": { "json": { "ok": true, "aborted": false, "reason": "idle" } }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/new-session" },
+          "response": { "status": 404, "json": { "error": "No session" } }
+        }
+      ]
+    }
+  ]
+}

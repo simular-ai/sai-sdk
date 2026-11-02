@@ -145,7 +145,7 @@ class Learn:
             try:
                 r = self.get(learn_id)
             except RateLimitError as e:
-                time.sleep(e.retry_after or 30)
+                time.sleep(30 if e.retry_after is None else e.retry_after)
                 continue
             if r.status != "running":
                 return r

@@ -15,6 +15,7 @@ from .turns import Turns
 from .learn import Judge, Learn
 from .tenants import TenantMachines, Tenants
 from .types import Account, Attachment, Model
+from .usage import Auth, Usage
 
 
 class Sai:
@@ -38,8 +39,8 @@ class Sai:
         org_id: Optional[str] = None,
         _token: Optional[Callable[[], str]] = None,
     ) -> None:
-        """`org_id` (default `SAI_ORG_ID`) is the Organisation that `tenants.token()` and
-        `tenants.client()` exchange for; only an Organisation Key needs it."""
+        """`org_id` (default `SAI_ORG_ID`) is the Organisation that `tenants.token()`,
+        `tenants.client()` and `usage` act on; only an Organisation Key needs it."""
         key = _token or api_key or os.environ.get("SAI_API_KEY")
         if not key:
             raise ValueError("No API key: pass api_key= or set SAI_API_KEY. Create one at https://platform.simular.ai.")
@@ -66,6 +67,10 @@ class Sai:
         self.models = _Models(self)
         self.files = _Files(self)
         self.account = _Account(self)
+        self.auth = Auth(self)
+        """Who the key acts as."""
+        self.usage = Usage(self)
+        """What an Organisation is charged, per Tenant and per session. Takes an Organisation Key."""
         self.tenants = Tenants(self)
         """Your customers under an Organisation. Takes an Organisation Key."""
         self.tenant_machines = TenantMachines(self)

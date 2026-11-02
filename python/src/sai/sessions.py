@@ -15,7 +15,7 @@ from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
 from ._errors import ConflictError, LinkOnlyApprovalError, NotFoundError, RateLimitError
-from .types import Approval, Attachment, Check, Event, TurnRecord, TurnResult, Usage
+from .types import Approval, Attachment, Check, Event, SessionSummary, TurnRecord, TurnResult, Usage
 
 if TYPE_CHECKING:
     from ._client import Sai
@@ -56,6 +56,13 @@ class Sessions:
             # rotate; the first message starts one.
             session_id = None
         return Session(self._sai, machine_id, session_id)
+
+    def list(self, machine: MachineRef = None) -> list[SessionSummary]:
+        """The API sessions on a computer, most recent first (up to 20). `active` marks the one the
+        next message without a session goes to. `machine` may be omitted with one computer."""
+        machine_id = self._sai.machines._resolve_id(machine)
+        d = self._sai._http.json("GET", "/v1/agents/sessions", params={"machineId": machine_id, "channel": "api"})
+        return [SessionSummary.parse(s) for s in d.get("sessions") or []]
 
     def resume(self, session_id: str, machine: MachineRef = None) -> Session:
         """Reattach to a session started elsewhere, e.g. to poll or abort it."""
@@ -365,7 +372,7 @@ class Turn:
                 )
                 break
             except RateLimitError as e:
-                time.sleep(e.retry_after or 30)
+                time.sleep(30 if e.retry_after is None else e.retry_after)
         self._cursor = page.get("cursor") or self._cursor
         error_text: Optional[str] = None
         error_code: Optional[str] = None
@@ -396,7 +403,7 @@ def _wait_record(
                 sai._http.json("GET", f"/v1/agents/turns/{urllib.parse.quote(turn_id, safe='')}")
             )
         except RateLimitError as e:
-            time.sleep(e.retry_after or 30)
+            time.sleep(30 if e.retry_after is None else e.retry_after)
             continue
         if record.status in stop:
             return record

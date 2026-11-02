@@ -8,11 +8,18 @@ import { Judge, Learn } from './learn.js'
 import {
   parseAccount,
   parseAttachment,
+  parseAuthInfo,
   parseModel,
+  parseOrgUsage,
+  parseSessionSpendPage,
   type Account,
   type Attachment,
+  type AuthInfo,
   type Model,
+  type OrgUsage,
+  type SessionSpendPage,
 } from './types.js'
+import type { TenantRef } from './tenants.js'
 
 export interface SaiOptions {
   /** Defaults to `process.env.SAI_API_KEY`. */
@@ -25,7 +32,7 @@ export interface SaiOptions {
   /** Replace `fetch`, e.g. in tests. */
   fetch?: FetchLike
   /**
-   * The Organisation that `tenants.token()` and `tenants.client()` exchange for. Defaults to
+   * The Organisation that `tenants.token()`, `tenants.client()` and `usage` act on. Defaults to
    * `process.env.SAI_ORG_ID`. Only an Organisation Key needs it.
    */
   orgId?: string
@@ -52,6 +59,10 @@ export class Sai {
   readonly models: Models
   readonly files: Files
   readonly account: AccountResource
+  /** Who the key acts as. */
+  readonly auth: Auth
+  /** What an Organisation is charged, per Tenant and per session. Takes an Organisation Key. */
+  readonly usage: UsageResource
   /** Your customers under an Organisation. Takes an Organisation Key. */
   readonly tenants: Tenants
   /** A Tenant's computers: enrolled, and cloud machines Sai hosts. Takes an Organisation Key. */
@@ -82,7 +93,10 @@ export class Sai {
     this.models = new Models(http)
     this.files = new Files(http)
     this.account = new AccountResource(http)
-    this.tenants = new Tenants(http, opts.orgId ?? env.SAI_ORG_ID, (c) => new Sai(opts, c))
+    this.auth = new Auth(http)
+    const orgId = opts.orgId ?? env.SAI_ORG_ID
+    this.usage = new UsageResource(http, orgId)
+    this.tenants = new Tenants(http, orgId, (c) => new Sai(opts, c))
     this.tenantMachines = new TenantMachines(http)
   }
 }
@@ -141,5 +155,64 @@ export class AccountResource {
   /** Plan and spendable credit. Slow-ish (billing lookup): not for a poll loop. */
   async get(): Promise<Account> {
     return parseAccount(await this.http.json('GET', '/v1/agents/account'))
+  }
+}
+
+export class Auth {
+  constructor(private readonly http: Http) {}
+
+  /** Who the key or token acts as. Throws `AuthenticationError` for a missing or revoked key. */
+  async check(): Promise<AuthInfo> {
+    return parseAuthInfo(await this.http.json('GET', '/v1/agents/auth'))
+  }
+}
+
+export class UsageResource {
+  constructor(
+    private readonly http: Http,
+    private readonly orgId: string | undefined,
+  ) {}
+
+  /**
+   * What the Organisation is charged, in total and per Tenant, per `granularity` (`hour`, `day`
+   * or `month`; default `day`) from `from` to `to`: `2026-10` for a month, `2026-10-15` for a
+   * day, `2026-10-15T09` for an hour. Each defaults to a range that ends now.
+   */
+  async get(
+    opts: { granularity?: string; from?: string; to?: string; orgId?: string } = {},
+  ): Promise<OrgUsage> {
+    const { orgId, ...params } = opts
+    return parseOrgUsage(
+      await this.http.json('GET', `/v1/orgs/${encodeURIComponent(this.#org(orgId))}/usage`, {
+        params,
+      }),
+    )
+  }
+
+  /**
+   * One page of what each of a Tenant's sessions spent on AI calls, oldest first, for the UTC
+   * days `from` to `to` (`YYYY-MM-DD`, both included, at most 93 days). Keep paging with
+   * `nextCursor` until it is null: a page can be empty and not be the last.
+   */
+  async sessions(
+    tenant: TenantRef,
+    opts: { from: string; to: string; limit?: number; cursor?: string; orgId?: string },
+  ): Promise<SessionSpendPage> {
+    const { orgId, ...rest } = opts
+    const tenantId = typeof tenant === 'string' ? tenant : tenant.id
+    return parseSessionSpendPage(
+      await this.http.json(
+        'GET',
+        `/v1/orgs/${encodeURIComponent(this.#org(orgId))}/usage/sessions`,
+        { params: { tenantId, ...rest } },
+      ),
+    )
+  }
+
+  #org(orgId: string | undefined): string {
+    const id = orgId ?? this.orgId
+    if (!id)
+      throw new Error('No Organisation id: pass orgId here or to new Sai(), or set SAI_ORG_ID.')
+    return id
   }
 }

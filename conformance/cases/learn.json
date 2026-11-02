@@ -1,0 +1,612 @@
+{
+  "cases": [
+    {
+      "id": "learn.create.convert",
+      "doc": "create(turns) converts recorded turns; turn ids or Turns; the result's parameters, validation and ok.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        { "call": "session.send", "args": { "message": "x" }, "save": "turn2" },
+        {
+          "call": "learn.create",
+          "args": {
+            "turns": ["turn_1", { "$ref": "turn2" }],
+            "task_template": "Open {{site}} and read the top story",
+            "idempotency_key": "k1"
+          },
+          "save": "learned",
+          "expect": {
+            "result": {
+              "id": "learn_1",
+              "mode": "convert",
+              "status": "succeeded",
+              "ok": true,
+              "title": "Read the top story",
+              "template": "Open {{site}} and read the top story",
+              "parameters": [
+                {
+                  "name": "site",
+                  "default_value": "https://news.ycombinator.com",
+                  "description": null
+                },
+                { "name": "n", "default_value": "1", "description": "How many" }
+              ],
+              "code": "async function main(params = { site: \"x\", n: \"1\" }) { return params.site }",
+              "validation": { "errors": [], "warnings": ["w"] },
+              "source_turns": ["turn_1"],
+              "usage": { "input_tokens": 100, "output_tokens": 20 },
+              "replayed": false,
+              "error": null,
+              "iterations": [],
+              "test_result": null,
+              "version": null
+            }
+          }
+        },
+        {
+          "call": "learn.get",
+          "args": { "learn_id": "learn_1" },
+          "expect": { "result": { "id": "learn_1", "ok": true } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": { "status": 202, "json": { "sessionId": "cs_1", "turnId": "turn_2" } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/learn",
+            "json": {
+              "turns": ["turn_1", "turn_2"],
+              "taskTemplate": "Open {{site}} and read the top story",
+              "idempotency_key": "k1"
+            }
+          },
+          "response": {
+            "json": {
+              "learnId": "learn_1",
+              "mode": "convert",
+              "status": "succeeded",
+              "title": "Read the top story",
+              "template": "Open {{site}} and read the top story",
+              "parameters": [
+                { "name": "site", "defaultValue": "https://news.ycombinator.com" },
+                { "name": "n", "defaultValue": "1", "description": "How many" }
+              ],
+              "code": "async function main(params = { site: \"x\", n: \"1\" }) { return params.site }",
+              "validation": { "errors": [], "warnings": ["w"] },
+              "sourceTurns": ["turn_1"],
+              "usage": { "inputTokens": 100, "outputTokens": 20 }
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/learn/learn_1" },
+          "response": {
+            "json": { "learnId": "learn_1", "mode": "convert", "status": "succeeded", "code": "x" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "learn.create.repair",
+      "doc": "A repair sends initial_code with guidance and history, or with evaluations whose run results are trimmed to the last 30 log lines and the error's kind and message.",
+      "steps": [
+        {
+          "call": "learn.create",
+          "args": {
+            "turns": [],
+            "initial_code": "code",
+            "guidance": "Return the URL too",
+            "history": "Version 1: run 1 failed: no URL"
+          },
+          "expect": { "result": { "mode": "heal", "status": "succeeded" } }
+        },
+        { "call": "control.open", "args": { "machine": "m_1" }, "save": "lease" },
+        {
+          "call": "lease.exec",
+          "args": { "code": "await main()" },
+          "save": "run",
+          "expect": { "result": { "ok": false, "logs": { "$len": 40 } } }
+        },
+        {
+          "call": "learn.create",
+          "args": {
+            "turns": [],
+            "initial_code": "code",
+            "evaluations": [
+              {
+                "inputs": { "site": "a" },
+                "result": { "$ref": "run" },
+                "judgement": "judgement_1",
+                "passed": false
+              },
+              { "inputs": { "site": "b" }, "passed": true, "note": "fine" }
+            ]
+          },
+          "expect": { "result": { "mode": "heal" } }
+        },
+        {
+          "call": "learn.create",
+          "args": { "turns": ["turn_1"], "runs_without_reset": true },
+          "expect": { "result": { "mode": "convert" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/learn",
+            "json": {
+              "turns": [],
+              "initialCode": "code",
+              "guidance": "Return the URL too",
+              "history": "Version 1: run 1 failed: no URL"
+            }
+          },
+          "response": {
+            "json": { "learnId": "learn_2", "mode": "heal", "status": "succeeded", "code": "fixed" }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/machines/m_1/control" },
+          "response": { "json": { "machineId": "m_1", "expiresAfterIdleSec": 600 } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "await main()" }
+          },
+          "response": {
+            "json": {
+              "result": null,
+              "logs": [
+                "line 0",
+                "line 1",
+                "line 2",
+                "line 3",
+                "line 4",
+                "line 5",
+                "line 6",
+                "line 7",
+                "line 8",
+                "line 9",
+                "line 10",
+                "line 11",
+                "line 12",
+                "line 13",
+                "line 14",
+                "line 15",
+                "line 16",
+                "line 17",
+                "line 18",
+                "line 19",
+                "line 20",
+                "line 21",
+                "line 22",
+                "line 23",
+                "line 24",
+                "line 25",
+                "line 26",
+                "line 27",
+                "line 28",
+                "line 29",
+                "line 30",
+                "line 31",
+                "line 32",
+                "line 33",
+                "line 34",
+                "line 35",
+                "line 36",
+                "line 37",
+                "line 38",
+                "line 39"
+              ],
+              "error": { "kind": "exception", "message": "boom", "stack": "st" },
+              "variables": [],
+              "durationMs": 5
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/learn",
+            "json": {
+              "turns": [],
+              "initialCode": "code",
+              "evaluations": [
+                {
+                  "inputs": { "site": "a" },
+                  "result": {
+                    "result": null,
+                    "logs": [
+                      "line 10",
+                      "line 11",
+                      "line 12",
+                      "line 13",
+                      "line 14",
+                      "line 15",
+                      "line 16",
+                      "line 17",
+                      "line 18",
+                      "line 19",
+                      "line 20",
+                      "line 21",
+                      "line 22",
+                      "line 23",
+                      "line 24",
+                      "line 25",
+                      "line 26",
+                      "line 27",
+                      "line 28",
+                      "line 29",
+                      "line 30",
+                      "line 31",
+                      "line 32",
+                      "line 33",
+                      "line 34",
+                      "line 35",
+                      "line 36",
+                      "line 37",
+                      "line 38",
+                      "line 39"
+                    ],
+                    "error": { "kind": "exception", "message": "boom" }
+                  },
+                  "judgement": "judgement_1",
+                  "passed": false
+                },
+                { "inputs": { "site": "b" }, "passed": true, "note": "fine" }
+              ]
+            }
+          },
+          "response": {
+            "json": { "learnId": "learn_3", "mode": "heal", "status": "succeeded", "code": "fixed" }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/learn",
+            "json": { "turns": ["turn_1"], "runsWithoutReset": true }
+          },
+          "response": {
+            "json": { "learnId": "learn_4", "mode": "convert", "status": "succeeded", "code": "x" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "learn.job",
+      "doc": "A job (max_iterations) answers at once with status running; wait() reads it until it ends; cancel() and rollout().",
+      "steps": [
+        {
+          "call": "learn.create",
+          "args": {
+            "turns": [],
+            "task_template": "Open {{site}}",
+            "inputs": { "site": "x" },
+            "machine": "m_1",
+            "max_iterations": 2,
+            "rollouts": 2,
+            "criteria": "The title is shown",
+            "reset": { "code": "await reset()" },
+            "judge_initial_agent_run": true,
+            "continue_with_agent": true,
+            "guidance": "Use the menu",
+            "rollout_minutes": 10,
+            "agent_run_minutes": 12,
+            "continuation_minutes": 5,
+            "max_job_minutes": 120,
+            "model": "auto"
+          },
+          "save": "job",
+          "expect": {
+            "result": {
+              "id": "learn_2",
+              "mode": "policyIteration",
+              "status": "running",
+              "ok": false
+            }
+          }
+        },
+        {
+          "call": "learn.wait",
+          "args": { "job": { "$ref": "job" }, "poll_ms": 1 },
+          "expect": {
+            "result": {
+              "status": "succeeded",
+              "ok": true,
+              "version": 2,
+              "agent_turn_id": "turn_9",
+              "test_result": {
+                "status": "passed",
+                "passed_runs": 2,
+                "required_runs": 2,
+                "inputs": { "site": "x" }
+              },
+              "iterations": [
+                {
+                  "index": 1,
+                  "learn_id": "learn_v1",
+                  "changes": null,
+                  "passed": 0,
+                  "runs": 1,
+                  "rollouts": [
+                    {
+                      "index": 1,
+                      "verdict": "failed",
+                      "reset": {
+                        "kind": "code",
+                        "ok": true,
+                        "duration_ms": 800,
+                        "turn_id": null,
+                        "error": null
+                      },
+                      "summary": "no URL",
+                      "continuation_turn_id": "turn_c",
+                      "continuation_timed_out": false
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        { "call": "learn.cancel", "args": { "job": "learn_2" }, "expect": { "result": null } },
+        {
+          "call": "learn.rollout",
+          "args": { "job": { "$ref": "job" }, "iteration": 1, "rollout": 1 },
+          "expect": {
+            "result": {
+              "learn_id": "learn_2",
+              "iteration": 1,
+              "rollout": 1,
+              "run": { "result": "Top story", "logs": [] },
+              "judgement": { "verdict": "failed" }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/learn",
+            "json": {
+              "turns": [],
+              "taskTemplate": "Open {{site}}",
+              "inputs": { "site": "x" },
+              "guidance": "Use the menu",
+              "machineId": "m_1",
+              "maxIterations": 2,
+              "rollouts": 2,
+              "criteria": "The title is shown",
+              "reset": { "code": "await reset()" },
+              "judgeInitialAgentRun": true,
+              "continueWithAgent": true,
+              "rolloutMinutes": 10,
+              "agentRunMinutes": 12,
+              "continuationMinutes": 5,
+              "maxJobMinutes": 120,
+              "model": "auto"
+            }
+          },
+          "response": {
+            "status": 202,
+            "json": { "learnId": "learn_2", "mode": "policyIteration", "status": "running" }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/learn/learn_2" },
+          "response": {
+            "json": {
+              "learnId": "learn_2",
+              "mode": "policyIteration",
+              "status": "running",
+              "progress": { "step": "run", "iteration": 1, "rollout": 1 }
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/learn/learn_2" },
+          "response": {
+            "status": 429,
+            "headers": { "retry-after": "0" },
+            "json": { "error": "rate_limited", "message": "Slow down" }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/learn/learn_2" },
+          "response": {
+            "json": {
+              "learnId": "learn_2",
+              "mode": "policyIteration",
+              "status": "succeeded",
+              "version": 2,
+              "code": "x",
+              "testResult": {
+                "status": "passed",
+                "passedRuns": 2,
+                "requiredRuns": 2,
+                "inputs": { "site": "x" }
+              },
+              "agentTurnId": "turn_9",
+              "iterations": [
+                {
+                  "index": 1,
+                  "learnId": "learn_v1",
+                  "passed": 0,
+                  "runs": 1,
+                  "rollouts": [
+                    {
+                      "index": 1,
+                      "verdict": "failed",
+                      "reset": { "kind": "code", "ok": true, "durationMs": 800 },
+                      "summary": "no URL",
+                      "continuationTurnId": "turn_c"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/learn/learn_2/cancel" },
+          "response": { "status": 202, "json": { "learnId": "learn_2", "status": "running" } }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/learn/learn_2/iterations/1/rollouts/1"
+          },
+          "response": {
+            "json": {
+              "learnId": "learn_2",
+              "iteration": 1,
+              "rollout": 1,
+              "run": { "result": "Top story", "logs": [] },
+              "judgement": { "verdict": "failed" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "learn.criteria-checks",
+      "doc": "criteria may be a list of checks; a reset may be a task.",
+      "steps": [
+        {
+          "call": "learn.create",
+          "args": {
+            "turns": [],
+            "task_template": "Save a note",
+            "max_iterations": 1,
+            "criteria": [{ "id": "saved", "check": "The note is saved", "return_evidence": true }],
+            "reset": { "task": "Close Notepad" }
+          },
+          "expect": { "result": { "status": "running" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/learn",
+            "json": {
+              "turns": [],
+              "taskTemplate": "Save a note",
+              "maxIterations": 1,
+              "criteria": [{ "id": "saved", "check": "The note is saved", "returnEvidence": true }],
+              "reset": { "task": "Close Notepad" }
+            }
+          },
+          "response": {
+            "status": 202,
+            "json": { "learnId": "learn_5", "mode": "policyIteration", "status": "running" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "judge.create-and-get",
+      "doc": "judge.create() sends the turns and criteria; the judgement's criteria, verdict and ok.",
+      "steps": [
+        {
+          "call": "judge.create",
+          "args": { "turns": ["turn_1"], "criteria": [{ "id": "title", "check": "A title" }] },
+          "expect": {
+            "result": {
+              "id": "judgement_1",
+              "verdict": "failed",
+              "ok": false,
+              "summary": "0 of 1 checks passed.",
+              "criteria": [
+                {
+                  "id": "title",
+                  "check": "A title",
+                  "verdict": "failed",
+                  "score": 0.1,
+                  "evidence": null
+                }
+              ],
+              "turns": ["turn_1"]
+            }
+          }
+        },
+        {
+          "call": "judge.create",
+          "args": {
+            "turns": ["turn_1", "turn_2"],
+            "criteria": "The invoice is saved",
+            "task": "Save the invoice",
+            "idempotency_key": "j1"
+          },
+          "expect": {
+            "result": {
+              "id": "judgement_2",
+              "verdict": "passed",
+              "ok": true,
+              "task": "Save the invoice",
+              "criteria": [{ "id": null, "verdict": "passed" }]
+            }
+          }
+        },
+        {
+          "call": "judge.get",
+          "args": { "judgement_id": "judgement_2" },
+          "expect": { "result": { "id": "judgement_2", "replayed": false } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/judge",
+            "json": { "turns": ["turn_1"], "criteria": [{ "id": "title", "check": "A title" }] }
+          },
+          "response": {
+            "json": {
+              "judgementId": "judgement_1",
+              "verdict": "failed",
+              "summary": "0 of 1 checks passed.",
+              "criteria": [
+                { "id": "title", "check": "A title", "verdict": "failed", "score": 0.1 }
+              ],
+              "turns": ["turn_1"]
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/judge",
+            "json": {
+              "turns": ["turn_1", "turn_2"],
+              "criteria": "The invoice is saved",
+              "task": "Save the invoice",
+              "idempotency_key": "j1"
+            }
+          },
+          "response": {
+            "json": {
+              "judgementId": "judgement_2",
+              "verdict": "passed",
+              "task": "Save the invoice",
+              "criteria": [{ "check": "The invoice is saved", "verdict": "passed", "score": 0.9 }],
+              "turns": ["turn_1", "turn_2"]
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/judge/judgement_2" },
+          "response": { "json": { "judgementId": "judgement_2", "verdict": "passed" } }
+        }
+      ]
+    }
+  ]
+}

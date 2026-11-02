@@ -1,0 +1,354 @@
+{
+  "cases": [
+    {
+      "id": "machines.list",
+      "doc": "Machines parse their id, state, status and os; fields a server leaves out are null.",
+      "steps": [
+        {
+          "call": "machines.list",
+          "expect": {
+            "result": [
+              {
+                "id": "m_1",
+                "name": "Work PC",
+                "kind": "cloud",
+                "online": true,
+                "state": "asleep",
+                "status": "hibernated",
+                "can_wake": true,
+                "os": "windows"
+              },
+              {
+                "id": "m_2",
+                "name": null,
+                "kind": "own",
+                "state": null,
+                "status": null,
+                "os": "macOS"
+              },
+              { "id": "m_3", "os": null }
+            ]
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": {
+            "json": {
+              "machines": [
+                {
+                  "machineId": "m_1",
+                  "name": "Work PC",
+                  "kind": "cloud",
+                  "online": true,
+                  "state": "asleep",
+                  "status": "hibernated",
+                  "canWake": true,
+                  "os": "windows"
+                },
+                { "machineId": "m_2", "kind": "own", "os": "macOS" },
+                { "machineId": "m_3", "kind": "cloud" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "machines.get",
+      "doc": "get() finds the machine in the list, and is NotFoundError when it is not there.",
+      "steps": [
+        {
+          "call": "machines.get",
+          "args": { "machine_id": "m_2" },
+          "expect": { "result": { "id": "m_2", "name": "Laptop" } }
+        },
+        {
+          "call": "machines.get",
+          "args": { "machine_id": "m_9" },
+          "expect": { "error": { "class": "NotFoundError", "status": 404 } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": {
+            "json": {
+              "machines": [{ "machineId": "m_1" }, { "machineId": "m_2", "name": "Laptop" }]
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "json": { "machines": [{ "machineId": "m_1" }] } }
+        }
+      ]
+    },
+    {
+      "id": "machines.live",
+      "doc": "live() opens the screen; a server without the page link leaves live_url and expires_at null. revoke_live() returns how many links it revoked.",
+      "steps": [
+        {
+          "call": "machines.live",
+          "args": { "machine": "m_1" },
+          "expect": {
+            "result": {
+              "machine_id": "m_1",
+              "live_url": "https://api.test/live#t=lp1.x.y",
+              "expires_at": 1790001800000,
+              "websocket_url": "wss://proxy.test/t?token=x",
+              "width": 1280,
+              "height": 800
+            }
+          }
+        },
+        {
+          "call": "machines.live",
+          "args": { "machine": "m 1" },
+          "expect": {
+            "result": {
+              "machine_id": "m 1",
+              "live_url": null,
+              "expires_at": null,
+              "websocket_url": "wss://proxy.test/t?token=y"
+            }
+          }
+        },
+        { "call": "machines.revoke_live", "args": { "machine": "m_1" }, "expect": { "result": 2 } }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/machines/m_1/live" },
+          "response": {
+            "json": {
+              "machineId": "m_1",
+              "liveUrl": "https://api.test/live#t=lp1.x.y",
+              "expiresAt": 1790001800000,
+              "websocketUrl": "wss://proxy.test/t?token=x",
+              "width": 1280,
+              "height": 800
+            }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/machines/m%201/live" },
+          "response": {
+            "json": {
+              "machineId": "m 1",
+              "websocketUrl": "wss://proxy.test/t?token=y",
+              "width": 1280,
+              "height": 800
+            }
+          }
+        },
+        {
+          "request": { "method": "DELETE", "path": "/v1/agents/machines/m_1/live" },
+          "response": { "json": { "machineId": "m_1", "revoked": 2 } }
+        }
+      ]
+    },
+    {
+      "id": "machines.live-from-object",
+      "doc": "A Machine from list() works wherever a machine id does.",
+      "steps": [
+        { "call": "machines.list", "save": "first", "pick": "0" },
+        {
+          "call": "machines.live",
+          "args": { "machine": { "$ref": "first" } },
+          "expect": { "result": { "machine_id": "m_7" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/machines" },
+          "response": { "json": { "machines": [{ "machineId": "m_7" }] } }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/machines/m_7/live" },
+          "response": {
+            "json": { "machineId": "m_7", "websocketUrl": "wss://x", "width": 1, "height": 1 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "models.list",
+      "doc": "Models parse; allowed defaults to true when the server leaves it out.",
+      "steps": [
+        {
+          "call": "models.list",
+          "expect": {
+            "result": [
+              {
+                "id": "auto",
+                "name": "Sai Agent",
+                "provider": "anthropic",
+                "tier": "balanced",
+                "cost_tier": "$",
+                "allowed": true
+              },
+              { "id": "anthropic/claude-opus-5-5", "name": "Claude 5.5 Opus", "allowed": false },
+              { "id": "x/y", "name": "x/y", "allowed": true }
+            ]
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/models" },
+          "response": {
+            "json": {
+              "models": [
+                {
+                  "id": "auto",
+                  "name": "Sai Agent",
+                  "provider": "anthropic",
+                  "tier": "balanced",
+                  "costTier": "$",
+                  "allowed": true
+                },
+                {
+                  "id": "anthropic/claude-opus-5-5",
+                  "name": "Claude 5.5 Opus",
+                  "provider": "anthropic",
+                  "tier": "reasoning",
+                  "costTier": "$$$",
+                  "allowed": false
+                },
+                { "id": "x/y" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "account.get",
+      "doc": "The account's plan and credit.",
+      "steps": [
+        {
+          "call": "account.get",
+          "expect": {
+            "result": {
+              "user_id": "u_1",
+              "plan_id": "pro",
+              "plan_title": "Pro",
+              "free": false,
+              "unlimited": false,
+              "credits_usd": 25.5
+            }
+          }
+        },
+        {
+          "call": "account.get",
+          "expect": {
+            "result": { "user_id": "u_2", "plan_id": null, "credits_usd": null, "unlimited": true }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/account" },
+          "response": {
+            "json": {
+              "userId": "u_1",
+              "plan": { "id": "pro", "title": "Pro", "free": false, "unlimited": false },
+              "credits": { "usd": 25.5 }
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/account" },
+          "response": { "json": { "userId": "u_2", "plan": { "unlimited": true } } }
+        }
+      ]
+    },
+    {
+      "id": "auth.check",
+      "doc": "Who the key acts as; a Tenant token also has tenant_id and org_id.",
+      "steps": [
+        {
+          "call": "auth.check",
+          "expect": {
+            "result": {
+              "user_id": "3fA9kQ2xYz",
+              "auth_type": "apiKey",
+              "tenant_id": null,
+              "org_id": null
+            }
+          }
+        },
+        {
+          "call": "auth.check",
+          "expect": {
+            "result": {
+              "user_id": "Xk2p",
+              "auth_type": "firebase",
+              "tenant_id": "Xk2p",
+              "org_id": "org_3f9a"
+            }
+          }
+        },
+        {
+          "call": "auth.check",
+          "expect": { "error": { "class": "AuthenticationError", "status": 401 } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/auth" },
+          "response": { "json": { "ok": true, "userId": "3fA9kQ2xYz", "authType": "apiKey" } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/auth" },
+          "response": {
+            "json": {
+              "ok": true,
+              "userId": "Xk2p",
+              "authType": "firebase",
+              "tenantId": "Xk2p",
+              "orgId": "org_3f9a"
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/auth" },
+          "response": { "status": 401, "json": { "error": "Invalid API key" } }
+        }
+      ]
+    },
+    {
+      "id": "files.upload",
+      "doc": "upload() sends the raw bytes as application/octet-stream, with the name percent-encoded in x-filename.",
+      "steps": [
+        {
+          "call": "files.upload",
+          "args": { "data_base64": "YWJj", "name": "a b.txt" },
+          "expect": {
+            "result": { "file_id": "f_1", "name": "a b.txt", "mime": "text/plain", "size": 3 }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/upload",
+            "headers": { "content-type": "application/octet-stream", "x-filename": "a%20b.txt" },
+            "body_base64": "YWJj"
+          },
+          "response": {
+            "json": {
+              "path": "uploads/a b.txt",
+              "name": "a b.txt",
+              "mime": "text/plain",
+              "size": 3,
+              "fileId": "f_1"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

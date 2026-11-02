@@ -40,6 +40,8 @@ console.log(result.usage) // tokens and cost for this task
 
 `machine` can be left out when the account has one computer. More `session.run(...)` calls continue
 the same conversation; `sai.sessions.create()` starts a new one with no memory of the old.
+`sai.sessions.list({ machine: pc })` lists the computer's API sessions, most recent first, and
+`sai.auth.check()` says who the key acts as.
 
 ### Watch it work
 
@@ -359,6 +361,24 @@ Without `wait: true`, `create` resolves at once with `state: 'provisioning'`. A 
 `ConflictError` (`machine_limit_reached` with `err.body.limit` and `err.body.used`, or
 `request_id_reused`), `PermissionDeniedError` (`tenant_disabled`) or `ServiceUnavailableError`
 (`capacity_unavailable`: retry later). A 500 carries `err.body.errorId` to quote to support.
+
+### What a Tenant spent
+
+```ts
+const usage = await org.usage.get({ granularity: 'month', from: '2026-10', to: '2026-10' })
+console.log(usage.totals.costCents, usage.totals.byTenant)
+
+let cursor: string | undefined
+do {
+  const page = await org.usage.sessions(tenant, { from: '2026-10-01', to: '2026-10-31', cursor })
+  for (const s of page.sessions) console.log(s.sessionId, s.costUsd)
+  cursor = page.nextCursor ?? undefined
+} while (cursor)
+```
+
+`usage.get` is what the Organisation is charged, in total and per Tenant, per `hour`, `day` or `month`.
+`usage.sessions` pages what each of a Tenant's sessions spent on AI calls, for UTC days `from` to `to`
+(at most 93). A page can be empty and still have a `nextCursor`: keep paging until it is null.
 
 ## Errors
 

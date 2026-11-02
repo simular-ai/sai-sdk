@@ -1,0 +1,628 @@
+{
+  "cases": [
+    {
+      "id": "tenants.crud",
+      "doc": "create, list, get, update, delete and create_enrollment map to the tenant routes.",
+      "steps": [
+        {
+          "call": "tenants.create",
+          "args": {
+            "name": "Riverside Clinic",
+            "external_id": "clinic-4821",
+            "metadata": { "plan": "pro" }
+          },
+          "save": "tenant",
+          "expect": {
+            "result": {
+              "id": "t_1",
+              "name": "Riverside Clinic",
+              "external_id": "clinic-4821",
+              "metadata": { "plan": "pro" },
+              "status": "active",
+              "created_at": 1790000000000,
+              "disabled_at": null,
+              "machine_count": 2,
+              "cloud_machine_limit": null,
+              "residential_proxy": null,
+              "cloud_machine_count": null
+            }
+          }
+        },
+        {
+          "call": "tenants.create",
+          "args": { "name": "Bare" },
+          "expect": { "result": { "id": "t_2", "external_id": null, "metadata": {} } }
+        },
+        {
+          "call": "tenants.list",
+          "args": { "status": "active", "limit": 10 },
+          "expect": { "result": { "tenants": [{ "id": "t_1" }], "next_cursor": "c_2" } }
+        },
+        {
+          "call": "tenants.list",
+          "args": { "external_id": "clinic-4821" },
+          "expect": { "result": { "tenants": [], "next_cursor": null } }
+        },
+        {
+          "call": "tenants.list",
+          "args": { "cursor": "c_2" },
+          "expect": { "result": { "tenants": [] } }
+        },
+        {
+          "call": "tenants.get",
+          "args": { "tenant": { "$ref": "tenant" } },
+          "expect": { "result": { "name": "Riverside Clinic" } }
+        },
+        {
+          "call": "tenants.update",
+          "args": { "tenant": "t_1", "status": "disabled" },
+          "expect": { "result": { "status": "disabled", "disabled_at": 1790000001000 } }
+        },
+        {
+          "call": "tenants.delete",
+          "args": { "tenant": { "$ref": "tenant" } },
+          "expect": { "result": null }
+        },
+        {
+          "call": "tenants.create_enrollment",
+          "args": { "tenant": { "$ref": "tenant" } },
+          "expect": { "result": { "token": "senr_1", "expires_at": 1790000900000 } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/tenants",
+            "json": {
+              "name": "Riverside Clinic",
+              "externalId": "clinic-4821",
+              "metadata": { "plan": "pro" }
+            }
+          },
+          "response": {
+            "status": 201,
+            "json": {
+              "tenantId": "t_1",
+              "name": "Riverside Clinic",
+              "externalId": "clinic-4821",
+              "metadata": { "plan": "pro" },
+              "status": "active",
+              "createdAt": 1790000000000,
+              "disabledAt": null,
+              "machineCount": 2
+            }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/tenants", "json": { "name": "Bare" } },
+          "response": {
+            "status": 201,
+            "json": {
+              "tenantId": "t_2",
+              "name": "Bare",
+              "status": "active",
+              "createdAt": 1790000000000
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/tenants",
+            "query": { "status": "active", "limit": "10" }
+          },
+          "response": {
+            "json": {
+              "tenants": [{ "tenantId": "t_1", "name": "Riverside Clinic", "status": "active" }],
+              "nextCursor": "c_2"
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/tenants",
+            "query": { "externalId": "clinic-4821" }
+          },
+          "response": { "json": { "tenants": [] } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/tenants", "query": { "cursor": "c_2" } },
+          "response": { "json": { "tenants": [], "nextCursor": null } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/tenants/t_1" },
+          "response": {
+            "json": { "tenantId": "t_1", "name": "Riverside Clinic", "status": "active" }
+          }
+        },
+        {
+          "request": {
+            "method": "PATCH",
+            "path": "/v1/tenants/t_1",
+            "json": { "status": "disabled" }
+          },
+          "response": {
+            "json": {
+              "tenantId": "t_1",
+              "name": "Riverside Clinic",
+              "status": "disabled",
+              "disabledAt": 1790000001000
+            }
+          }
+        },
+        {
+          "request": { "method": "DELETE", "path": "/v1/tenants/t_1" },
+          "response": { "status": 204 }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/tenants/t_1/enrollments" },
+          "response": {
+            "status": 201,
+            "json": { "enrollmentToken": "senr_1", "expiresAt": 1790000900000 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tenants.update.limits",
+      "doc": "update() sends only what is given; cloud_machine_limit null clears the cap and is sent as null.",
+      "steps": [
+        {
+          "call": "tenants.update",
+          "args": { "tenant": "t_1", "cloud_machine_limit": 5, "residential_proxy": true },
+          "expect": {
+            "result": {
+              "cloud_machine_limit": 5,
+              "residential_proxy": true,
+              "cloud_machine_count": 2
+            }
+          }
+        },
+        { "call": "tenants.update", "args": { "tenant": "t_1", "cloud_machine_limit": null } },
+        {
+          "call": "tenants.update",
+          "args": {
+            "tenant": "t_1",
+            "name": "Riverside",
+            "residential_proxy": false,
+            "metadata": { "tier": "gold" }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "PATCH",
+            "path": "/v1/tenants/t_1",
+            "json": { "cloudMachineLimit": 5, "residentialProxy": true }
+          },
+          "response": {
+            "json": {
+              "tenantId": "t_1",
+              "name": "R",
+              "status": "active",
+              "cloudMachineLimit": 5,
+              "residentialProxy": true,
+              "cloudMachineCount": 2
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "PATCH",
+            "path": "/v1/tenants/t_1",
+            "json": { "cloudMachineLimit": null }
+          },
+          "response": {
+            "json": {
+              "tenantId": "t_1",
+              "name": "R",
+              "status": "active",
+              "cloudMachineLimit": null
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "PATCH",
+            "path": "/v1/tenants/t_1",
+            "json": {
+              "name": "Riverside",
+              "residentialProxy": false,
+              "metadata": { "tier": "gold" }
+            }
+          },
+          "response": { "json": { "tenantId": "t_1", "name": "Riverside", "status": "active" } }
+        }
+      ]
+    },
+    {
+      "id": "tenants.token",
+      "doc": "token() exchanges the Organisation Key for a Tenant token, for the client's org_id or the call's.",
+      "client": { "org_id": "org_a" },
+      "steps": [
+        {
+          "call": "tenants.token",
+          "args": { "tenant": "t_1" },
+          "expect": {
+            "result": { "token": "tt_1", "expires_at": 1790003600000, "tenant_id": "t_1" }
+          }
+        },
+        {
+          "call": "tenants.token",
+          "args": { "tenant": "t_1", "org_id": "org_b" },
+          "expect": { "result": { "token": "tt_2" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/orgs/org_a/tenants/t_1/token",
+            "headers": { "authorization": "Bearer sapi_test" }
+          },
+          "response": { "json": { "token": "tt_1", "expiresAt": 1790003600000, "tenantId": "t_1" } }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/orgs/org_b/tenants/t_1/token" },
+          "response": { "json": { "token": "tt_2", "expiresAt": 1790003600000, "tenantId": "t_1" } }
+        }
+      ]
+    },
+    {
+      "id": "tenants.client",
+      "doc": "client() exchanges a token at once, sends it on the Tenant's requests, and exchanges again when under five minutes are left.",
+      "client": { "org_id": "org_a" },
+      "steps": [
+        {
+          "call": "tenants.client",
+          "args": { "tenant": "t_1" },
+          "save": "tenant_client",
+          "expect": { "result": {} }
+        },
+        { "call": "tenant_client.machines.list", "expect": { "result": [{ "id": "m_1" }] } },
+        { "call": "tenant_client.machines.list", "expect": { "result": [{ "id": "m_1" }] } }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/orgs/org_a/tenants/t_1/token",
+            "headers": { "authorization": "Bearer sapi_test" }
+          },
+          "response": {
+            "json": { "token": "tt_1", "expiresAt": { "$now_plus_ms": 240000 }, "tenantId": "t_1" }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/orgs/org_a/tenants/t_1/token",
+            "headers": { "authorization": "Bearer sapi_test" }
+          },
+          "response": {
+            "json": { "token": "tt_2", "expiresAt": { "$now_plus_ms": 3600000 }, "tenantId": "t_1" }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/machines",
+            "headers": { "authorization": "Bearer tt_2" }
+          },
+          "response": { "json": { "machines": [{ "machineId": "m_1" }] } }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/machines",
+            "headers": { "authorization": "Bearer tt_2" }
+          },
+          "response": { "json": { "machines": [{ "machineId": "m_1" }] } }
+        }
+      ]
+    },
+    {
+      "id": "tenant_machines.enrolled",
+      "doc": "list, get, delete and revoke for enrolled machines; delete says revoked (204) or deleting (202); the older shape without kind parses as enrolled.",
+      "steps": [
+        {
+          "call": "tenant_machines.list",
+          "args": { "tenant": "t_1" },
+          "save": "first",
+          "pick": "0",
+          "expect": {
+            "result": [
+              {
+                "id": "tm_1",
+                "kind": "enrolled",
+                "name": "Front desk PC",
+                "platform": "darwin",
+                "state": "offline",
+                "online": false,
+                "machine_class": null,
+                "created_at": 1789000000000,
+                "last_seen": 1790003600000,
+                "runtime_version": "1.2.0"
+              },
+              {
+                "id": "cm_1",
+                "kind": "cloud",
+                "state": "ready",
+                "online": true,
+                "machine_class": "win32-4c8g",
+                "platform": "win32"
+              },
+              {
+                "id": "tm_2",
+                "kind": "enrolled",
+                "state": "online",
+                "online": true,
+                "status": "active",
+                "created_at": null
+              }
+            ]
+          }
+        },
+        {
+          "call": "tenant_machines.get",
+          "args": { "tenant": "t_1", "machine_id": "tm_1" },
+          "expect": { "result": { "name": "Front desk PC" } }
+        },
+        {
+          "call": "tenant_machines.delete",
+          "args": { "tenant": "t_1", "machine": { "$ref": "first" } },
+          "expect": { "result": "revoked" }
+        },
+        {
+          "call": "tenant_machines.delete",
+          "args": { "tenant": "t_1", "machine": "cm_1" },
+          "expect": { "result": "deleting" }
+        },
+        {
+          "call": "tenant_machines.revoke",
+          "args": { "tenant": "t_1", "machine": "tm_2" },
+          "expect": { "result": null }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/tenants/t_1/machines" },
+          "response": {
+            "json": {
+              "machines": [
+                {
+                  "machineId": "tm_1",
+                  "kind": "enrolled",
+                  "name": "Front desk PC",
+                  "platform": "darwin",
+                  "state": "offline",
+                  "lastSeen": 1790003600000,
+                  "runtimeVersion": "1.2.0",
+                  "createdAt": 1789000000000
+                },
+                {
+                  "machineId": "cm_1",
+                  "kind": "cloud",
+                  "name": "intake-desk-3",
+                  "platform": "win32",
+                  "machineClass": "win32-4c8g",
+                  "state": "ready",
+                  "lastSeen": null,
+                  "runtimeVersion": null,
+                  "createdAt": 1790000000000
+                },
+                {
+                  "machineId": "tm_2",
+                  "name": "Back office",
+                  "platform": "win32",
+                  "status": "active",
+                  "online": true,
+                  "lastSeen": 1790003600000,
+                  "runtimeVersion": "1.2.0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/tenants/t_1/machines/tm_1" },
+          "response": {
+            "json": {
+              "machineId": "tm_1",
+              "kind": "enrolled",
+              "name": "Front desk PC",
+              "platform": "darwin",
+              "state": "online"
+            }
+          }
+        },
+        {
+          "request": { "method": "DELETE", "path": "/v1/tenants/t_1/machines/tm_1" },
+          "response": { "status": 204 }
+        },
+        {
+          "request": { "method": "DELETE", "path": "/v1/tenants/t_1/machines/cm_1" },
+          "response": { "status": 202, "json": { "state": "deleting" } }
+        },
+        {
+          "request": { "method": "DELETE", "path": "/v1/tenants/t_1/machines/tm_2" },
+          "response": { "status": 204 }
+        }
+      ]
+    },
+    {
+      "id": "tenant_machines.create",
+      "doc": "create() sends os, name and request_id and returns at once with state provisioning.",
+      "steps": [
+        {
+          "call": "tenant_machines.create",
+          "args": {
+            "tenant": "t_1",
+            "os": "windows",
+            "name": "intake-desk-3",
+            "request_id": "req_1"
+          },
+          "expect": {
+            "result": {
+              "id": "cm_1",
+              "kind": "cloud",
+              "state": "provisioning",
+              "machine_class": "win32-4c8g",
+              "online": false
+            }
+          }
+        },
+        {
+          "call": "tenant_machines.create",
+          "args": { "tenant": "t_1", "os": "linux" },
+          "expect": { "result": { "id": "cm_2" } }
+        },
+        {
+          "call": "tenant_machines.create",
+          "args": { "tenant": "t_1", "os": "windows" },
+          "expect": {
+            "error": {
+              "class": "ConflictError",
+              "code": "machine_limit_reached",
+              "body": { "limit": 5, "used": 5 }
+            }
+          }
+        },
+        {
+          "call": "tenant_machines.create",
+          "args": { "tenant": "t_1", "os": "windows" },
+          "expect": {
+            "error": {
+              "class": "SpendCapReachedError",
+              "code": "spend_cap_reached",
+              "resets_at": "2026-11-01T00:00:00Z",
+              "body": { "scope": "tenant" }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/tenants/t_1/machines",
+            "json": { "os": "windows", "name": "intake-desk-3", "requestId": "req_1" }
+          },
+          "response": {
+            "status": 202,
+            "json": {
+              "machineId": "cm_1",
+              "kind": "cloud",
+              "name": "intake-desk-3",
+              "platform": "win32",
+              "machineClass": "win32-4c8g",
+              "state": "provisioning",
+              "lastSeen": null,
+              "runtimeVersion": null,
+              "createdAt": 1790000000000
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/tenants/t_1/machines",
+            "json": { "os": "linux" }
+          },
+          "response": {
+            "status": 202,
+            "json": {
+              "machineId": "cm_2",
+              "kind": "cloud",
+              "platform": "linux",
+              "state": "provisioning"
+            }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/tenants/t_1/machines" },
+          "response": {
+            "status": 409,
+            "json": { "error": "machine_limit_reached", "message": "Limit.", "limit": 5, "used": 5 }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/tenants/t_1/machines" },
+          "response": {
+            "status": 403,
+            "json": {
+              "error": "spend_cap_reached",
+              "message": "Budget.",
+              "scope": "tenant",
+              "resetsAt": "2026-11-01T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tenant_machines.create-wait",
+      "doc": "create(wait) reads the machine every 5 s until it is ready.",
+      "steps": [
+        {
+          "call": "tenant_machines.create",
+          "args": { "tenant": "t_1", "os": "windows", "wait": true },
+          "expect": { "result": { "id": "cm_1", "state": "ready", "online": true } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/tenants/t_1/machines",
+            "json": { "os": "windows" }
+          },
+          "response": {
+            "status": 202,
+            "json": {
+              "machineId": "cm_1",
+              "kind": "cloud",
+              "platform": "win32",
+              "state": "provisioning"
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/tenants/t_1/machines/cm_1" },
+          "response": {
+            "json": { "machineId": "cm_1", "kind": "cloud", "platform": "win32", "state": "ready" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tenant_machines.create-wait-failed",
+      "doc": "create(wait) raises SaiError, with the machine as its body, when the machine fails.",
+      "steps": [
+        {
+          "call": "tenant_machines.create",
+          "args": { "tenant": "t_1", "os": "windows", "wait": true },
+          "expect": {
+            "error": {
+              "class": "SaiError",
+              "message": { "$regex": "cm_1 is failed" },
+              "body": { "state": "failed" }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/tenants/t_1/machines" },
+          "response": {
+            "status": 202,
+            "json": { "machineId": "cm_1", "kind": "cloud", "state": "failed" }
+          }
+        }
+      ]
+    }
+  ]
+}

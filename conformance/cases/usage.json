@@ -1,0 +1,230 @@
+{
+  "cases": [
+    {
+      "id": "usage.get",
+      "doc": "usage.get() reads the Organisation's usage per Tenant; granularity, from and to go as given, and only when given.",
+      "client": { "org_id": "org_a" },
+      "steps": [
+        {
+          "call": "usage.get",
+          "args": { "granularity": "month", "from": "2026-10", "to": "2026-10" },
+          "expect": {
+            "result": {
+              "granularity": "month",
+              "from": "2026-10",
+              "to": "2026-10",
+              "totals": {
+                "bucket": null,
+                "cost_cents": 1840,
+                "by_tenant": {
+                  "Xk2p": {
+                    "tenant_id": "Xk2p",
+                    "name": "Riverside Clinic",
+                    "external_id": "clinic-4821",
+                    "cost_cents": 1215,
+                    "by_category": {
+                      "token": { "cost_cents": 905 },
+                      "compute": { "cost_cents": 310 }
+                    }
+                  }
+                }
+              },
+              "buckets": [
+                {
+                  "bucket": "2026-10",
+                  "cost_cents": 1840,
+                  "by_tenant": {
+                    "Xk2p": {
+                      "tenant_id": "Xk2p",
+                      "name": null,
+                      "external_id": null,
+                      "cost_cents": 1215,
+                      "by_category": {}
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "call": "usage.get",
+          "args": { "org_id": "org_b" },
+          "expect": {
+            "result": {
+              "granularity": "day",
+              "totals": { "cost_cents": 0, "by_tenant": {} },
+              "buckets": []
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/orgs/org_a/usage",
+            "query": { "granularity": "month", "from": "2026-10", "to": "2026-10" }
+          },
+          "response": {
+            "json": {
+              "granularity": "month",
+              "from": "2026-10",
+              "to": "2026-10",
+              "totals": {
+                "costCents": 1840,
+                "byTenant": {
+                  "Xk2p": {
+                    "tenantId": "Xk2p",
+                    "name": "Riverside Clinic",
+                    "externalId": "clinic-4821",
+                    "costCents": 1215,
+                    "byCategory": { "token": { "costCents": 905 }, "compute": { "costCents": 310 } }
+                  }
+                }
+              },
+              "buckets": [
+                {
+                  "bucket": "2026-10",
+                  "costCents": 1840,
+                  "byTenant": { "Xk2p": { "tenantId": "Xk2p", "costCents": 1215 } }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/orgs/org_b/usage", "query": {} },
+          "response": {
+            "json": {
+              "granularity": "day",
+              "from": "2026-10-03",
+              "to": "2026-11-01",
+              "totals": { "costCents": 0, "byTenant": {} },
+              "buckets": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "usage.sessions",
+      "doc": "usage.sessions() pages a Tenant's session spend; limit and cursor go only when given; an empty title is null.",
+      "client": { "org_id": "org_a" },
+      "steps": [
+        {
+          "call": "usage.sessions",
+          "args": { "tenant": "t_1", "from": "2026-10-01", "to": "2026-10-31", "limit": 50 },
+          "expect": {
+            "result": {
+              "sessions": [
+                {
+                  "session_id": "cs_01HZY",
+                  "title": "Reconcile the October invoices",
+                  "cost_usd": 0.4172,
+                  "model_calls": 23,
+                  "first_day": "2026-10-03",
+                  "last_day": "2026-10-04"
+                },
+                { "session_id": "cs_02", "title": null, "cost_usd": 0, "model_calls": 0 }
+              ],
+              "next_cursor": "cur_2",
+              "data_through": "2026-10-28T09:45:00Z"
+            }
+          }
+        },
+        {
+          "call": "usage.sessions",
+          "args": { "tenant": "t_1", "from": "2026-10-01", "to": "2026-10-31", "cursor": "cur_2" },
+          "expect": { "result": { "sessions": [], "next_cursor": null, "data_through": null } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/orgs/org_a/usage/sessions",
+            "query": { "tenantId": "t_1", "from": "2026-10-01", "to": "2026-10-31", "limit": "50" }
+          },
+          "response": {
+            "json": {
+              "sessions": [
+                {
+                  "sessionId": "cs_01HZY",
+                  "title": "Reconcile the October invoices",
+                  "costUsd": 0.4172,
+                  "modelCalls": 23,
+                  "firstDay": "2026-10-03",
+                  "lastDay": "2026-10-04"
+                },
+                {
+                  "sessionId": "cs_02",
+                  "title": "",
+                  "costUsd": 0,
+                  "modelCalls": 0,
+                  "firstDay": "2026-10-05",
+                  "lastDay": "2026-10-05"
+                }
+              ],
+              "nextCursor": "cur_2",
+              "dataThrough": "2026-10-28T09:45:00Z"
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/orgs/org_a/usage/sessions",
+            "query": {
+              "tenantId": "t_1",
+              "from": "2026-10-01",
+              "to": "2026-10-31",
+              "cursor": "cur_2"
+            }
+          },
+          "response": { "json": { "sessions": [], "nextCursor": null, "dataThrough": null } }
+        }
+      ]
+    },
+    {
+      "id": "usage.sessions-from-tenant",
+      "doc": "A Tenant object works as the tenant; a refusal maps to its error.",
+      "client": { "org_id": "org_a" },
+      "steps": [
+        { "call": "tenants.get", "args": { "tenant": "t_9" }, "save": "tenant" },
+        {
+          "call": "usage.sessions",
+          "args": { "tenant": { "$ref": "tenant" }, "from": "2026-10-01", "to": "2027-03-01" },
+          "expect": {
+            "error": {
+              "class": "BadRequestError",
+              "status": 400,
+              "code": "invalid_request",
+              "message": "from and to are at most 93 days apart, inclusive"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/tenants/t_9" },
+          "response": { "json": { "tenantId": "t_9", "name": "Nine", "status": "active" } }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/orgs/org_a/usage/sessions",
+            "query": { "tenantId": "t_9", "from": "2026-10-01", "to": "2027-03-01" }
+          },
+          "response": {
+            "status": 400,
+            "json": {
+              "error": "invalid_request",
+              "message": "from and to are at most 93 days apart, inclusive"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
