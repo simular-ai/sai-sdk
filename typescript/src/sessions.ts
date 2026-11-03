@@ -122,8 +122,9 @@ export class Sessions {
   }
 
   /**
-   * The API sessions on a computer, most recent first (up to 20). `active` marks the one the
-   * next message without a session goes to. `machine` may be omitted with one computer.
+   * The caller's sessions on a computer (desktop, CLI and API), most recent first (up to 20).
+   * `active` marks the API channel's current one, which the next message without a session goes
+   * to. `machine` may be omitted with one computer.
    */
   async list(opts: { machine?: MachineRef } = {}): Promise<SessionSummary[]> {
     const machineId = await this.machines.resolveId(opts.machine)
