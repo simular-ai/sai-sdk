@@ -1,0 +1,73 @@
+name: Publish sai-sdk (Ruby)
+
+# Publishes the Ruby SDK (ruby/) to RubyGems as sai-sdk.
+# Tests run in sdk.yml on every PR; this workflow only releases.
+#
+# Cutting a release:
+#   1. Bump VERSION in ruby/lib/sai/version.rb (the gemspec reads it) and run `bundle install`.
+#   2. Merge to main.
+#   3. git tag sai-sdk-ruby-v<X.Y.Z> && git push origin sai-sdk-ruby-v<X.Y.Z>
+#
+# Auth: RubyGems trusted publishing (OIDC). Requires a trusted publisher on rubygems.org for
+# the gem sai-sdk (a pending one before the first release): repo simular-ai/sai-sdk, workflow
+# "publish-sai-sdk-ruby.yml", environment "rubygems". No API key is stored here.
+
+on:
+  push:
+    tags:
+      - 'sai-sdk-ruby-v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build, test & publish to RubyGems
+    if: startsWith(github.ref, 'refs/tags/sai-sdk-ruby-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: rubygems
+      url: https://rubygems.org/gems/sai-sdk
+    permissions:
+      contents: write # GitHub Release
+      id-token: write # RubyGems trusted publishing
+    defaults:
+      run:
+        working-directory: ruby
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      # The mock server is Node.
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          working-directory: ruby
+      - name: Verify tag matches package version
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF#refs/tags/sai-sdk-ruby-v}"
+          CODE_VERSION="$(ruby -r ./lib/sai/version -e 'print Sai::VERSION')"
+          if [ "$TAG_VERSION" != "$CODE_VERSION" ]; then
+            echo "::error::tag $TAG_VERSION and version.rb $CODE_VERSION must match." >&2
+            exit 1
+          fi
+      - run: bundle exec rake test
+      - run: gem build sai-sdk.gemspec
+      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - run: gem push sai-sdk-*.gem
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create "$TAG_NAME" -R "$GITHUB_REPOSITORY" --title "$TAG_NAME" --generate-notes sai-sdk-*.gem

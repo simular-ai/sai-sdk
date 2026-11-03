@@ -1,0 +1,80 @@
+name: Publish sai-sdk (Java)
+
+# Publishes the Java SDK (java/) to Maven Central as ai.simular:sai-sdk.
+# Tests run in sdk.yml on every PR; this workflow only releases.
+#
+# Cutting a release:
+#   1. Bump <version> in java/pom.xml and VERSION in java/src/main/java/ai/simular/sai/Sai.java.
+#   2. Merge to main.
+#   3. git tag sai-sdk-java-v<X.Y.Z> && git push origin sai-sdk-java-v<X.Y.Z>
+#
+# Auth: Maven Central has no trusted publishing, so this uses secrets in the `maven-central`
+# environment: MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD (a Central Portal user token for
+# the verified `ai.simular` namespace) and MAVEN_GPG_PRIVATE_KEY / MAVEN_GPG_PASSPHRASE (the
+# signing key, its public half on keys.openpgp.org).
+
+on:
+  push:
+    tags:
+      - 'sai-sdk-java-v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build, test & publish to Maven Central
+    if: startsWith(github.ref, 'refs/tags/sai-sdk-java-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: maven-central
+      url: https://central.sonatype.com/artifact/ai.simular/sai-sdk
+    permissions:
+      contents: write # GitHub Release
+    defaults:
+      run:
+        working-directory: java
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      # The mock server is Node.
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Verify tag matches package version
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF#refs/tags/sai-sdk-java-v}"
+          PKG_VERSION="$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)"
+          CODE_VERSION="$(sed -nE 's/.*String VERSION = "([^"]+)".*/\1/p' src/main/java/ai/simular/sai/Sai.java)"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$PKG_VERSION" != "$CODE_VERSION" ]; then
+            echo "::error::tag $TAG_VERSION, pom.xml $PKG_VERSION, Sai.java $CODE_VERSION must match." >&2
+            exit 1
+          fi
+      # deploy runs the tests, signs, uploads and waits until Central has published it.
+      - run: mvn -B -P release deploy
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create "$TAG_NAME" -R "$GITHUB_REPOSITORY" --title "$TAG_NAME" --generate-notes
