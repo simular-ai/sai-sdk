@@ -7,6 +7,7 @@ or drive a cloud computer directly.
 | ---------------------------- | ---------------------------------------- | ---------- |
 | [`python/`](python/)         | `sai-sdk` (PyPI), `import sai`           | published  |
 | [`typescript/`](typescript/) | `@simular-ai/sai-sdk` (npm)              | published  |
+| [`go/`](go/)                 | `github.com/simular-ai/sai-sdk/go`       | unreleased |
 | [`mcp/`](mcp/)               | `@simular-ai/sai-mcp`: MCP server        | published  |
 | [`cli/`](cli/)               | `@simular-ai/sai-cli`: the `sai` command | deprecated |
 

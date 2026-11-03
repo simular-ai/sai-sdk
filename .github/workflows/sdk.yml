@@ -12,6 +12,7 @@ on:
     paths:
       - 'python/**'
       - 'typescript/**'
+      - 'go/**'
       - 'conformance/**'
       - 'surface.json'
       - 'package-lock.json'
@@ -21,6 +22,7 @@ on:
     paths:
       - 'python/**'
       - 'typescript/**'
+      - 'go/**'
       - 'conformance/**'
       - 'surface.json'
       - 'package-lock.json'
@@ -84,3 +86,25 @@ jobs:
       # The docs snippets import the built package.
       - run: npm run build -w @simular-ai/sai-sdk
       - run: npm test -w @simular-ai/sai-sdk
+
+  go:
+    name: Go
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # The mock server is Node.
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+      # The oldest Go the module supports (go.mod).
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: 'go/go.mod'
+          cache: false
+      - run: go vet ./...
+      - run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - run: go test ./...
