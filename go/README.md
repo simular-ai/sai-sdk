@@ -53,8 +53,8 @@ fmt.Println(result.Usage)  // tokens and cost for this task
 
 `Machine` can be left out when the account has one computer. More `session.Run(...)` calls continue
 the same conversation; `client.Sessions.Create(ctx, nil)` starts a new one with no memory of the old.
-`client.Sessions.List(ctx, &sai.SessionOptions{Machine: pc.ID})` lists the computer's API sessions,
-most recent first, and `client.Auth.Check(ctx)` says who the key acts as.
+`client.Sessions.List(ctx, &sai.SessionOptions{Machine: pc.ID})` lists your sessions on the computer
+(desktop, CLI and API), most recent first, and `client.Auth.Check(ctx)` says who the key acts as.
 
 ### Watch it work
 
