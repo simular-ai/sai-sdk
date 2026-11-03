@@ -7,7 +7,7 @@ or drive a cloud computer directly.
 | ---------------------------- | ---------------------------------------- | ---------- |
 | [`python/`](python/)         | `sai-sdk` (PyPI), `import sai`           | published  |
 | [`typescript/`](typescript/) | `@simular-ai/sai-sdk` (npm)              | published  |
-| [`go/`](go/)                 | `github.com/simular-ai/sai-sdk/go`       | published  |
+| [`go/`](go/)                 | `github.com/simular-ai/sai-sdk/go`       | unreleased |
 | [`java/`](java/)             | `ai.simular:sai-sdk` (Maven)             | unreleased |
 | [`dotnet/`](dotnet/)         | `Simular.Sai` (NuGet)                    | unreleased |
 | [`ruby/`](ruby/)             | `sai-sdk` (RubyGems), `require "sai"`    | unreleased |
