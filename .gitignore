@@ -10,3 +10,6 @@ __pycache__/
 java/target/
 dotnet/**/bin/
 dotnet/**/obj/
+ruby/vendor/
+ruby/*.gem
+ruby/.bundle/

@@ -10,6 +10,7 @@ or drive a cloud computer directly.
 | [`go/`](go/)                 | `github.com/simular-ai/sai-sdk/go`       | unreleased |
 | [`java/`](java/)             | `ai.simular:sai-sdk` (Maven)             | unreleased |
 | [`dotnet/`](dotnet/)         | `Simular.Sai` (NuGet)                    | unreleased |
+| [`ruby/`](ruby/)             | `sai-sdk` (RubyGems), `require "sai"`    | unreleased |
 | [`mcp/`](mcp/)               | `@simular-ai/sai-mcp`: MCP server        | published  |
 | [`cli/`](cli/)               | `@simular-ai/sai-cli`: the `sai` command | deprecated |
 
