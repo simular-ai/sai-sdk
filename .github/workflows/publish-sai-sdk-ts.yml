@@ -46,6 +46,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck -w @simular-ai/sai-sdk
+      # The docs snippets import the built package.
+      - run: npm run build -w @simular-ai/sai-sdk
       - run: npm test -w @simular-ai/sai-sdk
       - name: Verify tag matches package version & pick dist-tag
         id: release
@@ -60,7 +62,6 @@ jobs:
           fi
           if echo "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
           else echo "dist-tag=next" >> "$GITHUB_OUTPUT"; fi
-      - run: npm run build -w @simular-ai/sai-sdk
       - run: npm publish -w @simular-ai/sai-sdk --access public --tag "${{ steps.release.outputs.dist-tag }}"
       - name: Create GitHub Release
         env:
