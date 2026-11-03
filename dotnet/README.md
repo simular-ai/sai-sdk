@@ -41,8 +41,8 @@ Console.WriteLine(result.Usage); // tokens and cost for this task
 
 `machine` can be left out when the account has one computer. More `session.RunAsync(...)` calls
 continue the same conversation; `sai.Sessions.CreateAsync()` starts a new one with no memory of the
-old. `sai.Sessions.ListAsync(machine: pc)` lists the computer's API sessions, most recent first, and
-`sai.Auth.CheckAsync()` says who the key acts as.
+old. `sai.Sessions.ListAsync(machine: pc)` lists your sessions on the computer (desktop, CLI and
+API), most recent first, and `sai.Auth.CheckAsync()` says who the key acts as.
 
 A machine, Tenant, turn or learn job argument takes the object or its id string.
 

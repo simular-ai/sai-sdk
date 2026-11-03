@@ -2,7 +2,7 @@
   "source": {
     "repo": "simular-ai/sai-platform",
     "ref": "feat/sdk-dotnet",
-    "commit": "2bbb5a5407114a96a6265238898c01b12f2ba3c1"
+    "commit": "3091cd99ebad9ef4fa27a0484243dedc36fe6a5d"
   },
   "snippets": [
     {
@@ -535,7 +535,7 @@
       "line": 256,
       "title": "Who the key is, and its sessions",
       "context": "using Simular.Sai;\n\nvar sai = new SaiClient();\nvar pc = (await sai.Machines.ListAsync())[0];\n\nvar session = await sai.Sessions.CreateAsync(machine: pc);\nvar result = await session.RunAsync(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nConsole.WriteLine(result.Status); // idle, needs_approval or error\nConsole.WriteLine(result.Text); // Sai's answer\nConsole.WriteLine(result.Usage); // tokens and cost of this task",
-      "code": "await sai.Auth.CheckAsync(); // the user, and the Tenant and Organisation for a Tenant token\nawait sai.Sessions.ListAsync(machine: pc); // the computer's API sessions, most recent first"
+      "code": "await sai.Auth.CheckAsync(); // the user, and the Tenant and Organisation for a Tenant token\nawait sai.Sessions.ListAsync(machine: pc); // your sessions on the computer, any channel, most recent first"
     },
     {
       "file": "sdks/dotnet.md",

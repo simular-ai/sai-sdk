@@ -111,8 +111,9 @@ public sealed class Sessions
     }
 
     /// <summary>
-    /// The API sessions on a computer, most recent first (up to 20). <c>Active</c> marks the one the
-    /// next message without a session goes to.
+    /// The caller's sessions on a computer (desktop, CLI and API), most recent first (up to 20).
+    /// <c>Active</c> marks the API channel's current one, which the next message without a session
+    /// goes to.
     /// </summary>
     public async Task<IReadOnlyList<SessionSummary>> ListAsync(MachineRef? machine = null, CancellationToken cancellationToken = default)
     {

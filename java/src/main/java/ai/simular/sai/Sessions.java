@@ -46,7 +46,7 @@ public final class Sessions {
     return new Session(http, id, sessionId);
   }
 
-  /** The API sessions on the account's only computer, most recent first (up to 20). */
+  /** {@link #list(String)} on the account's only computer. */
   public List<SessionSummary> list() {
     return list((String) null);
   }
@@ -56,8 +56,9 @@ public final class Sessions {
   }
 
   /**
-   * The API sessions on a computer, most recent first (up to 20). {@code active} marks the one the
-   * next message without a session goes to.
+   * The caller's sessions on a computer (desktop, CLI and API), most recent first (up to 20).
+   * {@code active} marks the API channel's current one, which the next message without a session
+   * goes to.
    */
   public List<SessionSummary> list(String machineId) {
     String id = machines.resolveId(machineId);
