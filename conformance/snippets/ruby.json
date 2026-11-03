@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "feat/sdk-ruby",
-    "commit": "a3d3347fd1a21f16f286674531e999239c80f8c0"
+    "ref": "main",
+    "commit": "b837c2dfe9b558922327904591a5c647d1df18f3"
   },
   "snippets": [
     {

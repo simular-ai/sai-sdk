@@ -6,7 +6,7 @@ Client libraries for the Sai API:
 | ------------- | ------------------------------------- | -------------------------------------- |
 | `python/`     | `sai-sdk` (PyPI), `import sai`        | Python SDK                             |
 | `typescript/` | `@simular-ai/sai-sdk` (npm)           | TypeScript SDK                         |
-| `go/`         | `github.com/simular-ai/sai-sdk/go`    | Go SDK                                 |
+| `go/`         | `github.com/simular-ai/sai-sdk/go`    | Go SDK, unreleased                     |
 | `java/`       | `ai.simular:sai-sdk` (Maven)          | Java SDK, unreleased                   |
 | `dotnet/`     | `Simular.Sai` (NuGet)                 | .NET SDK, unreleased                   |
 | `ruby/`       | `sai-sdk` (RubyGems), `require "sai"` | Ruby SDK, unreleased                   |
@@ -84,6 +84,7 @@ Releases go through CI only, never by hand:
   `pypi` environment); `sai-sdk-ts-v*` publishes `@simular-ai/sai-sdk` to npm (`publish-sai-sdk-ts.yml`).
   Bump the version in the package manifest and the version constant together; the workflow checks the tag.
 - The Go module is published by a `go/v*` tag (the Go proxy reads it from GitHub; no workflow). Bump
-  `Version` in `go/version.go` first.
+  `Version` in `go/version.go` first. This only works once this repo is public: the proxy cannot
+  read a private one.
 - With each sai-mcp release, also bump both versions in sai-platform's
   `public/.well-known/mcp/server-card.json`.
