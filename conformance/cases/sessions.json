@@ -121,7 +121,7 @@
     },
     {
       "id": "sessions.list",
-      "doc": "list() reads the api channel's sessions on the computer, resolving the machine like create().",
+      "doc": "list() reads the caller's sessions on the computer (channel=api marks which is active), resolving the machine like create().",
       "steps": [
         {
           "call": "sessions.list",
