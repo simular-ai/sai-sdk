@@ -33,20 +33,31 @@ other, and the docs show both side by side.
    session open 240 s), error mapping (status → class, `code` from `{ error, message }` bodies), event
    kind mapping, the approval-handler contract (answer / `[response, selections]` / null to leave it
    pending) and the acknowledgement-without-task case work the same. When fixing a bug in one SDK,
-   check and fix the other, and add the same test to both suites.
-5. **Language idiom is allowed where the surface is not affected**: keyword arguments vs an options
+   check and fix the others, and add a case to `conformance/cases`.
+5. **The conformance suite checks the behaviour.** [`conformance/`](conformance/README.md) holds
+   language-neutral cases (calls, the HTTP exchanges they must make, what they must return or throw)
+   and a mock server that checks them. Every SDK runs every case, and runs the docs' code snippets
+   against the server's fake API (snapshotted in `conformance/snippets/`). A behaviour change is a
+   case change, and every SDK must pass it.
+6. **Language idiom is allowed where the surface is not affected**: keyword arguments vs an options
    object, `snake_case` vs `camelCase` fields, `with` vs `try/finally` / `await using`, iterators vs
    async iterators, `bytes` vs `Uint8Array`.
-6. **The SDKs add no semantics of their own.** Behaviour belongs in the API and its OpenAPI spec; the
+7. **The SDKs add no semantics of their own.** Behaviour belongs in the API and its OpenAPI spec; the
    SDKs wrap it. Once the spec exists, types generated from it replace the hand-kept `surface.json`.
 
 ## Commands
 
 ```bash
 npm ci                                   # mcp, cli, typescript
-npm run lint && npm run typecheck && npm test
+npm run lint && npm run typecheck && npm run build && npm test
 cd python && uv sync && uv run pytest
+node conformance/selftest.mjs            # the conformance suite's own checks
 ```
+
+Each SDK's tests start the mock server (`node conformance/server.mjs`) themselves, so Node must be
+on `PATH`. The docs snippets they run are committed in `conformance/snippets/`; after a docs change
+in sai-platform, refresh them with `node conformance/snippets.mjs sync` and commit the result (see
+[conformance/README.md](conformance/README.md#docs-snippets)).
 
 ## Publishing
 

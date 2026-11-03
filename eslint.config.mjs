@@ -3,7 +3,8 @@ import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
 
 // The monorepo's base rules, minus its React and local rules.
 export default tseslint.config(
-  { ignores: ['**/node_modules', '**/dist', 'python/**'] },
+  // .snippets: the docs' code, written out by typescript/test/snippets.test.ts
+  { ignores: ['**/node_modules', '**/dist', '**/.snippets', '**/.docs', 'python/**'] },
   tseslint.configs.recommended,
   eslintConfigPrettier,
   {

@@ -1,0 +1,569 @@
+{
+  "source": {
+    "repo": "simular-ai/sai-platform",
+    "ref": "feat/conformance-suite",
+    "commit": "c882f35d77a453d6f93d20dbf244fdaef728dceb"
+  },
+  "snippets": [
+    {
+      "file": "api-reference/abort.md",
+      "line": 21,
+      "title": "Stop a session's task",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.resume(\"cs_01HZY\")\nprint(session.abort())"
+    },
+    {
+      "file": "api-reference/account.md",
+      "line": 17,
+      "title": "Read your plan and credit",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\naccount = sai.account.get()\nprint(account)"
+    },
+    {
+      "file": "api-reference/approve.md",
+      "line": 19,
+      "title": "Answer an approval",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.resume(\"cs_01HZY\")\nstatus = session.respond(\"ap_7Qw\", \"yes\")\nprint(status)"
+    },
+    {
+      "file": "api-reference/approve.md",
+      "line": 50,
+      "title": "Answer a choice question",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.resume(\"cs_01HZY\")\nstatus = session.respond(\"ap_9Lm\", \"yes\", selections=[[\"desktop\"]])\nprint(status)"
+    },
+    {
+      "file": "api-reference/authentication.md",
+      "line": 25,
+      "title": "Check a key",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nme = sai.auth.check()\nprint(me.user_id, me.auth_type)  # apiKey"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 25,
+      "title": "Open control of a computer",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nlease = sai.control.open(\"m_7f2a\")"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 77,
+      "title": "Run code in a lease",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nwith sai.control.open(\"m_7f2a\") as lease:\n    r = lease.exec(\n        \"var r = await machine.exec({ command: 'hostname' }); r.stdout.trim()\",\n        timeout_ms=60000,\n    )\n    print(r.result)"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 173,
+      "title": "Interrupt the running block",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nlease = sai.control.open(\"m_7f2a\")\nprint(lease.interrupt())"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 204,
+      "title": "Read the lease",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nlease = sai.control.open(\"m_7f2a\")\nprint(lease.get())"
+    },
+    {
+      "file": "api-reference/control.md",
+      "line": 241,
+      "title": "Close the lease",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nlease = sai.control.open(\"m_7f2a\")\nlease.close()"
+    },
+    {
+      "file": "api-reference/events.md",
+      "line": 17,
+      "title": "Poll for events",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.resume(\"cs_01HZY\")\nturn = session.send(\"Open Notepad and type hello\")\nfor ev in turn.events():\n    print(ev.kind, ev.text)"
+    },
+    {
+      "file": "api-reference/judge.md",
+      "line": 31,
+      "title": "Judge a turn",
+      "context": "",
+      "code": "from sai import Check, Sai\n\nsai = Sai()\njudgement = sai.judge.create(\n    [\"turn_vzjz62w7j7jvOilZ6zBL\"],\n    [Check(\"title\", \"The agent reported the title of the top story\", return_evidence=True)],\n)\nprint(judgement.verdict)"
+    },
+    {
+      "file": "api-reference/judge.md",
+      "line": 101,
+      "title": "Read a judgement",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\njudgement = sai.judge.get(\"judgement_8LmQ2rT0bV\")\nprint(judgement)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 46,
+      "title": "Learn code from a turn",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nlearned = sai.learn.create(\n    [\"turn_vzjz62w7j7jvOilZ6zBL\"],\n    task_template=\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n)\nprint(learned.code)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 177,
+      "title": "Run learned code in a lease",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nlearned = sai.learn.get(\"learn_3Fq9cT1kZ0aJ\")\nwith sai.control.open(\"m_7f2a\") as lease:\n    r = lease.run(learned, {\"newsSite\": \"TechCrunch\", \"topic\": \"Fintech\", \"fileName\": \"techcrunch_fintech.txt\"}, timeout_ms=300000)\n    print(r.result)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 232,
+      "title": "Start a learn job from a task",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\njob = sai.learn.create(\n    task_template=\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    criteria=\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    max_iterations=3,\n    rollouts=3,\n)\ndone = sai.learn.wait(job)\nprint(done.status, done.test_result, done.code)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 280,
+      "title": "Read a learn job",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\njob = sai.learn.get(\"learn_LIEHFGsRU4H3\")\nprint(job.status, job.progress)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 373,
+      "title": "Read a run of a learn job",
+      "context": "from sai import Sai\n\nsai = Sai()\njob = sai.learn.get(\"learn_LIEHFGsRU4H3\")\nprint(job.status, job.progress)",
+      "code": "run = sai.learn.rollout(\"learn_LIEHFGsRU4H3\", 1, 2)\nprint(run.run, run.judgement)"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 390,
+      "title": "Cancel a learn job",
+      "context": "from sai import Sai\n\nsai = Sai()\njob = sai.learn.get(\"learn_LIEHFGsRU4H3\")\nprint(job.status, job.progress)",
+      "code": "sai.learn.cancel(\"learn_LIEHFGsRU4H3\")"
+    },
+    {
+      "file": "api-reference/learn.md",
+      "line": 423,
+      "title": "Read a learn result",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nlearned = sai.learn.get(\"learn_3Fq9cT1kZ0aJ\")\nprint(learned.status)"
+    },
+    {
+      "file": "api-reference/machines.md",
+      "line": 17,
+      "title": "List your computers",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nfor machine in sai.machines.list():\n    print(machine.id, machine.name, machine.kind, machine.online)"
+    },
+    {
+      "file": "api-reference/machines.md",
+      "line": 142,
+      "title": "Watch a computer's screen",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nlive = sai.machines.live(\"m_7f2a\")\nprint(live)"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 34,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nreport = sai.files.upload(\"report.pdf\")  # attachments take what upload returns\nsession = sai.sessions.create(machine=\"m_7f2a\")\nturn = session.send(\n    \"Open Notepad, type hello, save it to the desktop as hello.txt\",\n    attachments=[report],\n)\nprint(turn.id)"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 93,
+      "title": "Give Sai a task with typed output",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create()\nturn = session.send(\n    \"Open https://news.ycombinator.com and read the title of the top story.\",\n    output_schema={\n        \"type\": \"object\",\n        \"properties\": {\"title\": {\"type\": \"string\"}},\n        \"required\": [\"title\"],\n    },\n)\nprint(turn.id)"
+    },
+    {
+      "file": "api-reference/message.md",
+      "line": 155,
+      "title": "Run a task without approvals",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create()\nturn = session.send(\"Export last month's invoices to CSV\", autonomous=True)\nprint(turn.id)"
+    },
+    {
+      "file": "api-reference/models.md",
+      "line": 17,
+      "title": "List models",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nfor model in sai.models.list():\n    print(model.id, model.allowed)"
+    },
+    {
+      "file": "api-reference/new-session.md",
+      "line": 22,
+      "title": "Start a new session",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create(machine=\"m_7f2a\")"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 19,
+      "title": "Read a turn",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nrecord = sai.turns.get(\"turn_vzjz62w7j7jvOilZ6zBL\")\nprint(record)"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 87,
+      "title": "Read a turn's steps",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nfor step in sai.turns.trajectory(\"turn_vzjz62w7j7jvOilZ6zBL\"):\n    print(step.index, step.title)"
+    },
+    {
+      "file": "api-reference/turns.md",
+      "line": 149,
+      "title": "Download a step's screenshot",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\njpeg = sai.turns.screenshot(\"turn_vzjz62w7j7jvOilZ6zBL\", 0)\nwith open(\"step-0.jpg\", \"wb\") as f:\n    f.write(jpeg)"
+    },
+    {
+      "file": "api-reference/upload.md",
+      "line": 19,
+      "title": "Upload a file",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nattachment = sai.files.upload(\"./report.pdf\", name=\"report.pdf\")\nprint(attachment)"
+    },
+    {
+      "file": "concepts/approvals.md",
+      "line": 42,
+      "title": "Answer a command approval",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.resume(\"cs_01HZY\")\nsession.respond(\"ap_7Qw\", \"yes\")"
+    },
+    {
+      "file": "concepts/approvals.md",
+      "line": 99,
+      "title": "Answer a choice question",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.resume(\"cs_01HZY\")\nsession.respond(\"ap_9Lm\", \"yes\", selections=[[\"desktop\"]])"
+    },
+    {
+      "file": "concepts/billing-and-limits.md",
+      "line": 26,
+      "title": "Check your balance",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nprint(sai.account.get())"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 35,
+      "title": "Record a task",
+      "context": "",
+      "code": "from sai import Evaluation, Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\nsession = sai.sessions.create(machine=pc)\nturn = session.send(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    record_trajectory=True,\n)\nprint(turn.id)"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 71,
+      "title": "Learn, run and repair",
+      "context": "from sai import Evaluation, Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\nsession = sai.sessions.create(machine=pc)\nturn = session.send(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    record_trajectory=True,\n)\nprint(turn.id)",
+      "code": "learned = sai.learn.create([turn])\nwith sai.control.open(machine=pc) as lease:\n    r = lease.run(learned, {\"newsSite\": \"TechCrunch\", \"topic\": \"Fintech\", \"fileName\": \"techcrunch_fintech.txt\"})\n    if not r.ok:\n        learned = sai.learn.create(\n            initial_code=learned.code,\n            evaluations=[Evaluation(inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"Fintech\", \"fileName\": \"techcrunch_fintech.txt\"}, result=r, passed=False)],\n        )"
+    },
+    {
+      "file": "concepts/learned-code.md",
+      "line": 112,
+      "title": "Learn a reliable function from a task",
+      "context": "from sai import Evaluation, Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\nsession = sai.sessions.create(machine=pc)\nturn = session.send(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    record_trajectory=True,\n)\nprint(turn.id)",
+      "code": "job = sai.learn.create(\n    task_template=\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    criteria=\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    max_iterations=3,\n    rollouts=3,\n    # Before the agent run and before every run: close the browser tabs and Notepad.\n    reset={\"code\": \"\"\"\nfor (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()\n\"\"\"},\n)\ndone = sai.learn.wait(job)\nprint(done.test_result)   # passed 3 of 3 runs, on these inputs\nprint(done.code)"
+    },
+    {
+      "file": "concepts/sessions.md",
+      "line": 79,
+      "title": "List sessions",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nfor s in sai.sessions.list(machine=sai.machines.list()[0]):\n    print(s.id, s.title, s.active)"
+    },
+    {
+      "file": "concepts/structured-output.md",
+      "line": 31,
+      "title": "Ask for typed output",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create()\nturn = session.send(\n    \"Open https://news.ycombinator.com and read the title of the top story.\",\n    output_schema={\n        \"type\": \"object\",\n        \"properties\": {\"title\": {\"type\": \"string\"}},\n        \"required\": [\"title\"],\n    },\n)\nprint(turn.id)"
+    },
+    {
+      "file": "concepts/structured-output.md",
+      "line": 149,
+      "title": "Give Sai a task with every option",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create()\nturn = session.send(\n    \"Sign in to the {{vendor}} portal and list the invoices dated in {{month}}.\",\n    inputs={\"vendor\": \"Acme\", \"month\": \"September 2026\"},\n    output_schema={\n        \"type\": \"object\",\n        \"properties\": {\n            \"invoices\": {\n                \"type\": \"array\",\n                \"items\": {\n                    \"type\": \"object\",\n                    \"properties\": {\n                        \"number\": {\"type\": \"string\"},\n                        \"date\": {\"type\": \"string\", \"pattern\": r\"^\\d{4}-\\d{2}-\\d{2}$\"},\n                        \"total\": {\"type\": \"number\"},\n                    },\n                    \"required\": [\"number\", \"date\", \"total\"],\n                },\n            }\n        },\n        \"required\": [\"invoices\"],\n    },\n    success_criteria=[\n        {\"id\": \"signed_in\", \"check\": \"Sai signed in and saw the invoice list.\"},\n        {\n            \"id\": \"all_listed\",\n            \"check\": \"Every invoice dated in the month is in the answer.\",\n            \"returnEvidence\": True,\n        },\n    ],\n    idempotency_key=\"acme-invoices-2026-09\",\n    record_trajectory=True,\n)\nprint(turn.id)"
+    },
+    {
+      "file": "organisations/enrollment.md",
+      "line": 22,
+      "title": "Create an enrollment code",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\nenrollment = org.tenants.create_enrollment(\"Xk2p9QzR4tLm8vNa3bCd\")\nprint(enrollment.token, enrollment.expires_at)  # hand the token to your installer"
+    },
+    {
+      "file": "organisations/orgs.md",
+      "line": 139,
+      "title": "This month's usage, by Tenant",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=os.environ[\"SAI_ORG_ID\"])\nusage = org.usage.get(granularity=\"month\", from_=\"2026-10\", to=\"2026-10\")\nfor tenant in usage.totals.by_tenant.values():\n    print(tenant.name, tenant.cost_cents)"
+    },
+    {
+      "file": "organisations/session-spend.md",
+      "line": 20,
+      "title": "List a Tenant's session spend for October",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=os.environ[\"SAI_ORG_ID\"])\ncursor = None\nwhile True:\n    page = org.usage.sessions(\"Xk2p9QzR4tLm8vNa3bCd\", from_=\"2026-10-01\", to=\"2026-10-31\", cursor=cursor)\n    for s in page.sessions:\n        print(s.session_id, s.title, s.cost_usd)\n    cursor = page.next_cursor\n    if cursor is None:\n        break"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 155,
+      "title": "List a Tenant's machines",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\nfor machine in org.tenant_machines.list(\"Xk2p9QzR4tLm8vNa3bCd\"):\n    print(machine.id, machine.name, machine.state)"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 216,
+      "title": "Get a Tenant machine",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\nmachine = org.tenant_machines.get(\"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\")"
+    },
+    {
+      "file": "organisations/tenant-machines.md",
+      "line": 250,
+      "title": "Revoke a Tenant machine",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\norg.tenant_machines.revoke(\"Xk2p9QzR4tLm8vNa3bCd\", \"tm_5a1f0c9e2b7d4e6a8c3f1b2d\")"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 17,
+      "title": "Exchange an Organisation Key for a Tenant token",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=\"org_3f9a1c0b7e2d4a6f8c10\")\ntoken = org.tenants.token(\"Xk2p9QzR4tLm8vNa3bCd\")\nprint(token.token, token.expires_at)"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 69,
+      "title": "Send a message as the Tenant",
+      "context": "",
+      "code": "from sai import Sai\n\ntenant_token = \"eyJhbGciOiJSUzI1NiIs...\"\nsai = Sai(api_key=tenant_token)\nsession = sai.sessions.create()\nturn = session.send(\"Open the calendar and read today’s appointments\")"
+    },
+    {
+      "file": "organisations/tenant-tokens.md",
+      "line": 89,
+      "title": "Act as the Tenant",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=\"org_3f9a1c0b7e2d4a6f8c10\")\nclinic = org.tenants.client(\"Xk2p9QzR4tLm8vNa3bCd\")\nsession = clinic.sessions.create()\nturn = session.send(\"Open the calendar and read today’s appointments\")"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 65,
+      "title": "Create a Tenant",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\ntenant = org.tenants.create(\n    \"Riverside Clinic\",\n    external_id=\"clinic-4821\",\n    metadata={\"plan\": \"pro\"},\n)\nprint(tenant.id)"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 125,
+      "title": "List active Tenants",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\ncursor = None\nwhile True:\n    page = org.tenants.list(status=\"active\", limit=50, cursor=cursor)\n    for tenant in page.tenants:\n        print(tenant.id, tenant.name)\n    cursor = page.next_cursor\n    if cursor is None:\n        break"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 173,
+      "title": "Find a Tenant by your own id",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\nfound = org.tenants.list(external_id=\"clinic-4821\").tenants\ntenant = found[0] if found else None"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 201,
+      "title": "Get a Tenant",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\ntenant = org.tenants.get(\"Xk2p9QzR4tLm8vNa3bCd\")"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 230,
+      "title": "Rename a Tenant and replace its metadata",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\ntenant = org.tenants.update(\n    \"Xk2p9QzR4tLm8vNa3bCd\",\n    name=\"Riverside Clinic East\",\n    metadata={\"plan\": \"enterprise\"},\n)"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 323,
+      "title": "Disable a Tenant",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\ntenant = org.tenants.update(\"Xk2p9QzR4tLm8vNa3bCd\", status=\"disabled\")"
+    },
+    {
+      "file": "organisations/tenants.md",
+      "line": 357,
+      "title": "Delete a Tenant",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"])\norg.tenants.delete(\"Xk2p9QzR4tLm8vNa3bCd\")"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 32,
+      "title": "List your computers",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nfor machine in sai.machines.list():\n    print(machine.id, machine.name, machine.kind, machine.online)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 71,
+      "title": "Check your account",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nprint(sai.account.get())"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 107,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create()\nturn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nprint(turn.id, turn.queued)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 142,
+      "title": "Poll for events",
+      "context": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create()\nturn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nprint(turn.id, turn.queued)",
+      "code": "# `turn` is what session.send() returned in step 4; events() polls until the turn ends.\nfor ev in turn.events():\n    print(ev.kind, ev.text)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 196,
+      "title": "Answer an approval",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.resume(\"cs_01HZY\")\nsession.respond(\"ap_7Qw\", \"yes\")"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 259,
+      "title": "Learn code for a task",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\njob = sai.learn.create(\n    task_template=\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    criteria=\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    reset={\"code\": \"\"\"\nfor (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()\n\"\"\"},\n    max_iterations=2,\n    rollouts=2,\n    machine=pc,\n)\ndone = sai.learn.wait(job)\nprint(done.status, done.test_result.status)\nprint(done.code)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 361,
+      "title": "Run the learned code",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\njob = sai.learn.create(\n    task_template=\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    criteria=\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    reset={\"code\": \"\"\"\nfor (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()\n\"\"\"},\n    max_iterations=2,\n    rollouts=2,\n    machine=pc,\n)\ndone = sai.learn.wait(job)\nprint(done.status, done.test_result.status)\nprint(done.code)",
+      "code": "# Continue from the code above.\nwith sai.control.open(pc) as lease:\n    print(lease.run(done).result)"
+    },
+    {
+      "file": "quickstart.md",
+      "line": 388,
+      "title": "Run a task",
+      "context": "",
+      "code": "from sai import Sai\n\nresult = Sai().sessions.create().run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nprint(result.text)"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 28,
+      "title": "Give Sai a task",
+      "context": "",
+      "code": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 50,
+      "title": "Watch the events",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "turn = session.send(\"Find last month's invoices in Downloads and total them\")\nfor ev in turn.events():\n    if ev.kind == \"step\":\n        print(\"  \", ev.text)\n    elif ev.kind == \"approval\":\n        turn.respond(ev.approval, \"yes\")\nresult = turn.wait()"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 75,
+      "title": "Approval handler",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "def decide(approval):\n    if approval.is_link_only:\n        print(\"Approve in a browser:\", approval.url)\n        return None  # a person answers it; keep waiting\n    if approval.type == \"choice\":\n        return (\"yes\", [[q[\"options\"][0][\"value\"]] for q in approval.questions])\n    return \"yes\"\n\nresult = session.run(\"Clean up the temp folder\", on_approval=decide)"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 91,
+      "title": "Unattended run",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "session.run(\"Export last month's invoices to CSV\", autonomous=True)"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 97,
+      "title": "Files, models, stopping",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "report = sai.files.upload(\"report.pdf\")\nsession.run(\"Summarise the attached report\", attachments=[report])\n\nallowed = [m.id for m in sai.models.list() if m.allowed]\nsession.run(\"...\", model=\"anthropic/claude-opus-5-5\")  # sticks to the session\n\nturn = session.send(\"...\")\nturn.abort()"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 114,
+      "title": "Typed output",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "result = session.run(\n    \"Open https://news.ycombinator.com and read the title of the top story.\",\n    output_schema={\"type\": \"object\", \"properties\": {\"title\": {\"type\": \"string\"}}, \"required\": [\"title\"]},\n)\nif result.ok:\n    print(result.record.output[\"title\"])\nelse:\n    print(result.record.reason_code)   # e.g. output_invalid"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 127,
+      "title": "Read a turn later",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "turn = session.send(\"...\", record_trajectory=True)\nrecord = sai.turns.wait(turn)               # until succeeded, failed or needs_input\nfor step in sai.turns.trajectory(turn):\n    print(step.index, step.title)"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 138,
+      "title": "Learn and repair code",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "from sai import Check, Evaluation\n\nturn = session.send(\n    \"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    record_trajectory=True,\n)\nsai.turns.wait(turn)\n\nlearned = sai.learn.create([turn])            # waits for the code; longer for a longer task\nwith sai.control.open(machine=pc) as lease:\n    r = lease.run(learned, {\"newsSite\": \"TechCrunch\", \"topic\": \"Fintech\", \"fileName\": \"techcrunch_fintech.txt\"})   # inputs over the defaults\n    print(r.result)\n\nfixed = sai.learn.create(\n    initial_code=learned.code,\n    evaluations=[Evaluation(inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"Fintech\", \"fileName\": \"techcrunch_fintech.txt\"}, result=r, passed=False)],\n)\njudgement = sai.judge.create([turn], [Check(\"file\", \"The agent saved the headlines to the file\")])"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 164,
+      "title": "Run, judge and repair on a computer",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "job = sai.learn.create(\n    task_template=\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    machine=pc,\n    criteria=\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    max_iterations=3,          # up to 3 code versions; 0 (the default) only writes the code\n    rollouts=3,                # each version must pass 3 runs in a row\n    reset={\"code\": \"\"\"\nfor (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()\n\"\"\"},\n    continue_with_agent=True,  # after a failed run, the agent finishes the task and the repair learns from it\n)\ndone = sai.learn.wait(job)     # can take an hour; timeout= to stop waiting\nprint(done.status, done.stop_reason, done.test_result)\nprint(done.code)               # the latest version\nfor it in done.iterations:\n    print(it.index, it.changes, [r.verdict for r in it.rollouts])\n\nrun = sai.learn.rollout(job, 1, 1)   # what one run returned and logged, and its judgement\nsai.learn.cancel(job)                # stops at once and keeps the last complete results"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 194,
+      "title": "Drive a computer",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "with sai.control.open(machine=pc) as lease:\n    print(lease.shell(\"hostname\")[\"stdout\"])\n\n    lease.write_file(r\"C:\\data\\note.txt\", \"hello\")\n    print(lease.read_file(r\"C:\\data\\note.txt\"))\n\n    r = lease.exec(\"\"\"\n        var page = await machine.browser.newtab('https://example.com')\n        var snap = await page.snapshot()\n        snap.title\n    \"\"\")\n    print(r.result)  # Example Domain\n    ext = r.screenshot_mime_type.split(\"/\")[1]  # jpeg or png\n    open(f\"page.{ext}\", \"wb\").write(r.screenshot)"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 220,
+      "title": "Other calls",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "sai.account.get()      # plan and spendable credit\nsai.models.list()      # models, with `allowed` for this plan\nsai.machines.live(pc)  # a link to the screen for a person, and a stream for your viewer; see Live view\nsai.machines.revoke_live(pc)  # every live_url stops working and its screen sessions end; returns how many"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 229,
+      "title": "Who the key is, and its sessions",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "sai.auth.check()            # the user, and the Tenant and Organisation for a Tenant token\nsai.sessions.list(machine=pc)  # your sessions on the computer, any channel, most recent first"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 240,
+      "title": "Hand the screen to a person",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "view = sai.machines.live(pc)\nprint(\"Sign in here, then tell me:\", view.live_url)  # valid until view.expires_at (ms)\n# ... once they are done\nsession.run(\"I signed in. Carry on.\")\nsai.machines.revoke_live(pc)  # returns the number of links revoked"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 256,
+      "title": "Tenants",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=\"org_3f9a1c0b7e2d4a6f8c10\")\n\ntenant = org.tenants.create(\"Riverside Clinic\", external_id=\"clinic-4821\")\nenrollment = org.tenants.create_enrollment(tenant)  # hand enrollment.token to your installer\nprint(org.tenant_machines.list(tenant))\n\nclinic = org.tenants.client(tenant)  # acts as the Tenant\nclinic.sessions.create().run(\"Open the calendar and read today's appointments\")"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 278,
+      "title": "Cloud machines",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "import os\nimport uuid\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=\"org_3f9a1c0b7e2d4a6f8c10\")\n\nmachine = org.tenant_machines.create(\n    \"Xk2p9QzR4tLm8vNa3bCd\",\n    os=\"windows\",\n    name=\"Riverside intake\",\n    request_id=str(uuid.uuid4()),\n    wait=True,\n)\nclinic = org.tenants.client(\"Xk2p9QzR4tLm8vNa3bCd\")\nclinic.sessions.create(machine=machine.id).run(\"Open Notepad and type hello\")\norg.tenant_machines.delete(\"Xk2p9QzR4tLm8vNa3bCd\", machine)"
+    },
+    {
+      "file": "sdks/python.md",
+      "line": 309,
+      "title": "Usage",
+      "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\n\nsession = sai.sessions.create(machine=pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nprint(result.status)  # idle, needs_approval or error\nprint(result.text)    # Sai's answer\nprint(result.usage)   # tokens and cost of this task",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=\"org_3f9a1c0b7e2d4a6f8c10\")\nusage = org.usage.get(granularity=\"month\", from_=\"2026-10\", to=\"2026-10\")\nfor t in usage.totals.by_tenant.values():\n    print(t.name, t.cost_cents)\n\npage = org.usage.sessions(\"Xk2p9QzR4tLm8vNa3bCd\", from_=\"2026-10-01\", to=\"2026-10-31\")\nfor s in page.sessions:\n    print(s.session_id, s.cost_usd)"
+    }
+  ]
+}

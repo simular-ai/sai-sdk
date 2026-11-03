@@ -716,3 +716,26 @@ class Judgement:
             replayed=bool(d.get("idempotent_replay")),
             raw=d,
         )
+
+
+@dataclass
+class SessionSummary:
+    """A session on a computer, from `sai.sessions.list()`."""
+
+    id: str
+    title: str
+    updated_at: int
+    """Unix time in milliseconds."""
+    active: bool
+    """The session the next message on this computer goes to."""
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def parse(cls, d: dict[str, Any]) -> SessionSummary:
+        return cls(
+            id=d.get("sessionId") or "",
+            title=d.get("title") or "",
+            updated_at=d.get("updatedAt") or 0,
+            active=bool(d.get("active")),
+            raw=d,
+        )

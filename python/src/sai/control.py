@@ -87,23 +87,23 @@ class ControlLease:
         else:
             code = learned.code
             params = {p.name: p.default_value for p in learned.parameters} | (inputs or {})
-        return self.exec(f"{code}\nawait main({json.dumps(params)})", timeout_ms=timeout_ms)
+        return self.exec(f"{code}\nawait main({_js(params)})", timeout_ms=timeout_ms)
     def shell(self, command: str, *, cwd: Optional[str] = None, timeout_ms: Optional[int] = None) -> dict[str, Any]:
         """Run a shell command: `{stdout, stderr, exitCode, timedOut}`."""
         args: dict[str, Any] = {"command": command}
         if cwd:
             args["cwd"] = cwd
-        r = self.exec(f"await machine.exec({json.dumps(args)})", timeout_ms=timeout_ms)
+        r = self.exec(f"await machine.exec({_js(args)})", timeout_ms=timeout_ms)
         _raise_on_block_error(r)
         return r.result
 
     def read_file(self, path: str) -> str:
-        r = self.exec(f"await machine.readFile({json.dumps({'path': path})})")
+        r = self.exec(f"await machine.readFile({_js({'path': path})})")
         _raise_on_block_error(r)
         return r.result
 
     def write_file(self, path: str, text: str) -> None:
-        r = self.exec(f"await machine.writeToFile({json.dumps({'path': path, 'text': text, 'overwrite': True})})")
+        r = self.exec(f"await machine.writeToFile({_js({'path': path, 'text': text, 'overwrite': True})})")
         _raise_on_block_error(r)
 
     def screenshot(self) -> bytes:
@@ -134,6 +134,11 @@ class ControlLease:
         except GoneError:
             pass
         self._closed = True
+
+
+def _js(v: Any) -> str:
+    """`v` as JavaScript source, as `JSON.stringify` writes it, so every SDK sends the same code."""
+    return json.dumps(v, separators=(",", ":"), ensure_ascii=False)
 
 
 def _raise_on_block_error(r: ExecResult) -> None:

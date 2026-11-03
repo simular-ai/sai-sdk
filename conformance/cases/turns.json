@@ -1,0 +1,515 @@
+{
+  "cases": [
+    {
+      "id": "turn.wait.structured-record",
+      "doc": "A structured message's wait() also reads the turn record (every 2 s) until it is succeeded or failed.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.run",
+          "args": {
+            "message": "Save {{file_name}}",
+            "inputs": { "file_name": "inv-1001.txt" },
+            "output_schema": { "type": "object" }
+          },
+          "expect": {
+            "result": {
+              "status": "idle",
+              "text": "Saved.",
+              "ok": true,
+              "record": {
+                "id": "turn_1",
+                "session_id": "cs_1",
+                "machine_id": "m_1",
+                "status": "succeeded",
+                "output": { "path": "C:\\Users\\me\\Desktop\\inv-1001.txt" },
+                "reason_code": null,
+                "evidence": [
+                  {
+                    "id": "saved",
+                    "passed": true,
+                    "score": 0.93,
+                    "evidence": "The file is on the Desktop."
+                  }
+                ],
+                "usage": { "input_tokens": 120, "output_tokens": 30 },
+                "record_trajectory": true,
+                "trajectory_recorded": true,
+                "template": "Save {{file_name}}",
+                "inputs": { "file_name": "inv-1001.txt" },
+                "replayed": false,
+                "done": true,
+                "ok": true
+              }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/message",
+            "json": {
+              "message": "Save {{file_name}}",
+              "wait": false,
+              "machineId": "m_1",
+              "sessionId": "cs_1",
+              "options": {
+                "inputs": { "file_name": "inv-1001.txt" },
+                "output_schema": { "type": "object" }
+              }
+            }
+          },
+          "response": {
+            "status": 202,
+            "json": { "sessionId": "cs_1", "machineId": "m_1", "queued": false, "turnId": "turn_1" }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": {
+              "sessionId": "cs_1",
+              "status": "idle",
+              "events": [],
+              "text": "Saved.",
+              "cursor": "c1"
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/turns/turn_1" },
+          "response": {
+            "json": {
+              "turnId": "turn_1",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "finalizing"
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/turns/turn_1" },
+          "response": {
+            "json": {
+              "turnId": "turn_1",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "succeeded",
+              "output": { "path": "C:\\Users\\me\\Desktop\\inv-1001.txt" },
+              "reason_code": null,
+              "evidence": [
+                {
+                  "id": "saved",
+                  "passed": true,
+                  "score": 0.93,
+                  "evidence": "The file is on the Desktop."
+                }
+              ],
+              "usage": { "inputTokens": 120, "outputTokens": 30 },
+              "recordTrajectory": true,
+              "trajectory": { "recorded": true, "url": "/v1/agents/turns/turn_1/trajectory" },
+              "template": "Save {{file_name}}",
+              "inputs": { "file_name": "inv-1001.txt" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "turn.wait.structured-failed",
+      "doc": "A structured turn that failed its checks is idle with its answer but not ok.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.run",
+          "args": { "message": "Save it", "output_schema": { "type": "object" } },
+          "expect": {
+            "result": {
+              "status": "idle",
+              "ok": false,
+              "record": {
+                "status": "failed",
+                "reason_code": "output_invalid",
+                "raw_answer": "I saved it.",
+                "output_errors": ["must have required property 'path'"],
+                "ok": false,
+                "done": true
+              }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "status": 202,
+            "json": { "sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_1" }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": { "sessionId": "cs_1", "status": "idle", "events": [], "text": "I saved it." }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/turns/turn_1" },
+          "response": {
+            "json": {
+              "turnId": "turn_1",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "failed",
+              "output": null,
+              "reason_code": "output_invalid",
+              "raw_answer": "I saved it.",
+              "output_errors": ["must have required property 'path'"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "turn.wait.plain-no-record",
+      "doc": "A plain message has a turn id but wait() does not read its record; an idempotency key alone keeps it plain.",
+      "steps": [
+        {
+          "call": "sessions.resume",
+          "args": { "session_id": "cs_1", "machine": "m_1" },
+          "save": "session"
+        },
+        {
+          "call": "session.run",
+          "args": { "message": "hello", "idempotency_key": "k" },
+          "expect": { "result": { "record": null, "ok": true } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/message",
+            "json": {
+              "message": "hello",
+              "wait": false,
+              "machineId": "m_1",
+              "sessionId": "cs_1",
+              "options": { "idempotency_key": "k" }
+            }
+          },
+          "response": {
+            "status": 202,
+            "json": { "sessionId": "cs_1", "machineId": "m_1", "turnId": "turn_3" }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/events" },
+          "response": {
+            "json": { "sessionId": "cs_1", "status": "idle", "events": [], "text": "Done." }
+          }
+        }
+      ]
+    },
+    {
+      "id": "turn.replay",
+      "doc": "An idempotent replay is the earlier turn: no events, and the result the live path gave, from its record.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_old" }, "save": "session" },
+        {
+          "call": "session.send",
+          "args": {
+            "message": "Save {{file_name}}",
+            "inputs": { "file_name": "x" },
+            "idempotency_key": "k"
+          },
+          "save": "turn",
+          "expect": { "result": { "id": "turn_1", "queued": false } }
+        },
+        { "call": "turn.events", "expect": { "result": [] } },
+        {
+          "call": "turn.wait",
+          "expect": {
+            "result": {
+              "status": "idle",
+              "ok": true,
+              "session_id": "cs_1",
+              "text": "{\"path\":\"C:\\\\x.txt\"}",
+              "usage": { "input_tokens": 120 },
+              "record": { "id": "turn_1", "replayed": true }
+            }
+          }
+        },
+        {
+          "call": "session.send",
+          "args": { "message": "x", "idempotency_key": "k2" },
+          "save": "plain"
+        },
+        {
+          "call": "plain.wait",
+          "expect": { "result": { "status": "idle", "ok": true, "text": "Saved it." } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "json": {
+              "turnId": "turn_1",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "succeeded",
+              "output": { "path": "C:\\x.txt" },
+              "usage": { "inputTokens": 120, "outputTokens": 30 },
+              "idempotent_replay": true
+            }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "json": {
+              "turnId": "turn_2",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "succeeded",
+              "output": "Saved it.",
+              "idempotent_replay": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "turn.replay.failed",
+      "doc": "A replay of a broken turn is an error; one that only failed its checks keeps the answer.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        {
+          "call": "session.send",
+          "args": { "message": "x", "idempotency_key": "k" },
+          "save": "broken"
+        },
+        {
+          "call": "broken.wait",
+          "expect": {
+            "result": {
+              "status": "error",
+              "ok": false,
+              "text": "",
+              "error": "You are out of credits.",
+              "error_code": "insufficient_credits"
+            }
+          }
+        },
+        {
+          "call": "session.send",
+          "args": { "message": "x", "idempotency_key": "k2" },
+          "save": "checked"
+        },
+        {
+          "call": "checked.wait",
+          "expect": {
+            "result": {
+              "status": "idle",
+              "ok": false,
+              "text": "No path.",
+              "record": { "reason_code": "output_invalid" }
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "json": {
+              "turnId": "turn_1",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "failed",
+              "output": null,
+              "reason_code": "agent_error",
+              "raw_answer": "You are out of credits.",
+              "error_code": "insufficient_credits",
+              "idempotent_replay": true
+            }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/agents/message" },
+          "response": {
+            "json": {
+              "turnId": "turn_2",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "failed",
+              "output": null,
+              "reason_code": "output_invalid",
+              "raw_answer": "No path.",
+              "idempotent_replay": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "turns.get-and-wait",
+      "doc": "get() reads the record once; wait() reads it until succeeded, failed or needs_input.",
+      "steps": [
+        {
+          "call": "turns.get",
+          "args": { "turn": "turn_1" },
+          "expect": {
+            "result": { "id": "turn_1", "status": "running", "done": false, "ok": false }
+          }
+        },
+        {
+          "call": "turns.wait",
+          "args": { "turn": "turn_1" },
+          "expect": { "result": { "status": "needs_input", "done": false } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/turns/turn_1" },
+          "response": {
+            "json": {
+              "turnId": "turn_1",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "running"
+            }
+          }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/turns/turn_1" },
+          "response": {
+            "json": {
+              "turnId": "turn_1",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "needs_input"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "turns.from-turn",
+      "doc": "A Turn from send() works wherever a turn id does.",
+      "steps": [
+        { "call": "sessions.resume", "args": { "session_id": "cs_1" }, "save": "session" },
+        {
+          "call": "session.send",
+          "args": { "message": "x", "record_trajectory": true },
+          "save": "turn"
+        },
+        {
+          "call": "turns.get",
+          "args": { "turn": { "$ref": "turn" } },
+          "expect": {
+            "result": { "id": "turn/9", "status": "succeeded", "done": true, "ok": true }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/agents/message",
+            "json_subset": { "options": { "recordTrajectory": true } }
+          },
+          "response": { "status": 202, "json": { "sessionId": "cs_1", "turnId": "turn/9" } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/agents/turns/turn%2F9" },
+          "response": {
+            "json": {
+              "turnId": "turn/9",
+              "sessionId": "cs_1",
+              "machineId": "m_1",
+              "status": "succeeded",
+              "output": "ok"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "turns.trajectory-and-screenshot",
+      "doc": "trajectory() parses the steps; screenshot() returns the image bytes.",
+      "steps": [
+        {
+          "call": "turns.trajectory",
+          "args": { "turn": "turn_1" },
+          "expect": {
+            "result": [
+              {
+                "index": 0,
+                "final": false,
+                "timestamp": "t0",
+                "title": "Open Notepad",
+                "code": "app.open('notepad')",
+                "rationale": null,
+                "error": null,
+                "has_screenshot": true
+              },
+              {
+                "index": 1,
+                "final": true,
+                "timestamp": "t1",
+                "title": null,
+                "code": null,
+                "has_screenshot": false
+              }
+            ]
+          }
+        },
+        {
+          "call": "turns.screenshot",
+          "args": { "turn": "turn_1", "index": 0 },
+          "expect": { "result": { "$base64": "/9hq" } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/turns/turn_1/trajectory" },
+          "response": {
+            "json": {
+              "turnId": "turn_1",
+              "trajectory": { "recorded": true, "url": "/v1/agents/turns/turn_1/trajectory" },
+              "steps": [
+                {
+                  "index": 0,
+                  "timestamp": "t0",
+                  "title": "Open Notepad",
+                  "code": "app.open('notepad')",
+                  "screenshot": "/v1/agents/turns/turn_1/trajectory/screenshots/0"
+                },
+                { "index": 1, "final": true, "timestamp": "t1", "screenshot": null }
+              ]
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/agents/turns/turn_1/trajectory/screenshots/0"
+          },
+          "response": { "headers": { "content-type": "image/jpeg" }, "body_base64": "/9hq" }
+        }
+      ]
+    }
+  ]
+}

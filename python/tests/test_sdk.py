@@ -344,7 +344,7 @@ def test_control_lease_exec_and_close() -> None:
         assert not r.ok and r.error is not None and r.error.kind == "exception"
     assert calls[-1].method == "DELETE"
     first_exec = next(c for c in calls if c.url.path.endswith("/exec"))
-    assert json.loads(first_exec.content)["code"] == 'await machine.exec({"command": "hostname"})'
+    assert json.loads(first_exec.content)["code"] == 'await machine.exec({"command":"hostname"})'
 
 
 def test_exec_result_keeps_screenshot_mime_type() -> None:
@@ -852,7 +852,7 @@ def test_lease_runs_learned_code_with_inputs_over_defaults() -> None:
     r = lease.run(LearnResult.parse(LEARNED), {"n": 3})
     assert r.result == "ok"
     assert json.loads(calls[1].content)["code"] == (
-        f'{LEARNED["code"]}\nawait main({{"site": "https://news.ycombinator.com", "n": 3}})'
+        f'{LEARNED["code"]}\nawait main({{"site":"https://news.ycombinator.com","n":3}})'
     )
 
 

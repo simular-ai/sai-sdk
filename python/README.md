@@ -39,6 +39,8 @@ print(result.usage)    # tokens and cost for this task
 
 `machine` can be left out when the account has one computer. Further `session.run(...)` calls continue
 the same conversation; `sai.sessions.create()` starts a new one with no memory of the old.
+`sai.sessions.list(machine=pc)` lists your sessions on the computer (desktop, CLI and API), most recent first, and
+`sai.auth.check()` says who the key acts as.
 
 ### Watch it work
 
@@ -332,6 +334,25 @@ Without `wait=True`, `create` returns at once with `state="provisioning"`. A cre
 `request_id_reused`), `PermissionDeniedError` (`tenant_disabled`) or `ServiceUnavailableError`
 (`capacity_unavailable`: retry later). A 500 carries `e.body["errorId"]` to quote to support.
 
+### What a Tenant spent
+
+```python
+usage = org.usage.get(granularity="month", from_="2026-10", to="2026-10")
+print(usage.totals.cost_cents, usage.totals.by_tenant)
+
+page = org.usage.sessions(tenant, from_="2026-10-01", to="2026-10-31")
+while True:
+    for s in page.sessions:
+        print(s.session_id, s.cost_usd)
+    if page.next_cursor is None:
+        break
+    page = org.usage.sessions(tenant, from_="2026-10-01", to="2026-10-31", cursor=page.next_cursor)
+```
+
+`usage.get` is what the Organisation is charged, in total and per Tenant, per `hour`, `day` or `month`.
+`usage.sessions` pages what each of a Tenant's sessions spent on AI calls, for UTC days `from_` to `to`
+(at most 93). A page can be empty and still have a `next_cursor`: keep paging until it is `None`.
+
 ## Errors
 
 Every non-2xx response raises a `SaiError` subclass with `status`, `code`, `message` and `retry_after`:
@@ -358,7 +379,7 @@ A task that ran out of credit ends with `result.status == "error"` and `result.e
 | `api_key`  | `SAI_API_KEY` | required                 |
 | `base_url` | `SAI_API_URL` | `https://api.simular.ai` |
 | `timeout`  |               | 60 s per request         |
-| `org_id`   | `SAI_ORG_ID`  | for `tenants.token()`    |
+| `org_id`   | `SAI_ORG_ID`  | for `tenants.token()` and `usage` |
 
 ## Development
 

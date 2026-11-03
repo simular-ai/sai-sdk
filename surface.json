@@ -11,11 +11,13 @@
       "models",
       "files",
       "account",
+      "auth",
+      "usage",
       "tenants",
       "tenant_machines"
     ],
     "machines": ["list", "get", "live", "revoke_live"],
-    "sessions": ["create", "resume"],
+    "sessions": ["create", "resume", "list"],
     "turns": ["get", "wait", "trajectory", "screenshot"],
     "learn": ["create", "get", "wait", "cancel", "rollout"],
     "judge": ["create", "get"],
@@ -23,6 +25,8 @@
     "models": ["list"],
     "files": ["upload"],
     "account": ["get"],
+    "auth": ["check"],
+    "usage": ["get", "sessions"],
     "tenants": [
       "create",
       "list",

@@ -320,7 +320,7 @@ class TenantMachines:
             try:
                 machine = self.get(tenant_id, machine.id)
             except RateLimitError as e:
-                time.sleep(e.retry_after or 30)
+                time.sleep(30 if e.retry_after is None else e.retry_after)
         return machine
 
     def list(self, tenant: TenantRef) -> list[TenantMachine]:

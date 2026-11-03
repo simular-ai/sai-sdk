@@ -841,3 +841,144 @@ export function parseJudgement(d: Json): Judgement {
     raw: d,
   }
 }
+
+/** Who the key or token acts as: `GET /v1/agents/auth`. */
+export interface AuthInfo {
+  userId: string
+  /** `apiKey` for a key, `firebase` for a signed-in session or a Tenant token. */
+  authType: string
+  /** Set when the credential is a Tenant token. */
+  tenantId: string | null
+  orgId: string | null
+  raw: Json
+}
+
+export function parseAuthInfo(d: Json): AuthInfo {
+  return {
+    userId: str(d.userId) ?? '',
+    authType: str(d.authType) ?? '',
+    tenantId: str(d.tenantId) ?? null,
+    orgId: str(d.orgId) ?? null,
+    raw: d,
+  }
+}
+
+/** A session on a computer, from `sai.sessions.list()`. */
+export interface SessionSummary {
+  id: string
+  title: string
+  /** Unix time in milliseconds. */
+  updatedAt: number
+  /** The session the next message on this computer goes to. */
+  active: boolean
+  raw: Json
+}
+
+export function parseSessionSummary(d: Json): SessionSummary {
+  return {
+    id: str(d.sessionId) ?? '',
+    title: str(d.title) ?? '',
+    updatedAt: num(d.updatedAt),
+    active: Boolean(d.active),
+    raw: d,
+  }
+}
+
+/** One Tenant's spend in an Organisation usage report. */
+export interface TenantUsage {
+  tenantId: string
+  name: string | null
+  externalId: string | null
+  costCents: number
+  /** By kind of spend, such as `token` for AI calls and `compute` for computer time. */
+  byCategory: Record<string, { costCents: number }>
+}
+
+/** One period of an Organisation usage report, or the whole range (`totals`). */
+export interface UsageBucket {
+  /** The period, e.g. `2026-10`; null on `totals`. */
+  bucket: string | null
+  costCents: number
+  /** Keyed by Tenant id. Spend tied to no Tenant is in `costCents` only. */
+  byTenant: Record<string, TenantUsage>
+}
+
+/** What an Organisation is charged, per Tenant, from `sai.usage.get()`. */
+export interface OrgUsage {
+  granularity: string
+  from: string
+  to: string
+  totals: UsageBucket
+  buckets: UsageBucket[]
+  raw: Json
+}
+
+function parseUsageBucket(d: Json): UsageBucket {
+  const byTenant: Record<string, TenantUsage> = {}
+  for (const [key, v] of Object.entries(obj(d.byTenant))) {
+    const t = obj(v)
+    const byCategory: Record<string, { costCents: number }> = {}
+    for (const [cat, c] of Object.entries(obj(t.byCategory))) {
+      byCategory[cat] = { costCents: num(obj(c).costCents) }
+    }
+    byTenant[key] = {
+      tenantId: str(t.tenantId) ?? key,
+      name: str(t.name) ?? null,
+      externalId: str(t.externalId) ?? null,
+      costCents: num(t.costCents),
+      byCategory,
+    }
+  }
+  return { bucket: str(d.bucket) ?? null, costCents: num(d.costCents), byTenant }
+}
+
+export function parseOrgUsage(d: Json): OrgUsage {
+  return {
+    granularity: str(d.granularity) ?? '',
+    from: str(d.from) ?? '',
+    to: str(d.to) ?? '',
+    totals: parseUsageBucket(obj(d.totals)),
+    buckets: Array.isArray(d.buckets) ? d.buckets.map((b) => parseUsageBucket(obj(b))) : [],
+    raw: d,
+  }
+}
+
+/** What one of a Tenant's sessions spent on AI calls in a date range. */
+export interface SessionSpend {
+  sessionId: string
+  /** Null when the session has no title. */
+  title: string | null
+  /** In US dollars, not rounded to cents. */
+  costUsd: number
+  modelCalls: number
+  /** The UTC days (`YYYY-MM-DD`) the session's spend was first and last counted, over its whole life. */
+  firstDay: string
+  lastDay: string
+}
+
+/** One page of `sai.usage.sessions()`. A page can be empty and still have a `nextCursor`. */
+export interface SessionSpendPage {
+  sessions: SessionSpend[]
+  /** Pass as `cursor` for the next page; null on the last page. */
+  nextCursor: string | null
+  /** ISO 8601: the figures are complete up to this time. Null when unknown. */
+  dataThrough: string | null
+  raw: Json
+}
+
+export function parseSessionSpendPage(d: Json): SessionSpendPage {
+  const sessions = Array.isArray(d.sessions) ? d.sessions.map(obj) : []
+  return {
+    sessions: sessions.map((s) => ({
+      sessionId: str(s.sessionId) ?? '',
+      title: str(s.title) || null,
+      costUsd: num(s.costUsd),
+      modelCalls: num(s.modelCalls),
+      firstDay: str(s.firstDay) ?? '',
+      lastDay: str(s.lastDay) ?? '',
+    })),
+    nextCursor: str(d.nextCursor) ?? null,
+    dataThrough: str(d.dataThrough) ?? null,
+    raw: d,
+  }
+}

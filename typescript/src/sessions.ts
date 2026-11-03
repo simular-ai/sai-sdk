@@ -13,12 +13,14 @@ import { idOf, type MachineRef, type Machines } from './machines.js'
 import {
   parseApproval,
   parseEvent,
+  parseSessionSummary,
   parseTurnRecord,
   parseUsage,
   type Approval,
   type Attachment,
   type Check,
   type Event,
+  type SessionSummary,
   type TurnRecord,
   type TurnRecordStatus,
   type TurnResult,
@@ -117,6 +119,21 @@ export class Sessions {
       if (!(err instanceof NotFoundError)) throw err
     }
     return new Session(this.http, machineId, sessionId)
+  }
+
+  /**
+   * The caller's sessions on a computer (desktop, CLI and API), most recent first (up to 20).
+   * `active` marks the API channel's current one, which the next message without a session goes
+   * to. `machine` may be omitted with one computer.
+   */
+  async list(opts: { machine?: MachineRef } = {}): Promise<SessionSummary[]> {
+    const machineId = await this.machines.resolveId(opts.machine)
+    const d = await this.http.json<{ sessions?: Record<string, unknown>[] }>(
+      'GET',
+      '/v1/agents/sessions',
+      { params: { machineId, channel: 'api' } },
+    )
+    return (d.sessions ?? []).map(parseSessionSummary)
   }
 
   /** Reattach to a session started elsewhere, e.g. to poll or abort it. */

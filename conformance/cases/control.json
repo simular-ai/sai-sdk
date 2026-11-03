@@ -1,0 +1,306 @@
+{
+  "cases": [
+    {
+      "id": "control.lease",
+      "doc": "open() takes the lease; exec() returns the block's result, logs and screenshot; a block that throws is a result with error, not an exception; close() releases it, once.",
+      "steps": [
+        {
+          "call": "control.open",
+          "args": { "machine": "m_1" },
+          "save": "lease",
+          "expect": { "result": { "machine_id": "m_1", "idle_timeout_sec": 600 } }
+        },
+        {
+          "call": "lease.exec",
+          "args": { "code": "await page.snapshot()", "timeout_ms": 5000 },
+          "expect": {
+            "result": {
+              "result": { "title": "Inbox" },
+              "logs": ["opened"],
+              "error": null,
+              "screenshot": { "$base64": "/9j/4A==" },
+              "screenshot_mime_type": "image/jpeg",
+              "screenshot_omitted": false,
+              "variables": [{ "name": "x", "type": "number" }],
+              "duration_ms": 12,
+              "ok": true
+            }
+          }
+        },
+        {
+          "call": "lease.exec",
+          "args": { "code": "throw new Error('boom')" },
+          "expect": {
+            "result": {
+              "ok": false,
+              "result": null,
+              "screenshot": null,
+              "error": { "kind": "exception", "message": "boom", "stack": null }
+            }
+          }
+        },
+        { "call": "lease.interrupt", "expect": { "result": true } },
+        {
+          "call": "lease.get",
+          "expect": { "result": { "status": "open", "lastExecAt": 1790000000000 } }
+        },
+        { "call": "lease.close", "expect": { "result": null } },
+        { "call": "lease.close", "expect": { "result": null } }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/machines/m_1/control", "body_empty": true },
+          "response": {
+            "json": { "machineId": "m_1", "status": "open", "expiresAfterIdleSec": 600 }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "await page.snapshot()", "timeoutMs": 5000 }
+          },
+          "response": {
+            "json": {
+              "result": { "title": "Inbox" },
+              "logs": ["opened"],
+              "observations": { "screenshot": { "base64": "/9j/4A==", "mimeType": "image/jpeg" } },
+              "variables": [{ "name": "x", "type": "number" }],
+              "durationMs": 12
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "throw new Error('boom')" }
+          },
+          "response": {
+            "json": {
+              "logs": [],
+              "error": { "kind": "exception", "message": "boom" },
+              "durationMs": 1
+            }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/machines/m_1/control/interrupt" },
+          "response": { "json": { "interrupted": true } }
+        },
+        {
+          "request": { "method": "GET", "path": "/v1/machines/m_1/control" },
+          "response": { "json": { "status": "open", "lastExecAt": 1790000000000 } }
+        },
+        {
+          "request": { "method": "DELETE", "path": "/v1/machines/m_1/control" },
+          "response": { "status": 204 }
+        }
+      ]
+    },
+    {
+      "id": "control.helpers",
+      "doc": "shell, read_file, write_file and screenshot send fixed Simulang and raise BlockError when the block fails.",
+      "steps": [
+        { "call": "control.open", "args": { "machine": "m_1" }, "save": "lease" },
+        {
+          "call": "lease.shell",
+          "args": { "command": "hostname" },
+          "expect": {
+            "result": { "stdout": "HOST\r\n", "stderr": "", "exit_code": 0, "timed_out": false }
+          }
+        },
+        { "call": "lease.shell", "args": { "command": "dir", "cwd": "C:\\Users" } },
+        {
+          "call": "lease.read_file",
+          "args": { "path": "C:\\a.txt" },
+          "expect": { "result": "hello" }
+        },
+        {
+          "call": "lease.write_file",
+          "args": { "path": "C:\\a.txt", "text": "hi \"there\"" },
+          "expect": { "result": null }
+        },
+        { "call": "lease.screenshot", "expect": { "result": { "$base64": "iVBORw==" } } },
+        {
+          "call": "lease.read_file",
+          "args": { "path": "C:\\missing.txt" },
+          "expect": {
+            "error": {
+              "class": "BlockError",
+              "kind": "exception",
+              "code": "exception",
+              "message": "exception: ENOENT"
+            }
+          }
+        },
+        {
+          "call": "lease.screenshot",
+          "expect": {
+            "error": {
+              "class": "BlockError",
+              "kind": "exception",
+              "message": "exception: screenshot too large to return"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v1/machines/m_1/control" },
+          "response": { "json": { "machineId": "m_1", "expiresAfterIdleSec": 600 } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "await machine.exec({\"command\":\"hostname\"})" }
+          },
+          "response": {
+            "json": {
+              "result": { "stdout": "HOST\r\n", "stderr": "", "exitCode": 0, "timedOut": false },
+              "logs": [],
+              "durationMs": 1
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "await machine.exec({\"command\":\"dir\",\"cwd\":\"C:\\\\Users\"})" }
+          },
+          "response": {
+            "json": {
+              "result": { "stdout": "", "stderr": "", "exitCode": 0, "timedOut": false },
+              "logs": [],
+              "durationMs": 1
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "await machine.readFile({\"path\":\"C:\\\\a.txt\"})" }
+          },
+          "response": { "json": { "result": "hello", "logs": [], "durationMs": 1 } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": {
+              "code": "await machine.writeToFile({\"path\":\"C:\\\\a.txt\",\"text\":\"hi \\\"there\\\"\",\"overwrite\":true})"
+            }
+          },
+          "response": { "json": { "result": null, "logs": [], "durationMs": 1 } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "var __sai_page = await machine.pageContent(); null" }
+          },
+          "response": {
+            "json": {
+              "result": null,
+              "logs": [],
+              "observations": { "screenshot": { "base64": "iVBORw==", "mimeType": "image/png" } },
+              "durationMs": 1
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "await machine.readFile({\"path\":\"C:\\\\missing.txt\"})" }
+          },
+          "response": {
+            "json": {
+              "logs": [],
+              "error": { "kind": "exception", "message": "ENOENT" },
+              "durationMs": 1
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "var __sai_page = await machine.pageContent(); null" }
+          },
+          "response": {
+            "json": {
+              "result": null,
+              "logs": [],
+              "observations": { "screenshotOmitted": true },
+              "durationMs": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "control.run-learned",
+      "doc": "run() runs learned code's main with the inputs over the parameters' defaults; a string runs as code with the inputs as given.",
+      "steps": [
+        {
+          "call": "learn.get",
+          "args": { "learn_id": "learn_1" },
+          "save": "learned"
+        },
+        { "call": "control.open", "args": { "machine": "m_1" }, "save": "lease" },
+        {
+          "call": "lease.run",
+          "args": { "learned": { "$ref": "learned" }, "inputs": { "n": 3 } },
+          "expect": { "result": { "result": "ok", "ok": true } }
+        },
+        {
+          "call": "lease.run",
+          "args": { "learned": "async function main(p) { return p }" },
+          "expect": { "result": { "result": {} } }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/agents/learn/learn_1" },
+          "response": {
+            "json": {
+              "learnId": "learn_1",
+              "status": "succeeded",
+              "parameters": [
+                { "name": "site", "defaultValue": "https://news.ycombinator.com" },
+                { "name": "n", "defaultValue": "1" }
+              ],
+              "code": "async function main(params) { return params.site }"
+            }
+          }
+        },
+        {
+          "request": { "method": "POST", "path": "/v1/machines/m_1/control" },
+          "response": { "json": { "machineId": "m_1", "expiresAfterIdleSec": 600 } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": {
+              "code": "async function main(params) { return params.site }\nawait main({\"site\":\"https://news.ycombinator.com\",\"n\":3})"
+            }
+          },
+          "response": { "json": { "result": "ok", "logs": [], "durationMs": 1 } }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/machines/m_1/control/exec",
+            "json": { "code": "async function main(p) { return p }\nawait main({})" }
+          },
+          "response": { "json": { "result": {}, "logs": [], "durationMs": 1 } }
+        }
+      ]
+    }
+  ]
+}
