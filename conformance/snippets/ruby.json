@@ -2,7 +2,7 @@
   "source": {
     "repo": "simular-ai/sai-platform",
     "ref": "feat/sdk-ruby",
-    "commit": "3937daac93ef2fd32890bbe7cd226185264f296e"
+    "commit": "a3d3347fd1a21f16f286674531e999239c80f8c0"
   },
   "snippets": [
     {
@@ -535,7 +535,7 @@
       "line": 237,
       "title": "Who the key is, and its sessions",
       "context": "require \"sai\"\n\nsai = Sai::Client.new\npc = sai.machines.list.first\n\nsession = sai.sessions.create(machine: pc)\nresult = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\n\nputs result.status # idle, needs_approval or error\nputs result.text   # Sai's answer\np result.usage     # tokens and cost of this task",
-      "code": "sai.auth.check                  # the user, and the Tenant and Organisation for a Tenant token\nsai.sessions.list(machine: pc)  # the computer's API sessions, most recent first"
+      "code": "sai.auth.check                  # the user, and the Tenant and Organisation for a Tenant token\nsai.sessions.list(machine: pc)  # your sessions on the computer, any channel, most recent first"
     },
     {
       "file": "sdks/ruby.md",

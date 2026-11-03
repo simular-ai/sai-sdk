@@ -39,7 +39,7 @@ print(result.usage)    # tokens and cost for this task
 
 `machine` can be left out when the account has one computer. Further `session.run(...)` calls continue
 the same conversation; `sai.sessions.create()` starts a new one with no memory of the old.
-`sai.sessions.list(machine=pc)` lists the computer's API sessions, most recent first, and
+`sai.sessions.list(machine=pc)` lists your sessions on the computer (desktop, CLI and API), most recent first, and
 `sai.auth.check()` says who the key acts as.
 
 ### Watch it work

@@ -144,8 +144,9 @@ func (s *SessionsService) Create(ctx context.Context, opts *SessionOptions) (*Se
 	return session, nil
 }
 
-// List returns the API sessions on a computer, most recent first (up to 20). Active marks the one
-// the next message without a session goes to.
+// List returns the caller's sessions on a computer (desktop, CLI and API), most recent first (up
+// to 20). Active marks the API channel's current one, which the next message without a session
+// goes to.
 func (s *SessionsService) List(ctx context.Context, opts *SessionOptions) ([]*SessionSummary, error) {
 	machineID, err := s.machines.resolveID(ctx, machine(opts))
 	if err != nil {

@@ -27,7 +27,8 @@ module Sai
       Session.new(@http, machine_id, session_id)
     end
 
-    # The API sessions on a computer, most recent first (up to 20).
+    # The caller's sessions on a computer (desktop, CLI and API), most recent first (up to 20).
+    # +active+ marks the API channel's current one, which the next message without a session goes to.
     # @return [Array<SessionSummary>]
     def list(machine: nil)
       machine_id = resolve_machine(machine)

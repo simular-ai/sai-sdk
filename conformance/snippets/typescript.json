@@ -2,7 +2,7 @@
   "source": {
     "repo": "simular-ai/sai-platform",
     "ref": "feat/sdk-ruby",
-    "commit": "3937daac93ef2fd32890bbe7cd226185264f296e"
+    "commit": "a3d3347fd1a21f16f286674531e999239c80f8c0"
   },
   "snippets": [
     {
@@ -563,7 +563,7 @@
       "line": 243,
       "title": "Who the key is, and its sessions",
       "context": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst [pc] = await sai.machines.list()\n\nconst session = await sai.sessions.create({ machine: pc })\nconst result = await session.run('Open Notepad, type hello, save it to the desktop as hello.txt')\n\nconsole.log(result.status) // idle, needs_approval or error\nconsole.log(result.text) // Sai's answer\nconsole.log(result.usage) // tokens and cost of this task",
-      "code": "await sai.auth.check() // the user, and the Tenant and Organisation for a Tenant token\nawait sai.sessions.list({ machine: pc }) // the computer's API sessions, most recent first"
+      "code": "await sai.auth.check() // the user, and the Tenant and Organisation for a Tenant token\nawait sai.sessions.list({ machine: pc }) // your sessions on the computer, any channel, most recent first"
     },
     {
       "file": "sdks/typescript.md",
