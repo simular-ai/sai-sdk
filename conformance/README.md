@@ -192,18 +192,29 @@ What a call returns is turned into JSON for `expect.result`:
 
 ## Docs snippets
 
-`snippets.mjs` pulls the code blocks of one language out of the docs:
+The docs (`simular-ai/sai-platform`, `src/docs/content/**.md`) show every SDK's code side by side.
+Each SDK's snippet test runs every block of its language as a program against the fake API, with
+`SAI_API_KEY`, `SAI_ORG_KEY`, `SAI_API_URL` and `SAI_ORG_ID` set and a copy of
+[`fixtures/`](fixtures/) as the working directory, and fails if one does not compile or exits
+non-zero.
+
+The blocks are committed here, in [`snippets/<lang>.json`](snippets/), so the tests and CI read
+only this repo. Refresh them when the docs change, and commit the result:
 
 ```bash
-node conformance/snippets.mjs --lang go --docs ../sai-platform/src/docs/content
+node conformance/snippets.mjs sync                       # clones sai-platform main (your git credentials)
+node conformance/snippets.mjs sync --ref <docs-branch>   # the docs branch of a change in progress
+node conformance/snippets.mjs sync --docs ../sai-platform/src/docs/content
 ```
 
-It prints JSON: `[{ "file", "line", "title", "context", "code" }]`, one entry per fenced block
-in that language. A block after `<!-- snippet: skip -->` on its own line is left out (a fragment
-that cannot run, such as a type signature). Each SDK's snippet test builds and runs every block as
-a program against the fake API, with `SAI_API_KEY`, `SAI_ORG_KEY`, `SAI_API_URL` and `SAI_ORG_ID`
-set and a copy of [`fixtures/`](fixtures/) as the working directory, and fails if one does not
-compile or exits non-zero.
+`sync` writes a snapshot for each SDK in this checkout, with the docs commit it read in `source`.
+`node conformance/snippets.mjs --lang go` prints one language's snapshot, which is what the
+runners read; with `--docs <dir>` or `SAI_DOCS_DIR` it reads live docs instead, for checking a docs
+edit before syncing.
+
+Each entry is `{ "file", "line", "title", "context", "code" }`. A block after
+`<!-- snippet: skip -->` on its own line is left out (a fragment that cannot run, such as a type
+signature).
 
 A block that imports something starts a program: its imports, a client, and the calls. A block that
 imports nothing continues the last block before it on its page that did, which `context` holds. On
@@ -211,6 +222,3 @@ an SDK page (`sdks/<language>.md`), every block after the first gets the page's 
 context. A test puts the context first and the block after it, in a scope of its own where the
 language has one, with the imports of both at the top and de-duplicated. In a language that cannot
 shadow a local (Java, C#), a block must not redeclare its context's names.
-
-The docs live in `simular-ai/sai-platform`; the tests read them from `SAI_DOCS_DIR`, by default
-`../sai-platform/src/docs/content` next to this checkout. CI checks that repository out.

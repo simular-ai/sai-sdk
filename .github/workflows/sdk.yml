@@ -3,8 +3,8 @@ name: SDKs
 # Every SDK's tests. Each suite has three parts:
 # - the parity test against surface.json, so a surface change that lands in one language only fails;
 # - the conformance cases in conformance/cases, run against the mock server (conformance/README.md);
-# - the code snippets in the docs (sai-platform), run against the mock server's fake API.
-# The docs change on their own, so this also runs daily against sai-platform main.
+# - the code snippets of the docs (sai-platform), snapshotted in conformance/snippets, run against
+#   the mock server's fake API. Refresh the snapshot with `node conformance/snippets.mjs sync`.
 
 on:
   pull_request:
@@ -16,7 +16,6 @@ on:
       - 'surface.json'
       - 'package-lock.json'
       - '.github/workflows/sdk.yml'
-      - '.github/actions/docs/**'
   push:
     branches: [main]
     paths:
@@ -26,9 +25,6 @@ on:
       - 'surface.json'
       - 'package-lock.json'
       - '.github/workflows/sdk.yml'
-      - '.github/actions/docs/**'
-  schedule:
-    - cron: '17 6 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -67,10 +63,6 @@ jobs:
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version-file: '.nvmrc'
-      - uses: ./.github/actions/docs
-        with:
-          app-id: ${{ vars.SIMULAR_CI_APP_ID }}
-          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
       - run: pipx install uv
       - run: uv sync --locked --python ${{ matrix.python }}
       - run: uv run pytest
@@ -86,10 +78,6 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: npm
-      - uses: ./.github/actions/docs
-        with:
-          app-id: ${{ vars.SIMULAR_CI_APP_ID }}
-          private-key: ${{ secrets.SIMULAR_CI_APP_PRIVATE_KEY }}
       - run: npm ci
       - run: npx eslint --max-warnings 0 typescript conformance
       - run: npm run typecheck -w @simular-ai/sai-sdk

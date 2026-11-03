@@ -1,5 +1,5 @@
-"""Every Python block in the docs (sai-platform) runs against the mock server's fake API.
-See ../../conformance/README.md#docs-snippets."""
+"""Every Python block in the docs (sai-platform, snapshotted in conformance/snippets) runs against
+the mock server's fake API. See ../../conformance/README.md#docs-snippets."""
 
 from __future__ import annotations
 
@@ -24,9 +24,7 @@ def _snippets() -> list[dict[str, Any]]:
         ["node", str(CONFORMANCE / "snippets.mjs"), "--lang", "python"], capture_output=True, text=True
     )
     if out.returncode != 0:
-        if os.environ.get("SAI_DOCS_REQUIRED") == "1":
-            raise RuntimeError(out.stderr)
-        return []
+        raise RuntimeError(out.stderr)
     return json.loads(out.stdout)
 
 
@@ -51,7 +49,6 @@ def workdir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return d
 
 
-@pytest.mark.skipif(not SNIPPETS, reason="no docs: check out sai-platform next to sai-sdk, or set SAI_DOCS_DIR")
 @pytest.mark.parametrize("snippet", SNIPPETS, ids=[f"{s['file']}:{s['line']}" for s in SNIPPETS])
 def test_snippet(snippet: dict[str, Any], mock_url: str, workdir: Path) -> None:
     httpx.post(f"{mock_url}/__mock/reset")

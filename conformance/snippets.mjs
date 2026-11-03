@@ -1,20 +1,37 @@
 #!/usr/bin/env node
 /**
- * The code blocks of one language in the docs, as JSON on stdout.
+ * The docs' code blocks, as test data for every SDK's snippet tests.
  *
- *   node conformance/snippets.mjs --lang python [--docs <dir>]
+ *   node conformance/snippets.mjs --lang python          # the committed snapshot, as JSON
+ *   node conformance/snippets.mjs --lang python --docs <dir>   # read live docs instead
+ *   node conformance/snippets.mjs sync [--docs <dir>] [--ref <branch>]
  *
- * `--docs` defaults to `SAI_DOCS_DIR`, then `../sai-platform/src/docs/content` next to this
- * checkout. Each entry is `{ file, line, title, context, code }`. A block that imports nothing
+ * The docs live in simular-ai/sai-platform. `sync` takes the code blocks of every SDK language
+ * from its pages (`src/docs/content`) and writes them to `snippets/<lang>.json`, which is
+ * committed: the tests and CI read only this repo. Without `--docs` (or `SAI_DOCS_DIR`), `sync`
+ * clones sai-platform at `--ref` (default `main`) with your own git credentials.
+ *
+ * Each entry is `{ file, line, title, context, code }`. A block that imports nothing
  * continues an earlier block on its page, which `context` holds: the last block before it that
  * imports, and on an SDK page (`sdks/*.md`), for every block after the first, the page's first
  * block. `context` is empty for a block that stands alone. A runner puts the context first and the
  * block after it, in a scope of its own where the language has one, so the block may reuse the
- * context's names; the block's imports go to the top of the program. A block after `<!-- snippet: skip -->`
- * on its own line is left out, and is not context for the next.
+ * context's names; the block's imports go to the top of the program. A block after
+ * `<!-- snippet: skip -->` on its own line is left out, and is not context for the next.
  */
 
-import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -36,11 +53,67 @@ const STARTS = {
   ruby: /^require /m,
 }
 
-export function docsDir(arg) {
-  const here = dirname(fileURLToPath(import.meta.url))
-  return resolve(
-    arg ?? process.env.SAI_DOCS_DIR ?? join(here, '../../sai-platform/src/docs/content'),
-  )
+const HERE = dirname(fileURLToPath(import.meta.url))
+const SNAPSHOTS = join(HERE, 'snippets')
+const REPO = 'https://github.com/simular-ai/sai-platform.git'
+// The SDK directory of each language: `sync` writes snapshots for the SDKs in this checkout.
+const SDK_DIRS = {
+  python: 'python',
+  typescript: 'typescript',
+  go: 'go',
+  java: 'java',
+  csharp: 'dotnet',
+  ruby: 'ruby',
+}
+
+/** The committed snippets of one language. */
+export function snapshot(lang) {
+  const p = join(SNAPSHOTS, `${lang}.json`)
+  if (!existsSync(p)) throw new Error(`no snapshot ${p}: run node conformance/snippets.mjs sync`)
+  return JSON.parse(readFileSync(p, 'utf8')).snippets
+}
+
+/** Write every language's snapshot from the docs at `dir`, or from a fresh clone at `ref`. */
+export function sync({ dir, ref = 'main' } = {}) {
+  let clone
+  let source = { docs: dir }
+  if (!dir) {
+    clone = mkdtempSync(join(tmpdir(), 'sai-platform-'))
+    const git = (...args) =>
+      execFileSync('git', args, { cwd: clone, stdio: ['ignore', 'pipe', 'inherit'] })
+    git(
+      'clone',
+      '--quiet',
+      '--depth',
+      '1',
+      '--branch',
+      ref,
+      '--filter=blob:none',
+      '--sparse',
+      REPO,
+      '.',
+    )
+    git('sparse-checkout', 'set', 'src/docs/content')
+    source = {
+      repo: 'simular-ai/sai-platform',
+      ref,
+      commit: git('rev-parse', 'HEAD').toString().trim(),
+    }
+    dir = join(clone, 'src/docs/content')
+  }
+  try {
+    const langs = Object.keys(ALIASES).filter((l) => existsSync(join(HERE, '..', SDK_DIRS[l])))
+    for (const lang of langs) {
+      const snippets = extract(lang, dir)
+      writeFileSync(
+        join(SNAPSHOTS, `${lang}.json`),
+        JSON.stringify({ source, snippets }, null, 2) + '\n',
+      )
+      process.stderr.write(`${lang}: ${snippets.length} snippets\n`)
+    }
+  } finally {
+    if (clone) rmSync(clone, { recursive: true, force: true })
+  }
 }
 
 function* markdownFiles(dir) {
@@ -111,10 +184,19 @@ if (
     const i = process.argv.indexOf(`--${name}`)
     return i > 0 ? process.argv[i + 1] : undefined
   }
-  const lang = arg('lang')
-  if (!lang) {
-    process.stderr.write('usage: node conformance/snippets.mjs --lang <language> [--docs <dir>]\n')
-    process.exit(2)
+  if (process.argv[2] === 'sync') {
+    const dir = arg('docs') ?? process.env.SAI_DOCS_DIR
+    sync({ dir: dir && resolve(dir), ref: arg('ref') })
+  } else {
+    const lang = arg('lang')
+    if (!lang) {
+      process.stderr.write(
+        'usage: node conformance/snippets.mjs --lang <language> [--docs <dir>] | sync\n',
+      )
+      process.exit(2)
+    }
+    const docs = arg('docs') ?? process.env.SAI_DOCS_DIR
+    const snippets = docs ? extract(lang, resolve(docs)) : snapshot(lang)
+    process.stdout.write(JSON.stringify(snippets, null, 2) + '\n')
   }
-  process.stdout.write(JSON.stringify(extract(lang, docsDir(arg('docs'))), null, 2) + '\n')
 }

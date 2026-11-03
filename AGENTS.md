@@ -37,7 +37,8 @@ other, and the docs show both side by side.
 5. **The conformance suite checks the behaviour.** [`conformance/`](conformance/README.md) holds
    language-neutral cases (calls, the HTTP exchanges they must make, what they must return or throw)
    and a mock server that checks them. Every SDK runs every case, and runs the docs' code snippets
-   against the server's fake API. A behaviour change is a case change, and every SDK must pass it.
+   against the server's fake API (snapshotted in `conformance/snippets/`). A behaviour change is a
+   case change, and every SDK must pass it.
 6. **Language idiom is allowed where the surface is not affected**: keyword arguments vs an options
    object, `snake_case` vs `camelCase` fields, `with` vs `try/finally` / `await using`, iterators vs
    async iterators, `bytes` vs `Uint8Array`.
@@ -54,8 +55,9 @@ node conformance/selftest.mjs            # the conformance suite's own checks
 ```
 
 Each SDK's tests start the mock server (`node conformance/server.mjs`) themselves, so Node must be
-on `PATH`. The docs snippets are read from `../sai-platform/src/docs/content` (or `SAI_DOCS_DIR`);
-without that checkout those tests are skipped locally, and CI fails.
+on `PATH`. The docs snippets they run are committed in `conformance/snippets/`; after a docs change
+in sai-platform, refresh them with `node conformance/snippets.mjs sync` and commit the result (see
+[conformance/README.md](conformance/README.md#docs-snippets)).
 
 ## Publishing
 
