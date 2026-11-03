@@ -7,11 +7,12 @@ Client libraries for the Sai API:
 | `python/`     | `sai-sdk` (PyPI), `import sai`     | Python SDK                             |
 | `typescript/` | `@simular-ai/sai-sdk` (npm)        | TypeScript SDK                         |
 | `go/`         | `github.com/simular-ai/sai-sdk/go` | Go SDK, unreleased                     |
+| `java/`       | `ai.simular:sai-sdk` (Maven)       | Java SDK, unreleased                   |
 | `mcp/`        | `@simular-ai/sai-mcp` (npm)        | MCP server for coding agents           |
 | `cli/`        | `@simular-ai/sai-cli` (npm)        | `sai` CLI, deprecated, no new releases |
 
 `mcp`, `cli` and `typescript` are npm workspaces with one lockfile at the root. `python` is a uv
-project with its own lockfile. `go` is a Go module with no dependencies.
+project with its own lockfile. `go` is a Go module with no dependencies. `java` is a Maven project.
 
 This repo was extracted from `simular-ai/simular-pro-unified-ui` with full history; see
 [MIGRATION.md](MIGRATION.md). PR numbers in old commit messages point at that repo.
@@ -25,8 +26,10 @@ other, and the docs show both side by side.
    the `Session` / `Turn` / `ControlLease` methods, the exported error classes, the event kinds and
    the turn statuses. Names are snake_case; TypeScript uses the camelCase of the same name.
 2. **Each SDK has a parity test** (`python/tests/test_surface.py`,
-   `typescript/test/surface.test.ts`, `go/surface_test.go`) that fails when its public methods,
-   errors or enums differ from `surface.json`, in either direction.
+   `typescript/test/surface.test.ts`, `go/surface_test.go`,
+   `java/src/test/java/ai/simular/sai/SurfaceTest.java`) that fails when its public methods, errors
+   or enums differ from `surface.json`, in either direction. Names map mechanically: Java and .NET
+   name each `FooError` `FooException` (Java: `ConnectionError` is `SaiConnectionException`).
 3. **A surface change lands in every SDK in the same PR**: `surface.json`, each SDK's code and tests,
    and each SDK's README. The docs pages live in `simular-ai/sai-platform`
    (`src/docs/content/sdks/*.md`): open the docs PR there and link it from the SDK PR. Never add a
@@ -54,6 +57,7 @@ npm ci                                   # mcp, cli, typescript
 npm run lint && npm run typecheck && npm run build && npm test
 cd python && uv sync && uv run pytest
 cd go && go vet ./... && go test ./...
+cd java && mvn -B verify
 node conformance/selftest.mjs            # the conformance suite's own checks
 ```
 

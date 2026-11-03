@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "feat/sdk-go",
-    "commit": "db78936acc453e42bb2e5e4f30bd55c0806135a2"
+    "ref": "feat/sdk-java",
+    "commit": "5a4ccfe529e1d6ea90d85bd16b4e49c1987a75e2"
   },
   "snippets": [
     {
@@ -28,7 +28,7 @@
     },
     {
       "file": "api-reference/approve.md",
-      "line": 81,
+      "line": 91,
       "title": "Answer a choice question",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst session = sai.sessions.resume('cs_01HZY')\nconst status = await session.respond('ap_9Lm', 'yes', { selections: [['desktop']] })\nconsole.log(status)"
@@ -49,28 +49,28 @@
     },
     {
       "file": "api-reference/control.md",
-      "line": 109,
+      "line": 117,
       "title": "Run code in a lease",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst lease = await sai.control.open({ machine: 'm_7f2a' })\ntry {\n  const r = await lease.exec(\n    \"var r = await machine.exec({ command: 'hostname' }); r.stdout.trim()\",\n    { timeoutMs: 60_000 },\n  )\n  console.log(r.result)\n} finally {\n  await lease.close()\n}"
     },
     {
       "file": "api-reference/control.md",
-      "line": 231,
+      "line": 254,
       "title": "Interrupt the running block",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst lease = await sai.control.open({ machine: 'm_7f2a' })\nconsole.log(await lease.interrupt())"
     },
     {
       "file": "api-reference/control.md",
-      "line": 288,
+      "line": 320,
       "title": "Read the lease",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst lease = await sai.control.open({ machine: 'm_7f2a' })\nconsole.log(await lease.get())"
     },
     {
       "file": "api-reference/control.md",
-      "line": 351,
+      "line": 392,
       "title": "Close the lease",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst lease = await sai.control.open({ machine: 'm_7f2a' })\nawait lease.close()"
@@ -91,7 +91,7 @@
     },
     {
       "file": "api-reference/judge.md",
-      "line": 134,
+      "line": 147,
       "title": "Read a judgement",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst judgement = await sai.judge.get('judgement_8LmQ2rT0bV')\nconsole.log(judgement)"
@@ -105,42 +105,42 @@
     },
     {
       "file": "api-reference/learn.md",
-      "line": 210,
+      "line": 223,
       "title": "Run learned code in a lease",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst learned = await sai.learn.get('learn_3Fq9cT1kZ0aJ')\nconst lease = await sai.control.open({ machine: 'm_7f2a' })\ntry {\n  const r = await lease.run(\n    learned,\n    { newsSite: 'TechCrunch', topic: 'Fintech', fileName: 'techcrunch_fintech.txt' },\n    { timeoutMs: 300_000 },\n  )\n  console.log(r.result)\n} finally {\n  await lease.close()\n}"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 304,
+      "line": 336,
       "title": "Start a learn job from a task",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst job = await sai.learn.create([], {\n  taskTemplate:\n    'Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}',\n  inputs: { newsSite: 'TechCrunch', topic: 'AI', fileName: 'techcrunch_headlines.txt' },\n  criteria:\n    'techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today',\n  maxIterations: 3,\n  rollouts: 3,\n})\nconst done = await sai.learn.wait(job)\nconsole.log(done.status, done.testResult, done.code)"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 376,
+      "line": 428,
       "title": "Read a learn job",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst job = await sai.learn.get('learn_LIEHFGsRU4H3')\nconsole.log(job.status, job.progress)"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 487,
+      "line": 548,
       "title": "Read a run of a learn job",
       "context": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst job = await sai.learn.get('learn_LIEHFGsRU4H3')\nconsole.log(job.status, job.progress)",
       "code": "const run = await sai.learn.rollout('learn_LIEHFGsRU4H3', 1, 2)\nconsole.log(run.run, run.judgement)"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 511,
+      "line": 577,
       "title": "Cancel a learn job",
       "context": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst job = await sai.learn.get('learn_LIEHFGsRU4H3')\nconsole.log(job.status, job.progress)",
       "code": "await sai.learn.cancel('learn_LIEHFGsRU4H3')"
     },
     {
       "file": "api-reference/learn.md",
-      "line": 554,
+      "line": 624,
       "title": "Read a learn result",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst learned = await sai.learn.get('learn_3Fq9cT1kZ0aJ')\nconsole.log(learned.status)"
@@ -154,7 +154,7 @@
     },
     {
       "file": "api-reference/machines.md",
-      "line": 173,
+      "line": 183,
       "title": "Watch a computer's screen",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst live = await sai.machines.live('m_7f2a')\nconsole.log(live)"
@@ -168,14 +168,14 @@
     },
     {
       "file": "api-reference/message.md",
-      "line": 146,
+      "line": 163,
       "title": "Give Sai a task with typed output",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst session = await sai.sessions.create()\nconst turn = await session.send(\n  'Open https://news.ycombinator.com and read the title of the top story.',\n  {\n    outputSchema: {\n      type: 'object',\n      properties: { title: { type: 'string' } },\n      required: ['title'],\n    },\n  },\n)\nconsole.log(turn.id)"
     },
     {
       "file": "api-reference/message.md",
-      "line": 232,
+      "line": 268,
       "title": "Run a task without approvals",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst session = await sai.sessions.create()\nconst turn = await session.send(\"Export last month's invoices to CSV\", { autonomous: true })\nconsole.log(turn.id)"
@@ -203,14 +203,14 @@
     },
     {
       "file": "api-reference/turns.md",
-      "line": 116,
+      "line": 125,
       "title": "Read a turn's steps",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nfor (const step of await sai.turns.trajectory('turn_vzjz62w7j7jvOilZ6zBL')) {\n  console.log(step.index, step.title)\n}"
     },
     {
       "file": "api-reference/turns.md",
-      "line": 202,
+      "line": 221,
       "title": "Download a step's screenshot",
       "context": "",
       "code": "import { writeFile } from 'node:fs/promises'\nimport { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst jpeg = await sai.turns.screenshot('turn_vzjz62w7j7jvOilZ6zBL', 0)\nawait writeFile('step-0.jpg', jpeg)"
@@ -231,7 +231,7 @@
     },
     {
       "file": "concepts/approvals.md",
-      "line": 126,
+      "line": 135,
       "title": "Answer a choice question",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst session = sai.sessions.resume('cs_01HZY')\nawait session.respond('ap_9Lm', 'yes', { selections: [['desktop']] })"
@@ -252,14 +252,14 @@
     },
     {
       "file": "concepts/learned-code.md",
-      "line": 118,
+      "line": 140,
       "title": "Learn, run and repair",
       "context": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst [pc] = await sai.machines.list()\nconst session = await sai.sessions.create({ machine: pc })\nconst turn = await session.send(\n  'Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}',\n  {\n    inputs: { newsSite: 'TechCrunch', topic: 'AI', fileName: 'techcrunch_headlines.txt' },\n    recordTrajectory: true,\n  },\n)\nconsole.log(turn.id)",
       "code": "let learned = await sai.learn.create([turn])\nconst lease = await sai.control.open({ machine: pc })\ntry {\n  const r = await lease.run(learned, {\n    newsSite: 'TechCrunch',\n    topic: 'Fintech',\n    fileName: 'techcrunch_fintech.txt',\n  })\n  if (!r.ok) {\n    learned = await sai.learn.create([], {\n      initialCode: learned.code,\n      evaluations: [\n        {\n          inputs: { newsSite: 'TechCrunch', topic: 'Fintech', fileName: 'techcrunch_fintech.txt' },\n          result: r,\n          passed: false,\n        },\n      ],\n    })\n  }\n} finally {\n  await lease.close()\n}"
     },
     {
       "file": "concepts/learned-code.md",
-      "line": 193,
+      "line": 230,
       "title": "Learn a reliable function from a task",
       "context": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst [pc] = await sai.machines.list()\nconst session = await sai.sessions.create({ machine: pc })\nconst turn = await session.send(\n  'Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}',\n  {\n    inputs: { newsSite: 'TechCrunch', topic: 'AI', fileName: 'techcrunch_headlines.txt' },\n    recordTrajectory: true,\n  },\n)\nconsole.log(turn.id)",
       "code": "const job = await sai.learn.create([], {\n  taskTemplate:\n    'Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}',\n  inputs: { newsSite: 'TechCrunch', topic: 'AI', fileName: 'techcrunch_headlines.txt' },\n  criteria:\n    'techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today',\n  maxIterations: 3,\n  rollouts: 3,\n  // Before the agent run and before every run: close the browser tabs and Notepad.\n  reset: {\n    code: [\n      'for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)',\n      'for (const w of await machine.getWindow(\"Notepad\")) await w.close()',\n    ].join('\\n'),\n  },\n})\nconst done = await sai.learn.wait(job)\nconsole.log(done.testResult) // passed 3 of 3 runs, on these inputs\nconsole.log(done.code)"
@@ -280,7 +280,7 @@
     },
     {
       "file": "concepts/structured-output.md",
-      "line": 220,
+      "line": 239,
       "title": "Give Sai a task with every option",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst session = await sai.sessions.create()\nconst turn = await session.send(\n  'Sign in to the {{vendor}} portal and list the invoices dated in {{month}}.',\n  {\n    inputs: { vendor: 'Acme', month: 'September 2026' },\n    outputSchema: {\n      type: 'object',\n      properties: {\n        invoices: {\n          type: 'array',\n          items: {\n            type: 'object',\n            properties: {\n              number: { type: 'string' },\n              date: { type: 'string', pattern: '^\\\\d{4}-\\\\d{2}-\\\\d{2}$' },\n              total: { type: 'number' },\n            },\n            required: ['number', 'date', 'total'],\n          },\n        },\n      },\n      required: ['invoices'],\n    },\n    successCriteria: [\n      { id: 'signed_in', check: 'Sai signed in and saw the invoice list.' },\n      {\n        id: 'all_listed',\n        check: 'Every invoice dated in the month is in the answer.',\n        returnEvidence: true,\n      },\n    ],\n    idempotencyKey: 'acme-invoices-2026-09',\n    recordTrajectory: true,\n  },\n)\nconsole.log(turn.id)"
@@ -343,14 +343,14 @@
     },
     {
       "file": "organisations/tenant-machines.md",
-      "line": 248,
+      "line": 258,
       "title": "Get a Tenant machine",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY })\nconst machine = await org.tenantMachines.get('Xk2p9QzR4tLm8vNa3bCd', 'tm_5a1f0c9e2b7d4e6a8c3f1b2d')"
     },
     {
       "file": "organisations/tenant-machines.md",
-      "line": 304,
+      "line": 322,
       "title": "Revoke a Tenant machine",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY })\nawait org.tenantMachines.revoke('Xk2p9QzR4tLm8vNa3bCd', 'tm_5a1f0c9e2b7d4e6a8c3f1b2d')"
@@ -364,14 +364,14 @@
     },
     {
       "file": "organisations/tenant-tokens.md",
-      "line": 100,
+      "line": 109,
       "title": "Send a message as the Tenant",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst tenantToken = 'eyJhbGciOiJSUzI1NiIs...'\nconst sai = new Sai({ apiKey: tenantToken })\nconst session = await sai.sessions.create()\nconst turn = await session.send('Open the calendar and read today’s appointments')"
     },
     {
       "file": "organisations/tenant-tokens.md",
-      "line": 147,
+      "line": 167,
       "title": "Act as the Tenant",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY, orgId: 'org_3f9a1c0b7e2d4a6f8c10' })\nconst clinic = await org.tenants.client('Xk2p9QzR4tLm8vNa3bCd')\nconst session = await clinic.sessions.create()\nconst turn = await session.send('Open the calendar and read today’s appointments')"
@@ -385,42 +385,42 @@
     },
     {
       "file": "organisations/tenants.md",
-      "line": 165,
+      "line": 178,
       "title": "List active Tenants",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY })\nlet cursor: string | undefined\ndo {\n  const page = await org.tenants.list({ status: 'active', limit: 50, cursor })\n  for (const tenant of page.tenants) console.log(tenant.id, tenant.name)\n  cursor = page.nextCursor ?? undefined\n} while (cursor)"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 238,
+      "line": 266,
       "title": "Find a Tenant by your own id",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY })\nconst { tenants } = await org.tenants.list({ externalId: 'clinic-4821' })\nconst tenant = tenants[0] ?? null"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 289,
+      "line": 328,
       "title": "Get a Tenant",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY })\nconst tenant = await org.tenants.get('Xk2p9QzR4tLm8vNa3bCd')"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 344,
+      "line": 391,
       "title": "Rename a Tenant and replace its metadata",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY })\nconst tenant = await org.tenants.update('Xk2p9QzR4tLm8vNa3bCd', {\n  name: 'Riverside Clinic East',\n  metadata: { plan: 'enterprise' },\n})"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 458,
+      "line": 517,
       "title": "Disable a Tenant",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY })\nconst tenant = await org.tenants.update('Xk2p9QzR4tLm8vNa3bCd', { status: 'disabled' })"
     },
     {
       "file": "organisations/tenants.md",
-      "line": 514,
+      "line": 582,
       "title": "Delete a Tenant",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst org = new Sai({ apiKey: process.env.SAI_ORG_KEY })\nawait org.tenants.delete('Xk2p9QzR4tLm8vNa3bCd')"
@@ -434,49 +434,49 @@
     },
     {
       "file": "quickstart.md",
-      "line": 101,
+      "line": 111,
       "title": "Check your account",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconsole.log(await sai.account.get())"
     },
     {
       "file": "quickstart.md",
-      "line": 160,
+      "line": 177,
       "title": "Give Sai a task",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst session = await sai.sessions.create()\nconst turn = await session.send('Open Notepad, type hello, save it to the desktop as hello.txt')\nconsole.log(turn.id, turn.queued)"
     },
     {
       "file": "quickstart.md",
-      "line": 217,
+      "line": 245,
       "title": "Poll for events",
       "context": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst session = await sai.sessions.create()\nconst turn = await session.send('Open Notepad, type hello, save it to the desktop as hello.txt')\nconsole.log(turn.id, turn.queued)",
       "code": "// `turn` is what session.send() returned in step 4; events() polls until the turn ends.\nfor await (const ev of turn.events()) {\n  console.log(ev.kind, ev.text)\n}"
     },
     {
       "file": "quickstart.md",
-      "line": 283,
+      "line": 318,
       "title": "Answer an approval",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst session = sai.sessions.resume('cs_01HZY')\nawait session.respond('ap_7Qw', 'yes')"
     },
     {
       "file": "quickstart.md",
-      "line": 379,
+      "line": 423,
       "title": "Learn code for a task",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst [pc] = await sai.machines.list()\nconst job = await sai.learn.create([], {\n  taskTemplate:\n    'Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}',\n  inputs: { newsSite: 'TechCrunch', topic: 'AI', fileName: 'techcrunch_headlines.txt' },\n  criteria:\n    'techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today',\n  reset: {\n    code: `for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()`,\n  },\n  maxIterations: 2,\n  rollouts: 2,\n  machine: pc,\n})\nconst done = await sai.learn.wait(job)\nconsole.log(done.status, done.testResult?.status)\nconsole.log(done.code)"
     },
     {
       "file": "quickstart.md",
-      "line": 507,
+      "line": 577,
       "title": "Run the learned code",
       "context": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst sai = new Sai()\nconst [pc] = await sai.machines.list()\nconst job = await sai.learn.create([], {\n  taskTemplate:\n    'Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}',\n  inputs: { newsSite: 'TechCrunch', topic: 'AI', fileName: 'techcrunch_headlines.txt' },\n  criteria:\n    'techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today',\n  reset: {\n    code: `for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()`,\n  },\n  maxIterations: 2,\n  rollouts: 2,\n  machine: pc,\n})\nconst done = await sai.learn.wait(job)\nconsole.log(done.status, done.testResult?.status)\nconsole.log(done.code)",
       "code": "// Continue from the code above.\nconst lease = await sai.control.open({ machine: pc })\ntry {\n  console.log((await lease.run(done)).result)\n} finally {\n  await lease.close()\n}"
     },
     {
       "file": "quickstart.md",
-      "line": 549,
+      "line": 626,
       "title": "Run a task",
       "context": "",
       "code": "import { Sai } from '@simular-ai/sai-sdk'\n\nconst session = await new Sai().sessions.create()\nconst result = await session.run('Open Notepad, type hello, save it to the desktop as hello.txt')\nconsole.log(result.text)"

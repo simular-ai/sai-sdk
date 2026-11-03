@@ -13,6 +13,7 @@ on:
       - 'python/**'
       - 'typescript/**'
       - 'go/**'
+      - 'java/**'
       - 'conformance/**'
       - 'surface.json'
       - 'package-lock.json'
@@ -23,6 +24,7 @@ on:
       - 'python/**'
       - 'typescript/**'
       - 'go/**'
+      - 'java/**'
       - 'conformance/**'
       - 'surface.json'
       - 'package-lock.json'
@@ -108,3 +110,27 @@ jobs:
       - run: go vet ./...
       - run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
       - run: go test ./...
+
+  java:
+    name: Java ${{ matrix.java }}
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['17', '21']
+    defaults:
+      run:
+        working-directory: java
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # The mock server is Node.
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      - run: mvn -B verify
