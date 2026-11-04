@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "main",
-    "commit": "b837c2dfe9b558922327904591a5c647d1df18f3"
+    "ref": "feature/sdk-session-cost-live",
+    "commit": "71436d0e4845397d0a0ba443db294f65a834dc17"
   },
   "snippets": [
     {
@@ -304,7 +304,14 @@
       "line": 51,
       "title": "List a Tenant's session spend for October",
       "context": "",
-      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: os.Getenv(\"SAI_ORG_ID\")})\nif err != nil {\n\tlog.Fatal(err)\n}\ncursor := \"\"\nfor {\n\tpage, err := org.Usage.Sessions(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.UsageSessionsOptions{\n\t\tFrom:   \"2026-10-01\",\n\t\tTo:     \"2026-10-31\",\n\t\tCursor: cursor,\n\t})\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tfor _, s := range page.Sessions {\n\t\tfmt.Println(s.SessionID, s.Title, s.CostUSD)\n\t}\n\tif page.NextCursor == \"\" {\n\t\tbreak\n\t}\n\tcursor = page.NextCursor\n}"
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: os.Getenv(\"SAI_ORG_ID\")})\nif err != nil {\n\tlog.Fatal(err)\n}\ncursor := \"\"\nfor {\n\tpage, err := org.Usage.Sessions(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.UsageSessionsOptions{\n\t\tFrom:   \"2026-10-01\",\n\t\tTo:     \"2026-10-31\",\n\t\tCursor: cursor,\n\t})\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tfor _, s := range page.Sessions {\n\t\tif s.CostUSD != nil {\n\t\t\tfmt.Println(s.SessionID, s.Title, *s.CostUSD)\n\t\t}\n\t}\n\tif page.NextCursor == \"\" {\n\t\tbreak\n\t}\n\tcursor = page.NextCursor\n}"
+    },
+    {
+      "file": "organisations/session-spend.md",
+      "line": 225,
+      "title": "Look up two sessions' spend",
+      "context": "",
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: os.Getenv(\"SAI_ORG_ID\")})\nif err != nil {\n\tlog.Fatal(err)\n}\npage, err := org.Usage.Sessions(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.UsageSessionsOptions{\n\tSessionIDs: []string{\"cs_01HZY\", \"cs_01J0A\"},\n})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, s := range page.Sessions {\n\tsettled := s.Settled != nil && *s.Settled\n\tif s.CostUSD == nil {\n\t\tfmt.Println(s.SessionID, \"can't be read in full right now\")\n\t\tcontinue\n\t}\n\tfmt.Println(s.SessionID, *s.CostUSD, settled)\n}\nfmt.Println(page.AsOf)"
     },
     {
       "file": "organisations/tenant-machines.md",
@@ -563,11 +570,11 @@
       "line": 554,
       "title": "Usage",
       "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
-      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: \"org_3f9a1c0b7e2d4a6f8c10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nusage, err := org.Usage.Get(ctx, &sai.UsageOptions{Granularity: \"month\", From: \"2026-10\", To: \"2026-10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, t := range usage.Totals.ByTenant {\n\tfmt.Println(t.Name, t.CostCents)\n}\n\npage, err := org.Usage.Sessions(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.UsageSessionsOptions{From: \"2026-10-01\", To: \"2026-10-31\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, s := range page.Sessions {\n\tfmt.Println(s.SessionID, s.CostUSD)\n}"
+      "code": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\t\"os\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\norg, err := sai.New(sai.Options{APIKey: os.Getenv(\"SAI_ORG_KEY\"), OrgID: \"org_3f9a1c0b7e2d4a6f8c10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nusage, err := org.Usage.Get(ctx, &sai.UsageOptions{Granularity: \"month\", From: \"2026-10\", To: \"2026-10\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, t := range usage.Totals.ByTenant {\n\tfmt.Println(t.Name, t.CostCents)\n}\n\npage, err := org.Usage.Sessions(ctx, \"Xk2p9QzR4tLm8vNa3bCd\", &sai.UsageSessionsOptions{From: \"2026-10-01\", To: \"2026-10-31\"})\nif err != nil {\n\tlog.Fatal(err)\n}\nfor _, s := range page.Sessions {\n\tif s.CostUSD != nil {\n\t\tfmt.Println(s.SessionID, *s.CostUSD)\n\t}\n}"
     },
     {
       "file": "sdks/go.md",
-      "line": 609,
+      "line": 611,
       "title": "Handle an error",
       "context": "import (\n\t\"context\"\n\t\"fmt\"\n\t\"log\"\n\n\tsai \"github.com/simular-ai/sai-sdk/go\"\n)\n\nctx := context.Background()\nclient, err := sai.New(sai.Options{}) // SAI_API_KEY, and SAI_API_URL if set\nif err != nil {\n\tlog.Fatal(err)\n}\nmachines, err := client.Machines.List(ctx)\nif err != nil {\n\tlog.Fatal(err)\n}\npc := machines[0]\n\nsession, err := client.Sessions.Create(ctx, &sai.SessionOptions{Machine: pc.ID})\nif err != nil {\n\tlog.Fatal(err)\n}\nresult, err := session.Run(ctx, \"Open Notepad, type hello, save it to the desktop as hello.txt\", nil)\nif err != nil {\n\tlog.Fatal(err)\n}\n\nfmt.Println(result.Status) // idle, needs_approval or error\nfmt.Println(result.Text)   // Sai's answer\nfmt.Println(result.Usage)  // tokens and cost of this task",
       "code": "import \"errors\"\n\n_, err := client.Machines.Get(ctx, \"m_missing\")\nvar notFound *sai.NotFoundError\nif errors.As(err, &notFound) {\n\tfmt.Println(notFound.Status, notFound.Message) // 404\n}\nvar saiErr *sai.SaiError\nif errors.As(err, &saiErr) {\n\tfmt.Println(saiErr.Code, saiErr.RetryAfter)\n}"

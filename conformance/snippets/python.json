@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "main",
-    "commit": "b837c2dfe9b558922327904591a5c647d1df18f3"
+    "ref": "feature/sdk-session-cost-live",
+    "commit": "71436d0e4845397d0a0ba443db294f65a834dc17"
   },
   "snippets": [
     {
@@ -305,6 +305,13 @@
       "title": "List a Tenant's session spend for October",
       "context": "",
       "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=os.environ[\"SAI_ORG_ID\"])\ncursor = None\nwhile True:\n    page = org.usage.sessions(\"Xk2p9QzR4tLm8vNa3bCd\", from_=\"2026-10-01\", to=\"2026-10-31\", cursor=cursor)\n    for s in page.sessions:\n        print(s.session_id, s.title, s.cost_usd)\n    cursor = page.next_cursor\n    if cursor is None:\n        break"
+    },
+    {
+      "file": "organisations/session-spend.md",
+      "line": 203,
+      "title": "Look up two sessions' spend",
+      "context": "",
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=os.environ[\"SAI_ORG_ID\"])\npage = org.usage.sessions(\"Xk2p9QzR4tLm8vNa3bCd\", session_ids=[\"cs_01HZY\", \"cs_01J0A\"])\nfor s in page.sessions:\n    print(s.session_id, s.cost_usd, s.settled)\nprint(page.as_of)"
     },
     {
       "file": "organisations/tenant-machines.md",
