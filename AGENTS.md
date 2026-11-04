@@ -7,9 +7,9 @@ Client libraries for the Sai API:
 | `python/`     | `sai-sdk` (PyPI), `import sai`        | Python SDK                             |
 | `typescript/` | `@simular-ai/sai-sdk` (npm)           | TypeScript SDK                         |
 | `go/`         | `github.com/simular-ai/sai-sdk/go`    | Go SDK                                 |
-| `java/`       | `ai.simular:sai-sdk` (Maven)          | Java SDK, unreleased                   |
-| `dotnet/`     | `Simular.Sai` (NuGet)                 | .NET SDK, unreleased                   |
-| `ruby/`       | `sai-sdk` (RubyGems), `require "sai"` | Ruby SDK, unreleased                   |
+| `java/`       | `ai.simular:sai-sdk` (Maven)          | Java SDK                               |
+| `dotnet/`     | `Simular.Sai` (NuGet)                 | .NET SDK                               |
+| `ruby/`       | `sai-sdk` (RubyGems), `require "sai"` | Ruby SDK                               |
 | `mcp/`        | `@simular-ai/sai-mcp` (npm)           | MCP server for coding agents           |
 | `cli/`        | `@simular-ai/sai-cli` (npm)           | `sai` CLI, deprecated, no new releases |
 
