@@ -12,6 +12,9 @@ name: Publish sai-sdk (.NET)
 # (account → Trusted Publishing): owner "simular-ai", repo "sai-sdk", workflow
 # "publish-sai-sdk-dotnet.yml", environment "nuget". NUGET_USER (a secret in that environment)
 # is the nuget.org account the policy belongs to; no API key is stored here.
+#
+# The `nuget` environment only deploys tags `sai-sdk-dotnet-v*` (Settings → Environments → deployment
+# branches and tags). Keep that rule, so a workflow on any other branch can't use it.
 
 on:
   push:

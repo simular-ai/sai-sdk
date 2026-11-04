@@ -12,6 +12,9 @@ name: Publish sai-sdk (Java)
 # environment: MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD (a Central Portal user token for
 # the verified `ai.simular` namespace) and MAVEN_GPG_PRIVATE_KEY / MAVEN_GPG_PASSPHRASE (the
 # signing key, its public half on keys.openpgp.org).
+#
+# The `maven-central` environment only deploys tags `sai-sdk-java-v*` (Settings → Environments → deployment
+# branches and tags). Keep that rule, so a workflow on any other branch can't use it.
 
 on:
   push:

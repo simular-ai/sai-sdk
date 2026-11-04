@@ -4,7 +4,7 @@ Ruby SDK for the [Sai API](https://platform.simular.ai/documentation). Hand desk
 computer (a Sai cloud computer, or your own PC with the Sai app) and get the answer back, or drive a
 cloud computer yourself.
 
-Status: **alpha (0.1), unreleased**. The surface may still change before 1.0. It matches the
+Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 [Python SDK](../python/README.md) and the [TypeScript SDK](../typescript/README.md) method for method.
 
 | Layer          | What it is                                    | Status           |

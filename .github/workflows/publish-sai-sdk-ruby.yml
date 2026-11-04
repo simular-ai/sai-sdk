@@ -13,6 +13,9 @@ name: Publish sai-sdk (Ruby)
 # "publish-sai-sdk-ruby.yml", environment "rubygems". No API key is stored here. The token
 # exchange names the account that owns the gem (RUBYGEMS_OWNER, simular_ai's immutable ID):
 # rubygems.org rejects a pending publisher's first push without it.
+#
+# The `rubygems` environment only deploys tags `sai-sdk-ruby-v*` (Settings → Environments → deployment
+# branches and tags). Keep that rule, so a workflow on any other branch can't use it.
 
 on:
   push:

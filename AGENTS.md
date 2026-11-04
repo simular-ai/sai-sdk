@@ -6,10 +6,10 @@ Client libraries for the Sai API:
 | ------------- | ------------------------------------- | -------------------------------------- |
 | `python/`     | `sai-sdk` (PyPI), `import sai`        | Python SDK                             |
 | `typescript/` | `@simular-ai/sai-sdk` (npm)           | TypeScript SDK                         |
-| `go/`         | `github.com/simular-ai/sai-sdk/go`    | Go SDK, unreleased                     |
-| `java/`       | `ai.simular:sai-sdk` (Maven)          | Java SDK, unreleased                   |
-| `dotnet/`     | `Simular.Sai` (NuGet)                 | .NET SDK, unreleased                   |
-| `ruby/`       | `sai-sdk` (RubyGems), `require "sai"` | Ruby SDK, unreleased                   |
+| `go/`         | `github.com/simular-ai/sai-sdk/go`    | Go SDK                                 |
+| `java/`       | `ai.simular:sai-sdk` (Maven)          | Java SDK                               |
+| `dotnet/`     | `Simular.Sai` (NuGet)                 | .NET SDK                               |
+| `ruby/`       | `sai-sdk` (RubyGems), `require "sai"` | Ruby SDK                               |
 | `mcp/`        | `@simular-ai/sai-mcp` (npm)           | MCP server for coding agents           |
 | `cli/`        | `@simular-ai/sai-cli` (npm)           | `sai` CLI, deprecated, no new releases |
 
@@ -89,7 +89,9 @@ Releases go through CI only, never by hand:
   environment); `sai-sdk-ruby-v*` publishes `sai-sdk` to RubyGems (`publish-sai-sdk-ruby.yml`,
   trusted publishing through the `rubygems` environment). Each workflow's header lists its setup.
 - The Go module is published by a `go/v*` tag (the Go proxy reads it from GitHub; no workflow). Bump
-  `Version` in `go/version.go` first. This only works once this repo is public: the proxy cannot
-  read a private one.
+  `Version` in `go/version.go` first.
+- Each publish environment (`pypi`, `maven-central`, `nuget`, `rubygems`) only deploys its own release
+  tags (a `sai-sdk-<lang>-v*` tag rule). A new one gets that rule before any secret or trusted
+  publisher, or any branch could read its credentials or publish through OIDC.
 - With each sai-mcp release, also bump both versions in sai-platform's
   `public/.well-known/mcp/server-card.json`.
