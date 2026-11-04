@@ -10,7 +10,9 @@ name: Publish sai-sdk (Ruby)
 #
 # Auth: RubyGems trusted publishing (OIDC). Requires a trusted publisher on rubygems.org for
 # the gem sai-sdk (a pending one before the first release): repo simular-ai/sai-sdk, workflow
-# "publish-sai-sdk-ruby.yml", environment "rubygems". No API key is stored here.
+# "publish-sai-sdk-ruby.yml", environment "rubygems". No API key is stored here. The token
+# exchange names the account that owns the gem (RUBYGEMS_OWNER, simular_ai's immutable ID):
+# rubygems.org rejects a pending publisher's first push without it.
 #
 # The `rubygems` environment only deploys tags `sai-sdk-ruby-v*` (Settings → Environments → deployment
 # branches and tags). Keep that rule, so a workflow on any other branch can't use it.
@@ -67,7 +69,20 @@ jobs:
           fi
       - run: bundle exec rake test
       - run: gem build sai-sdk.gemspec
-      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      # configure-rubygems-credentials (v2.1.0) can't pass `owner` yet, so exchange the token here.
+      - name: Exchange the OIDC token for a RubyGems key
+        env:
+          RUBYGEMS_OWNER: '255525'
+        run: |
+          set -euo pipefail
+          JWT="$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=rubygems.org" | jq -r .value)"
+          echo "::add-mask::$JWT"
+          KEY="$(jq -n --arg jwt "$JWT" --arg owner "$RUBYGEMS_OWNER" '{jwt: $jwt, owner: $owner}' |
+            curl -sSf -X POST -H 'Content-Type: application/json' --data @- \
+              https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token | jq -r .rubygems_api_key)"
+          echo "::add-mask::$KEY"
+          echo "GEM_HOST_API_KEY=$KEY" >> "$GITHUB_ENV"
       - run: gem push sai-sdk-*.gem
       - name: Create GitHub Release
         env:
