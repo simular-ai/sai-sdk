@@ -1167,3 +1167,13 @@ def test_tenant_client_acts_as_the_tenant_and_exchanges_before_expiry() -> None:
         "/v1/agents/machines",
     ]
     assert [c.headers["authorization"] for c in calls[2:]] == ["Bearer tt_2", "Bearer tt_2"]
+
+
+def test_usage_sessions_refuses_one_string_as_session_ids() -> None:
+    calls: list[httpx.Request] = []
+    sai = client({"GET /v1/orgs/org_a/usage/sessions": {"sessions": [], "asOf": None}}, calls, org_id="org_a")
+    with pytest.raises(TypeError, match="list of session ids"):
+        sai.usage.sessions("t_1", session_ids="cs_01HZY")  # type: ignore[arg-type]
+    assert calls == []
+    sai.usage.sessions("t_1", session_ids=("cs_01HZY", "cs_02"))
+    assert calls[0].url.params["sessionIds"] == "cs_01HZY,cs_02"

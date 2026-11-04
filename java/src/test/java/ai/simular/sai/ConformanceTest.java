@@ -289,7 +289,11 @@ class ConformanceTest {
           SessionSpendOptions o = new SessionSpendOptions();
           if (a.containsKey("limit")) o.limit(num(a, "limit"));
           if (a.containsKey("cursor")) o.cursor(str(a, "cursor"));
+          if (a.containsKey("session_ids")) o.sessionIds((List<String>) a.get("session_ids"));
           if (a.containsKey("org_id")) o.orgId(str(a, "org_id"));
+          if (!a.containsKey("from") && !a.containsKey("to")) {
+            return tenant instanceof Tenant t ? sai.usage().sessions(t, o) : sai.usage().sessions((String) tenant, o);
+          }
           return tenant instanceof Tenant t
               ? sai.usage().sessions(t, str(a, "from"), str(a, "to"), o)
               : sai.usage().sessions((String) tenant, str(a, "from"), str(a, "to"), o);

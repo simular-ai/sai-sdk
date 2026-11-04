@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 // UsageOptions are the options of Usage.Get.
@@ -18,13 +19,16 @@ type UsageOptions struct {
 	OrgID string
 }
 
-// UsageSessionsOptions are the options of Usage.Sessions. From and To are required.
+// UsageSessionsOptions are the options of Usage.Sessions: From and To, or SessionIDs.
 type UsageSessionsOptions struct {
 	// From and To are UTC days (`YYYY-MM-DD`), both included, at most 93 days apart.
 	From   string
 	To     string
 	Limit  int
 	Cursor string
+	// SessionIDs (1 to 50) looks the named sessions up in real time instead of the range: their
+	// spend so far, each with Settled, and the page's AsOf; no paging.
+	SessionIDs []string
 	// OrgID defaults to the client's OrgID (SAI_ORG_ID).
 	OrgID string
 }
@@ -59,6 +63,9 @@ func (s *UsageService) Get(ctx context.Context, opts *UsageOptions) (*OrgUsage, 
 
 // Sessions returns one page of what each of a Tenant's sessions spent on AI calls, oldest first.
 // Keep paging with NextCursor until it is empty: a page can be empty and not be the last.
+//
+// With SessionIDs instead of the range, the named sessions' spend right now, each with Settled,
+// and the page's AsOf; no paging. Charge for a task once its session is settled.
 func (s *UsageService) Sessions(ctx context.Context, tenantID string, opts *UsageSessionsOptions) (*SessionSpendPage, error) {
 	if opts == nil {
 		opts = &UsageSessionsOptions{}
@@ -74,6 +81,7 @@ func (s *UsageService) Sessions(ctx context.Context, tenantID string, opts *Usag
 		params.Set("limit", strconv.Itoa(opts.Limit))
 	}
 	setParam(params, "cursor", opts.Cursor)
+	setParam(params, "sessionIds", strings.Join(opts.SessionIDs, ","))
 	d, err := s.t.json(ctx, "GET", "/v1/orgs/"+esc(org)+"/usage/sessions", &request{params: params})
 	if err != nil {
 		return nil, err

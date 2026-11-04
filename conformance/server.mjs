@@ -513,6 +513,21 @@ class Fake {
       })
     }
     if (/^GET \/v1\/orgs\/[^/]+\/usage\/sessions$/.test(route)) {
+      if (req.query.sessionIds) {
+        // Real-time lookup: each named session, settled, no paging.
+        return ok({
+          sessions: String(req.query.sessionIds)
+            .split(',')
+            .map((sessionId) => ({
+              sessionId,
+              title: 'Reconcile the October invoices',
+              costUsd: 0.4172,
+              modelCalls: 23,
+              settled: true,
+            })),
+          asOf: '2026-11-03T09:45:12Z',
+        })
+      }
       return ok({
         sessions: [
           {

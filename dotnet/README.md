@@ -264,6 +264,22 @@ await org.Tenants.UpdateAsync(tenant, new TenantUpdate { CloudMachineLimit = nul
 - `Usage.GetAsync(granularity:, from:, to:)` and `Usage.SessionsAsync(tenant, from:, to:, cursor:)`
   report what the Organisation and each Tenant's sessions spent.
 
+To charge for a task as soon as it ends, look its session up in real time instead of a date range:
+
+```csharp
+var page = await org.Usage.SessionsAsync(tenant, sessionIds: [session.Id]);
+foreach (var s in page.Sessions)
+{
+    if (s.Settled == true) Console.WriteLine($"{s.SessionId} {s.CostUsd} {page.AsOf}");
+}
+```
+
+With `sessionIds` (1 to 50 of the Tenant's sessions) each session comes back with its spend so far and
+`Settled`: `true` once its latest task has ended and every charge for it has come in. Ask again every
+10 seconds or so until it is. `CostUsd` and `ModelCalls` are null when the session can't be read in
+full right now. An id that is not one of the Tenant's sessions is left out. See
+[Session spend](https://platform.simular.ai/documentation/organisations/session-spend) for the limits.
+
 ## Errors
 
 Every non-2xx response throws a `SaiException` subclass with `Status`, `Code`, `Message`, `Body` and

@@ -266,6 +266,26 @@ machine, err := org.TenantMachines.Create(ctx, tenant.ID, &sai.TenantMachineCrea
 - `TenantMachines.List`, `Get`, `Delete` (`"revoked"` or `"deleting"`), `Revoke`.
 - `Usage.Get` and `Usage.Sessions`: what the Organisation is charged, per Tenant and per session.
 
+To charge for a task as soon as it ends, look its session up in real time instead of a date range:
+
+```go
+page, err := org.Usage.Sessions(ctx, tenant.ID, &sai.UsageSessionsOptions{SessionIDs: []string{session.ID}})
+if err != nil {
+	log.Fatal(err)
+}
+for _, s := range page.Sessions {
+	if s.Settled != nil && *s.Settled && s.CostUSD != nil {
+		fmt.Println(s.SessionID, *s.CostUSD, page.AsOf)
+	}
+}
+```
+
+With `SessionIDs` (1 to 50 of the Tenant's sessions) each session comes back with its spend so far and
+`Settled`: true once its latest task has ended and every charge for it has come in. Ask again every
+10 seconds or so until it is. `CostUSD` and `ModelCalls` are nil when the session can't be read in
+full right now. An id that is not one of the Tenant's sessions is left out. See
+[Session spend](https://platform.simular.ai/documentation/organisations/session-spend) for the limits.
+
 ## Errors
 
 Every non-2xx response returns an error that embeds `sai.SaiError` (`Status`, `Code`, `Message`,

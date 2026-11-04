@@ -6,6 +6,7 @@ Maps to `GET /v1/agents/auth`, `GET /v1/orgs/{orgId}/usage` and `GET /v1/orgs/{o
 from __future__ import annotations
 
 import urllib.parse
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -101,16 +102,23 @@ class OrgUsage:
 
 @dataclass
 class SessionSpend:
-    """What one of a Tenant's sessions spent on AI calls in a date range."""
+    """What one of a Tenant's sessions spent on AI calls: in a date range, or so far when looked up
+    by `session_ids`."""
 
     session_id: str
     title: Optional[str]
-    cost_usd: float
-    """In US dollars, not rounded to cents."""
-    model_calls: int
+    cost_usd: Optional[float]
+    """In US dollars, not rounded to cents. None only from a `session_ids` lookup, when the session
+    can't be read in full right now (never 0 for that); `settled` is then False."""
+    model_calls: Optional[int]
+    """None together with `cost_usd`."""
     first_day: str
-    """The UTC days (`YYYY-MM-DD`) the session's spend was first and last counted, over its whole life."""
+    """The UTC days (`YYYY-MM-DD`) the session's spend was first and last counted, over its whole life.
+    Empty from a `session_ids` lookup."""
     last_day: str
+    settled: Optional[bool] = None
+    """From a `session_ids` lookup: True once the session's latest task has ended and every charge
+    for it has come in. None on a list page."""
 
 
 @dataclass
@@ -121,8 +129,11 @@ class SessionSpendPage:
     next_cursor: Optional[str]
     """Pass as `cursor` for the next page; None on the last page."""
     data_through: Optional[str]
-    """ISO 8601: the figures are complete up to this time. None when unknown."""
+    """ISO 8601: the figures are complete up to this time. None when unknown, and from a
+    `session_ids` lookup."""
     raw: dict[str, Any] = field(repr=False)
+    as_of: Optional[str] = None
+    """ISO 8601, from a `session_ids` lookup: when the figures were read. None on a list page."""
 
     @classmethod
     def parse(cls, d: dict[str, Any]) -> SessionSpendPage:
@@ -131,16 +142,18 @@ class SessionSpendPage:
                 SessionSpend(
                     session_id=s.get("sessionId") or "",
                     title=s.get("title") or None,
-                    cost_usd=s.get("costUsd") or 0,
-                    model_calls=s.get("modelCalls") or 0,
+                    cost_usd=s.get("costUsd"),
+                    model_calls=s.get("modelCalls"),
                     first_day=s.get("firstDay") or "",
                     last_day=s.get("lastDay") or "",
+                    settled=s.get("settled"),
                 )
                 for s in d.get("sessions") or []
             ],
             next_cursor=d.get("nextCursor"),
             data_through=d.get("dataThrough"),
             raw=d,
+            as_of=d.get("asOf"),
         )
 
 
@@ -182,17 +195,32 @@ class Usage:
         self,
         tenant: Union[Tenant, str],
         *,
-        from_: str,
-        to: str,
+        from_: Optional[str] = None,
+        to: Optional[str] = None,
         limit: Optional[int] = None,
         cursor: Optional[str] = None,
+        session_ids: Optional[Sequence[str]] = None,
         org_id: Optional[str] = None,
     ) -> SessionSpendPage:
         """One page of what each of a Tenant's sessions spent on AI calls, oldest first, for the UTC
         days `from_` to `to` (`YYYY-MM-DD`, both included, at most 93 days). Keep paging with
-        `next_cursor` until it is None: a page can be empty and not be the last."""
+        `next_cursor` until it is None: a page can be empty and not be the last.
+
+        With `session_ids` (1 to 50) instead of the range, the named sessions' spend right now, each
+        with `settled`, and the page's `as_of`; no paging. Charge for a task once its session is
+        settled."""
+        if isinstance(session_ids, str):
+            # A str is a Sequence[str]: joined, it would send one id per character.
+            raise TypeError("session_ids takes a list of session ids, not one string")
         tenant_id = tenant if isinstance(tenant, str) else tenant.id
-        params = {"tenantId": tenant_id, "from": from_, "to": to, "limit": limit, "cursor": cursor}
+        params = {
+            "tenantId": tenant_id,
+            "from": from_,
+            "to": to,
+            "limit": limit,
+            "cursor": cursor,
+            "sessionIds": ",".join(session_ids) if session_ids else None,
+        }
         d = self._sai._http.json(
             "GET",
             f"/v1/orgs/{_q(self._org(org_id))}/usage/sessions",

@@ -159,9 +159,14 @@ module Sai
     # One page of what each of a Tenant's sessions spent on AI calls, oldest first, for the UTC
     # days +from+ to +to+ (+YYYY-MM-DD+, both included, at most 93 days). Keep paging with
     # +next_cursor+ until it is nil: a page can be empty and not be the last.
+    #
+    # With +session_ids+ (1 to 50) instead of the range, the named sessions' spend right now, each
+    # with +settled+, and the page's +as_of+; no paging. Charge for a task once its session is
+    # settled.
     # @return [SessionSpendPage]
-    def sessions(tenant, from:, to:, limit: nil, cursor: nil, org_id: nil)
-      params = { "tenantId" => Util.id_of(tenant), "from" => from, "to" => to, "limit" => limit, "cursor" => cursor }
+    def sessions(tenant, from: nil, to: nil, limit: nil, cursor: nil, session_ids: nil, org_id: nil)
+      params = { "tenantId" => Util.id_of(tenant), "from" => from, "to" => to, "limit" => limit, "cursor" => cursor,
+                 "sessionIds" => session_ids.nil? || session_ids.empty? ? nil : session_ids.join(",") }
       d = @http.json("GET", "/v1/orgs/#{Util.q(org(org_id))}/usage/sessions", params: params)
       SessionSpendPage.parse(Parse.obj(d))
     end

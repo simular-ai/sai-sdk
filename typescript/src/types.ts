@@ -943,17 +943,32 @@ export function parseOrgUsage(d: Json): OrgUsage {
   }
 }
 
-/** What one of a Tenant's sessions spent on AI calls in a date range. */
+/**
+ * What one of a Tenant's sessions spent on AI calls: in a date range, or so far when looked up by
+ * `sessionIds`.
+ */
 export interface SessionSpend {
   sessionId: string
   /** Null when the session has no title. */
   title: string | null
-  /** In US dollars, not rounded to cents. */
-  costUsd: number
-  modelCalls: number
-  /** The UTC days (`YYYY-MM-DD`) the session's spend was first and last counted, over its whole life. */
+  /**
+   * In US dollars, not rounded to cents. Null only from a `sessionIds` lookup, when the session
+   * can't be read in full right now (never 0 for that); `settled` is then false.
+   */
+  costUsd: number | null
+  /** Null together with `costUsd`. */
+  modelCalls: number | null
+  /**
+   * The UTC days (`YYYY-MM-DD`) the session's spend was first and last counted, over its whole life.
+   * Empty from a `sessionIds` lookup.
+   */
   firstDay: string
   lastDay: string
+  /**
+   * From a `sessionIds` lookup: true once the session's latest task has ended and every charge for
+   * it has come in. Null on a list page.
+   */
+  settled: boolean | null
 }
 
 /** One page of `sai.usage.sessions()`. A page can be empty and still have a `nextCursor`. */
@@ -961,8 +976,13 @@ export interface SessionSpendPage {
   sessions: SessionSpend[]
   /** Pass as `cursor` for the next page; null on the last page. */
   nextCursor: string | null
-  /** ISO 8601: the figures are complete up to this time. Null when unknown. */
+  /**
+   * ISO 8601: the figures are complete up to this time. Null when unknown, and from a `sessionIds`
+   * lookup.
+   */
   dataThrough: string | null
+  /** ISO 8601, from a `sessionIds` lookup: when the figures were read. Null on a list page. */
+  asOf: string | null
   raw: Json
 }
 
@@ -972,13 +992,15 @@ export function parseSessionSpendPage(d: Json): SessionSpendPage {
     sessions: sessions.map((s) => ({
       sessionId: str(s.sessionId) ?? '',
       title: str(s.title) || null,
-      costUsd: num(s.costUsd),
-      modelCalls: num(s.modelCalls),
+      costUsd: typeof s.costUsd === 'number' ? s.costUsd : null,
+      modelCalls: typeof s.modelCalls === 'number' ? s.modelCalls : null,
       firstDay: str(s.firstDay) ?? '',
       lastDay: str(s.lastDay) ?? '',
+      settled: typeof s.settled === 'boolean' ? s.settled : null,
     })),
     nextCursor: str(d.nextCursor) ?? null,
     dataThrough: str(d.dataThrough) ?? null,
+    asOf: str(d.asOf) ?? null,
     raw: d,
   }
 }

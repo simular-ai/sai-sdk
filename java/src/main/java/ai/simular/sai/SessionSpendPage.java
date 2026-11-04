@@ -10,10 +10,17 @@ import java.util.Map;
  * nextCursor}.
  *
  * @param nextCursor pass as {@code cursor} for the next page; null on the last page
- * @param dataThrough ISO 8601: the figures are complete up to this time; null when unknown
+ * @param dataThrough ISO 8601: the figures are complete up to this time; null when unknown, and
+ *     from a {@code sessionIds} lookup
+ * @param asOf ISO 8601, from a {@code sessionIds} lookup: when the figures were read; null on a
+ *     list page
  */
 public record SessionSpendPage(
-    List<SessionSpend> sessions, String nextCursor, String dataThrough, Map<String, Object> raw) {
+    List<SessionSpend> sessions,
+    String nextCursor,
+    String dataThrough,
+    String asOf,
+    Map<String, Object> raw) {
 
   static SessionSpendPage parse(Map<String, Object> d) {
     List<SessionSpend> sessions = new ArrayList<>();
@@ -24,12 +31,17 @@ public record SessionSpendPage(
           new SessionSpend(
               Json.str(s.get("sessionId"), ""),
               title == null || title.isEmpty() ? null : title,
-              Json.num(s.get("costUsd")),
-              Json.lng(s.get("modelCalls")),
+              Json.numOrNull(s.get("costUsd")),
+              Json.lngOrNull(s.get("modelCalls")),
               Json.str(s.get("firstDay"), ""),
-              Json.str(s.get("lastDay"), "")));
+              Json.str(s.get("lastDay"), ""),
+              s.get("settled") instanceof Boolean b ? b : null));
     }
     return new SessionSpendPage(
-        Collections.unmodifiableList(sessions), Json.str(d.get("nextCursor")), Json.str(d.get("dataThrough")), d);
+        Collections.unmodifiableList(sessions),
+        Json.str(d.get("nextCursor")),
+        Json.str(d.get("dataThrough")),
+        Json.str(d.get("asOf")),
+        d);
   }
 }
