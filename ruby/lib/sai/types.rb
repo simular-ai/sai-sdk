@@ -653,27 +653,36 @@ module Sai
     end
   end
 
-  # What one of a Tenant's sessions spent on AI calls in a date range. +cost_usd+ is not
-  # rounded; +first_day+ and +last_day+ are UTC days (+YYYY-MM-DD+).
-  SessionSpend = Struct.new(:session_id, :title, :cost_usd, :model_calls, :first_day, :last_day,
+  # What one of a Tenant's sessions spent on AI calls: in a date range, or so far when looked up
+  # by +session_ids+. +cost_usd+ is in US dollars, not rounded to cents; it and +model_calls+ are
+  # nil only from a +session_ids+ lookup, when the session can't be read in full right now (never
+  # 0 for that), and +settled+ is then false. +first_day+ and +last_day+ are the UTC days
+  # (+YYYY-MM-DD+) the session's spend was first and last counted, over its whole life; empty from
+  # a +session_ids+ lookup. +settled+, from a +session_ids+ lookup: true once the session's latest
+  # task has ended and every charge for it has come in; nil on a list page.
+  SessionSpend = Struct.new(:session_id, :title, :cost_usd, :model_calls, :first_day, :last_day, :settled,
                             keyword_init: true)
 
   # One page of +sai.usage.sessions+. A page can be empty and still have a +next_cursor+.
-  SessionSpendPage = Struct.new(:sessions, :next_cursor, :data_through, :raw, keyword_init: true) do
+  # +data_through+ (ISO 8601): the figures are complete up to this time; nil when unknown, and from
+  # a +session_ids+ lookup. +as_of+ (ISO 8601), from a +session_ids+ lookup: when the figures were
+  # read; nil on a list page.
+  SessionSpendPage = Struct.new(:sessions, :next_cursor, :data_through, :raw, :as_of, keyword_init: true) do
     def self.parse(d)
       sessions = Parse.list(d["sessions"]).map do |s|
         s = Parse.obj(s)
         SessionSpend.new(
           session_id: Parse.str(s["sessionId"]) || "",
           title: Parse.present(s["title"]),
-          cost_usd: Parse.num(s["costUsd"]),
-          model_calls: Parse.num(s["modelCalls"]),
+          cost_usd: Parse.num_or_nil(s["costUsd"]),
+          model_calls: Parse.num_or_nil(s["modelCalls"]),
           first_day: Parse.str(s["firstDay"]) || "",
-          last_day: Parse.str(s["lastDay"]) || ""
+          last_day: Parse.str(s["lastDay"]) || "",
+          settled: [true, false].include?(s["settled"]) ? s["settled"] : nil
         )
       end
       new(sessions: sessions, next_cursor: Parse.str(d["nextCursor"]),
-          data_through: Parse.str(d["dataThrough"]), raw: d)
+          data_through: Parse.str(d["dataThrough"]), raw: d, as_of: Parse.str(d["asOf"]))
     end
   end
 end

@@ -353,6 +353,21 @@ while True:
 `usage.sessions` pages what each of a Tenant's sessions spent on AI calls, for UTC days `from_` to `to`
 (at most 93). A page can be empty and still have a `next_cursor`: keep paging until it is `None`.
 
+To charge for a task as soon as it ends, look its session up in real time instead of a date range:
+
+```python
+page = org.usage.sessions(tenant, session_ids=[session.id])
+for s in page.sessions:
+    if s.settled:
+        print(s.session_id, s.cost_usd, page.as_of)
+```
+
+With `session_ids` (1 to 50 of the Tenant's sessions) each session comes back with its spend so far and
+`settled`: `True` once its latest task has ended and every charge for it has come in. Ask again every
+10 seconds or so until it is. `cost_usd` and `model_calls` are `None` when the session can't be read
+in full right now. An id that is not one of the Tenant's sessions is left out. See
+[Session spend](https://platform.simular.ai/documentation/organisations/session-spend) for the limits.
+
 ## Errors
 
 Every non-2xx response raises a `SaiError` subclass with `status`, `code`, `message` and `retry_after`:

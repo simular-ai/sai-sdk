@@ -187,6 +187,150 @@
       ]
     },
     {
+      "id": "usage.sessions-live",
+      "doc": "usage.sessions() with session_ids looks the named sessions up in real time: one comma-separated sessionIds, no range; settled and as_of come back, and a session that can't be read in full has a null cost and model_calls, never 0. A list page has no as_of and no settled.",
+      "client": {
+        "org_id": "org_a"
+      },
+      "steps": [
+        {
+          "call": "usage.sessions",
+          "args": {
+            "tenant": "t_1",
+            "session_ids": ["cs_01HZY", "cs_01J0A", "cs_02"]
+          },
+          "expect": {
+            "result": {
+              "sessions": [
+                {
+                  "session_id": "cs_01HZY",
+                  "title": "Reconcile the October invoices",
+                  "cost_usd": 0.4172,
+                  "model_calls": 23,
+                  "settled": true
+                },
+                {
+                  "session_id": "cs_01J0A",
+                  "title": null,
+                  "cost_usd": {
+                    "$absent": true
+                  },
+                  "model_calls": {
+                    "$absent": true
+                  },
+                  "settled": false
+                },
+                {
+                  "session_id": "cs_02",
+                  "title": null,
+                  "cost_usd": 0,
+                  "model_calls": 0,
+                  "settled": false
+                }
+              ],
+              "as_of": "2026-11-03T09:45:12Z",
+              "next_cursor": null,
+              "data_through": null
+            }
+          }
+        },
+        {
+          "call": "usage.sessions",
+          "args": {
+            "tenant": "t_1",
+            "from": "2026-10-01",
+            "to": "2026-10-31"
+          },
+          "expect": {
+            "result": {
+              "sessions": [
+                {
+                  "session_id": "cs_01HZY",
+                  "cost_usd": 0.4172,
+                  "model_calls": 23,
+                  "settled": {
+                    "$absent": true
+                  }
+                }
+              ],
+              "as_of": {
+                "$absent": true
+              },
+              "next_cursor": null,
+              "data_through": "2026-10-28T09:45:00Z"
+            }
+          }
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/orgs/org_a/usage/sessions",
+            "query": {
+              "tenantId": "t_1",
+              "sessionIds": "cs_01HZY,cs_01J0A,cs_02"
+            }
+          },
+          "response": {
+            "json": {
+              "sessions": [
+                {
+                  "sessionId": "cs_01HZY",
+                  "title": "Reconcile the October invoices",
+                  "costUsd": 0.4172,
+                  "modelCalls": 23,
+                  "settled": true
+                },
+                {
+                  "sessionId": "cs_01J0A",
+                  "title": null,
+                  "costUsd": null,
+                  "modelCalls": null,
+                  "settled": false
+                },
+                {
+                  "sessionId": "cs_02",
+                  "title": "",
+                  "costUsd": 0,
+                  "modelCalls": 0,
+                  "settled": false
+                }
+              ],
+              "asOf": "2026-11-03T09:45:12Z"
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/v1/orgs/org_a/usage/sessions",
+            "query": {
+              "tenantId": "t_1",
+              "from": "2026-10-01",
+              "to": "2026-10-31"
+            }
+          },
+          "response": {
+            "json": {
+              "sessions": [
+                {
+                  "sessionId": "cs_01HZY",
+                  "title": "Reconcile the October invoices",
+                  "costUsd": 0.4172,
+                  "modelCalls": 23,
+                  "firstDay": "2026-10-03",
+                  "lastDay": "2026-10-04"
+                }
+              ],
+              "nextCursor": null,
+              "dataThrough": "2026-10-28T09:45:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": "usage.sessions-from-tenant",
       "doc": "A Tenant object works as the tenant; a refusal maps to its error.",
       "client": { "org_id": "org_a" },

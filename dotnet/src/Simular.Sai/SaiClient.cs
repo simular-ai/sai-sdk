@@ -209,14 +209,27 @@ public sealed class UsageResource
     /// One page of what each of a Tenant's sessions spent on AI calls, oldest first, for the UTC days
     /// <paramref name="from"/> to <paramref name="to"/> (<c>YYYY-MM-DD</c>, both included, at most 93
     /// days). Keep paging with <c>NextCursor</c> until it is null: a page can be empty and not be the last.
+    /// <para>
+    /// With <paramref name="sessionIds"/> (1 to 50) instead of the range, the named sessions' spend right
+    /// now, each with <c>Settled</c>, and the page's <c>AsOf</c>; no paging. Charge for a task once its
+    /// session is settled.
+    /// </para>
     /// </summary>
     public async Task<SessionSpendPage> SessionsAsync(
-        TenantRef tenant, string from, string to, int? limit = null, string? cursor = null, string? orgId = null,
-        CancellationToken cancellationToken = default) =>
-        SessionSpendPage.Parse(await _http.JsonAsync(HttpMethod.Get, $"/v1/orgs/{Http.Q(Org(orgId))}/usage/sessions", new RequestOptions
+        TenantRef tenant, string? from = null, string? to = null, int? limit = null, string? cursor = null,
+        IEnumerable<string>? sessionIds = null, string? orgId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = sessionIds?.ToList();
+        return SessionSpendPage.Parse(await _http.JsonAsync(HttpMethod.Get, $"/v1/orgs/{Http.Q(Org(orgId))}/usage/sessions", new RequestOptions
         {
-            Query = [new("tenantId", tenant.Id), new("from", from), new("to", to), new("limit", limit?.ToString()), new("cursor", cursor)],
+            Query =
+            [
+                new("tenantId", tenant.Id), new("from", from), new("to", to), new("limit", limit?.ToString()), new("cursor", cursor),
+                new("sessionIds", ids is { Count: > 0 } ? string.Join(",", ids) : null),
+            ],
         }, cancellationToken).ConfigureAwait(false));
+    }
 
     private string Org(string? orgId)
     {

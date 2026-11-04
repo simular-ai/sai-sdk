@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "main",
-    "commit": "b837c2dfe9b558922327904591a5c647d1df18f3"
+    "ref": "feature/sdk-session-cost-live",
+    "commit": "71436d0e4845397d0a0ba443db294f65a834dc17"
   },
   "snippets": [
     {
@@ -301,10 +301,17 @@
     },
     {
       "file": "organisations/session-spend.md",
-      "line": 102,
+      "line": 104,
       "title": "List a Tenant's session spend for October",
       "context": "",
       "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = Environment.GetEnvironmentVariable(\"SAI_ORG_ID\"),\n});\nstring? cursor = null;\ndo\n{\n    var page = await org.Usage.SessionsAsync(\"Xk2p9QzR4tLm8vNa3bCd\", from: \"2026-10-01\", to: \"2026-10-31\", cursor: cursor);\n    foreach (var s in page.Sessions) Console.WriteLine($\"{s.SessionId} {s.Title} {s.CostUsd}\");\n    cursor = page.NextCursor;\n} while (cursor is not null);"
+    },
+    {
+      "file": "organisations/session-spend.md",
+      "line": 270,
+      "title": "Look up two sessions' spend",
+      "context": "",
+      "code": "using Simular.Sai;\n\nvar org = new SaiClient(new SaiClientOptions\n{\n    ApiKey = Environment.GetEnvironmentVariable(\"SAI_ORG_KEY\"),\n    OrgId = Environment.GetEnvironmentVariable(\"SAI_ORG_ID\"),\n});\nvar page = await org.Usage.SessionsAsync(\"Xk2p9QzR4tLm8vNa3bCd\", sessionIds: [\"cs_01HZY\", \"cs_01J0A\"]);\nforeach (var s in page.Sessions) Console.WriteLine($\"{s.SessionId} {s.CostUsd} {s.Settled}\");\nConsole.WriteLine(page.AsOf);"
     },
     {
       "file": "organisations/tenant-machines.md",

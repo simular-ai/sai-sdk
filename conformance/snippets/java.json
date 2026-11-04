@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "main",
-    "commit": "b837c2dfe9b558922327904591a5c647d1df18f3"
+    "ref": "feature/sdk-session-cost-live",
+    "commit": "71436d0e4845397d0a0ba443db294f65a834dc17"
   },
   "snippets": [
     {
@@ -301,10 +301,17 @@
     },
     {
       "file": "organisations/session-spend.md",
-      "line": 86,
+      "line": 88,
       "title": "List a Tenant's session spend for October",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.SessionSpend;\nimport ai.simular.sai.SessionSpendOptions;\nimport ai.simular.sai.SessionSpendPage;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).orgId(System.getenv(\"SAI_ORG_ID\")).build();\nString cursor = null;\ndo {\n  SessionSpendPage page = org.usage().sessions(\n      \"Xk2p9QzR4tLm8vNa3bCd\", \"2026-10-01\", \"2026-10-31\", new SessionSpendOptions().cursor(cursor));\n  for (SessionSpend s : page.sessions()) System.out.println(s.sessionId() + \" \" + s.title() + \" \" + s.costUsd());\n  cursor = page.nextCursor();\n} while (cursor != null);"
+    },
+    {
+      "file": "organisations/session-spend.md",
+      "line": 257,
+      "title": "Look up two sessions' spend",
+      "context": "",
+      "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.SessionSpend;\nimport ai.simular.sai.SessionSpendOptions;\nimport ai.simular.sai.SessionSpendPage;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).orgId(System.getenv(\"SAI_ORG_ID\")).build();\nSessionSpendPage page = org.usage().sessions(\n    \"Xk2p9QzR4tLm8vNa3bCd\", new SessionSpendOptions().sessionIds(\"cs_01HZY\", \"cs_01J0A\"));\nfor (SessionSpend s : page.sessions()) System.out.println(s.sessionId() + \" \" + s.costUsd() + \" \" + s.settled());\nSystem.out.println(page.asOf());"
     },
     {
       "file": "organisations/tenant-machines.md",

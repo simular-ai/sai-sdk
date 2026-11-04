@@ -389,7 +389,7 @@ func callClient(ctx context.Context, c *sai.Client, method string, a args) (any,
 	case "usage.get":
 		return c.Usage.Get(ctx, &sai.UsageOptions{Granularity: a.str("granularity"), From: a.str("from"), To: a.str("to"), OrgID: a.str("org_id")})
 	case "usage.sessions":
-		return c.Usage.Sessions(ctx, id(a["tenant"]), &sai.UsageSessionsOptions{From: a.str("from"), To: a.str("to"), Limit: a.int("limit"), Cursor: a.str("cursor"), OrgID: a.str("org_id")})
+		return c.Usage.Sessions(ctx, id(a["tenant"]), &sai.UsageSessionsOptions{From: a.str("from"), To: a.str("to"), Limit: a.int("limit"), Cursor: a.str("cursor"), SessionIDs: ids(a["session_ids"]), OrgID: a.str("org_id")})
 	case "tenants.create":
 		return c.Tenants.Create(ctx, a.str("name"), &sai.TenantCreateOptions{ExternalID: a.str("external_id"), Metadata: strMap(a["metadata"])})
 	case "tenants.list":

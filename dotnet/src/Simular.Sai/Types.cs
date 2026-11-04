@@ -474,15 +474,43 @@ public sealed record OrgUsage(string Granularity, string From, string To, UsageB
         d.Arr("buckets").Select(b => UsageBucket.Parse(b.IsObject() ? b : J.EmptyObject)).ToList(), d);
 }
 
-/// <summary>What one of a Tenant's sessions spent on AI calls, in US dollars; days are UTC <c>YYYY-MM-DD</c>.</summary>
-public sealed record SessionSpend(string SessionId, string? Title, double CostUsd, long ModelCalls, string FirstDay, string LastDay);
+/// <summary>
+/// What one of a Tenant's sessions spent on AI calls: in a date range, or so far when looked up by
+/// <c>sessionIds</c>.
+/// </summary>
+/// <param name="SessionId">The session's id.</param>
+/// <param name="Title">The session's title, or null.</param>
+/// <param name="CostUsd">
+/// In US dollars, not rounded to cents. Null only from a <c>sessionIds</c> lookup, when the session can't
+/// be read in full right now (never 0 for that); <paramref name="Settled"/> is then false.
+/// </param>
+/// <param name="ModelCalls">Null together with <paramref name="CostUsd"/>.</param>
+/// <param name="FirstDay">
+/// The UTC day (<c>YYYY-MM-DD</c>) the session's spend was first counted, over its whole life. Empty from
+/// a <c>sessionIds</c> lookup.
+/// </param>
+/// <param name="LastDay">The UTC day it was last counted. Empty from a <c>sessionIds</c> lookup.</param>
+/// <param name="Settled">
+/// From a <c>sessionIds</c> lookup: true once the session's latest task has ended and every charge for it
+/// has come in. Null on a list page.
+/// </param>
+public sealed record SessionSpend(
+    string SessionId, string? Title, double? CostUsd, long? ModelCalls, string FirstDay, string LastDay, bool? Settled = null);
 
 /// <summary>One page of session spend. A page can be empty and still have a <see cref="NextCursor"/>.</summary>
-public sealed record SessionSpendPage(IReadOnlyList<SessionSpend> Sessions, string? NextCursor, string? DataThrough, JsonElement Raw)
+/// <param name="Sessions">The sessions on this page.</param>
+/// <param name="NextCursor">Pass as <c>cursor</c> for the next page; null on the last page.</param>
+/// <param name="DataThrough">
+/// ISO 8601: the figures are complete up to this time. Null when unknown, and from a <c>sessionIds</c> lookup.
+/// </param>
+/// <param name="Raw">The response body.</param>
+/// <param name="AsOf">ISO 8601, from a <c>sessionIds</c> lookup: when the figures were read. Null on a list page.</param>
+public sealed record SessionSpendPage(
+    IReadOnlyList<SessionSpend> Sessions, string? NextCursor, string? DataThrough, JsonElement Raw, string? AsOf = null)
 {
     internal static SessionSpendPage Parse(JsonElement d) => new(
         d.Arr("sessions").Select(s => s.IsObject() ? s : J.EmptyObject).Select(s => new SessionSpend(
-            s.Str("sessionId") ?? "", string.IsNullOrEmpty(s.Str("title")) ? null : s.Str("title"), s.Num("costUsd") ?? 0,
-            s.Long("modelCalls") ?? 0, s.Str("firstDay") ?? "", s.Str("lastDay") ?? "")).ToList(),
-        d.Str("nextCursor"), d.Str("dataThrough"), d);
+            s.Str("sessionId") ?? "", string.IsNullOrEmpty(s.Str("title")) ? null : s.Str("title"), s.Num("costUsd"),
+            s.Long("modelCalls"), s.Str("firstDay") ?? "", s.Str("lastDay") ?? "", s.BoolOrNull("settled"))).ToList(),
+        d.Str("nextCursor"), d.Str("dataThrough"), d, d.Str("asOf"));
 }

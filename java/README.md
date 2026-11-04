@@ -232,6 +232,23 @@ TenantMachine machine = org.tenantMachines().create(tenant, "windows", new Creat
 OrgUsage usage = org.usage().get(new UsageOptions().granularity("month").from("2026-10").to("2026-10"));
 ```
 
+To charge for a task as soon as it ends, look its session up in real time instead of a date range:
+
+```java
+SessionSpendPage page = org.usage().sessions(tenant, new SessionSpendOptions().sessionIds(session.id()));
+for (SessionSpend s : page.sessions()) {
+  if (Boolean.TRUE.equals(s.settled())) {
+    System.out.println(s.sessionId() + " " + s.costUsd() + " " + page.asOf());
+  }
+}
+```
+
+With `sessionIds` (1 to 50 of the Tenant's sessions) each session comes back with its spend so far and
+`settled()`: true once its latest task has ended and every charge for it has come in. Ask again every
+10 seconds or so until it is. `costUsd()` and `modelCalls()` are null when the session can't be read
+in full right now. An id that is not one of the Tenant's sessions is left out. See
+[Session spend](https://platform.simular.ai/documentation/organisations/session-spend) for the limits.
+
 ## Errors
 
 Every non-2xx response throws an unchecked `SaiException` subclass with `status()`, `code()`,

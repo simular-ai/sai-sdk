@@ -291,7 +291,8 @@ public class ConformanceTests(MockServer server) : IClassFixture<MockServer>
             case "auth.check": return await sai.Auth.CheckAsync();
             case "usage.get": return await sai.Usage.GetAsync(a.OptS("granularity"), a.OptS("from"), a.OptS("to"), a.OptS("org_id"));
             case "usage.sessions":
-                return await sai.Usage.SessionsAsync(a.Tenant(), a.S("from"), a.S("to"), a.OptI("limit"), a.OptS("cursor"), a.OptS("org_id"));
+                return await sai.Usage.SessionsAsync(a.Tenant(), a.OptS("from"), a.OptS("to"), a.OptI("limit"), a.OptS("cursor"),
+                    a.Has("session_ids") ? a["session_ids"].EnumerateArray().Select(x => x.GetString()!).ToList() : null, a.OptS("org_id"));
             case "tenants.create": return await sai.Tenants.CreateAsync(a.S("name"), a.OptS("external_id"), a.StringMap("metadata"));
             case "tenants.list": return await sai.Tenants.ListAsync(a.OptS("status"), a.OptS("external_id"), a.OptI("limit"), a.OptS("cursor"));
             case "tenants.get": return await sai.Tenants.GetAsync(a.Tenant());

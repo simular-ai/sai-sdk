@@ -281,7 +281,7 @@ async function callClient(sai: Sai, method: string, a: Args): Promise<unknown> {
     case 'usage.sessions':
       return sai.usage.sessions(
         a.tenant as string,
-        opts(a, 'from', 'to', 'limit', 'cursor', 'org_id') as { from: string; to: string },
+        opts(a, 'from', 'to', 'limit', 'cursor', 'session_ids', 'org_id'),
       )
     case 'tenants.create':
       return sai.tenants.create(a.name as string, opts(a, 'external_id', 'metadata'))

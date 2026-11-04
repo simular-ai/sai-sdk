@@ -380,6 +380,21 @@ do {
 `usage.sessions` pages what each of a Tenant's sessions spent on AI calls, for UTC days `from` to `to`
 (at most 93). A page can be empty and still have a `nextCursor`: keep paging until it is null.
 
+To charge for a task as soon as it ends, look its session up in real time instead of a date range:
+
+```ts
+const page = await org.usage.sessions(tenant, { sessionIds: [session.id] })
+for (const s of page.sessions) {
+  if (s.settled) console.log(s.sessionId, s.costUsd, page.asOf)
+}
+```
+
+With `sessionIds` (1 to 50 of the Tenant's sessions) each session comes back with its spend so far and
+`settled`: `true` once its latest task has ended and every charge for it has come in. Ask again every
+10 seconds or so until it is. `costUsd` and `modelCalls` are null when the session can't be read in
+full right now. An id that is not one of the Tenant's sessions is left out. See
+[Session spend](https://platform.simular.ai/documentation/organisations/session-spend) for the limits.
+
 ## Errors
 
 Every non-2xx response throws a `SaiError` subclass with `status`, `code`, `message` and `retryAfter`:

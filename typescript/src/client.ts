@@ -193,18 +193,35 @@ export class UsageResource {
    * One page of what each of a Tenant's sessions spent on AI calls, oldest first, for the UTC
    * days `from` to `to` (`YYYY-MM-DD`, both included, at most 93 days). Keep paging with
    * `nextCursor` until it is null: a page can be empty and not be the last.
+   *
+   * With `sessionIds` (1 to 50) instead of the range, the named sessions' spend right now, each
+   * with `settled`, and the page's `asOf`; no paging. Charge for a task once its session is
+   * settled.
    */
   async sessions(
     tenant: TenantRef,
-    opts: { from: string; to: string; limit?: number; cursor?: string; orgId?: string },
+    opts: {
+      from?: string
+      to?: string
+      limit?: number
+      cursor?: string
+      sessionIds?: string[]
+      orgId?: string
+    },
   ): Promise<SessionSpendPage> {
-    const { orgId, ...rest } = opts
+    const { orgId, sessionIds, ...rest } = opts
     const tenantId = typeof tenant === 'string' ? tenant : tenant.id
     return parseSessionSpendPage(
       await this.http.json(
         'GET',
         `/v1/orgs/${encodeURIComponent(this.#org(orgId))}/usage/sessions`,
-        { params: { tenantId, ...rest } },
+        {
+          params: {
+            tenantId,
+            ...rest,
+            sessionIds: sessionIds?.length ? sessionIds.join(',') : undefined,
+          },
+        },
       ),
     )
   }

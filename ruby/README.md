@@ -197,6 +197,24 @@ usage = org.usage.get(granularity: "month", from: "2026-10", to: "2026-10")
 page = org.usage.sessions(tenant, from: "2026-10-01", to: "2026-10-31")
 ```
 
+`usage.sessions` pages what each of a Tenant's sessions spent on AI calls, for UTC days `from:` to `to:`
+(at most 93). A page can be empty and still have a `next_cursor`: keep paging until it is `nil`.
+
+To charge for a task as soon as it ends, look its session up in real time instead of a date range:
+
+```ruby
+page = org.usage.sessions(tenant, session_ids: [session.id])
+page.sessions.each do |s|
+  puts "#{s.session_id} #{s.cost_usd} #{page.as_of}" if s.settled
+end
+```
+
+With `session_ids:` (1 to 50 of the Tenant's sessions) each session comes back with its spend so far and
+`settled`: `true` once its latest task has ended and every charge for it has come in. Ask again every
+10 seconds or so until it is. `cost_usd` and `model_calls` are `nil` when the session can't be read
+in full right now. An id that is not one of the Tenant's sessions is left out. See
+[Session spend](https://platform.simular.ai/documentation/organisations/session-spend) for the limits.
+
 ## Errors
 
 Every non-2xx response raises a `Sai::Error` subclass with `status`, `code`, `message`, `body` and

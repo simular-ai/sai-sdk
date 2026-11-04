@@ -36,6 +36,9 @@ public final class UsageResource {
    * One page of what each of a Tenant's sessions spent on AI calls, oldest first, for the UTC days
    * {@code from} to {@code to} ({@code YYYY-MM-DD}, both included, at most 93 days). Keep paging
    * with {@code nextCursor} until it is null: a page can be empty and not be the last.
+   *
+   * <p>With {@link SessionSpendOptions#sessionIds} instead of the range, see {@link
+   * #sessions(String, SessionSpendOptions)}.
    */
   public SessionSpendPage sessions(String tenantId, String from, String to, SessionSpendOptions opts) {
     SessionSpendOptions o = opts == null ? new SessionSpendOptions() : opts;
@@ -45,6 +48,7 @@ public final class UsageResource {
     params.put("to", to);
     params.put("limit", o.limit);
     params.put("cursor", o.cursor);
+    params.put("sessionIds", o.sessionIds == null || o.sessionIds.isEmpty() ? null : String.join(",", o.sessionIds));
     return SessionSpendPage.parse(
         http.object("GET", "/v1/orgs/" + Http.encode(org(o.orgId)) + "/usage/sessions", Http.Req.params(params)));
   }
@@ -55,6 +59,19 @@ public final class UsageResource {
 
   public SessionSpendPage sessions(Tenant tenant, String from, String to, SessionSpendOptions opts) {
     return sessions(tenant.id(), from, to, opts);
+  }
+
+  /**
+   * Without a date range: with {@link SessionSpendOptions#sessionIds} (1 to 50), the named
+   * sessions' spend right now, each with {@code settled}, and the page's {@code asOf}; no paging.
+   * Charge for a task once its session is settled.
+   */
+  public SessionSpendPage sessions(String tenantId, SessionSpendOptions opts) {
+    return sessions(tenantId, null, null, opts);
+  }
+
+  public SessionSpendPage sessions(Tenant tenant, SessionSpendOptions opts) {
+    return sessions(tenant.id(), null, null, opts);
   }
 
   private String org(String override) {

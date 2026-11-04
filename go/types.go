@@ -1024,18 +1024,24 @@ func parseOrgUsage(d map[string]any) *OrgUsage {
 	return u
 }
 
-// SessionSpend is what one of a Tenant's sessions spent on AI calls in a date range.
+// SessionSpend is what one of a Tenant's sessions spent on AI calls: in a date range, or so far
+// when looked up by SessionIDs.
 type SessionSpend struct {
 	SessionID string `json:"session_id"`
 	// Title is empty when the session has no title.
 	Title string `json:"title,omitempty"`
-	// CostUSD is in US dollars, not rounded to cents.
-	CostUSD    float64 `json:"cost_usd"`
-	ModelCalls int     `json:"model_calls"`
+	// CostUSD is in US dollars, not rounded to cents. Nil only from a SessionIDs lookup, when the
+	// session can't be read in full right now (never 0 for that); Settled is then false.
+	CostUSD *float64 `json:"cost_usd"`
+	// ModelCalls is nil together with CostUSD.
+	ModelCalls *int `json:"model_calls"`
 	// FirstDay and LastDay are the UTC days (`YYYY-MM-DD`) the session's spend was first and last
-	// counted, over its whole life.
+	// counted, over its whole life. Empty from a SessionIDs lookup.
 	FirstDay string `json:"first_day"`
 	LastDay  string `json:"last_day"`
+	// Settled is, from a SessionIDs lookup, true once the session's latest task has ended and
+	// every charge for it has come in. Nil on a list page.
+	Settled *bool `json:"settled"`
 }
 
 // SessionSpendPage is one page of Usage.Sessions. A page can be empty and still have a
@@ -1044,23 +1050,32 @@ type SessionSpendPage struct {
 	Sessions []SessionSpend `json:"sessions"`
 	// NextCursor is the Cursor for the next page; empty on the last page.
 	NextCursor string `json:"next_cursor,omitempty"`
-	// DataThrough is when the figures are complete up to (ISO 8601); empty when unknown.
-	DataThrough string         `json:"data_through,omitempty"`
-	Raw         map[string]any `json:"-"`
+	// DataThrough is when the figures are complete up to (ISO 8601); empty when unknown, and from
+	// a SessionIDs lookup.
+	DataThrough string `json:"data_through,omitempty"`
+	// AsOf is, from a SessionIDs lookup, when the figures were read (ISO 8601); empty on a list
+	// page.
+	AsOf string         `json:"as_of,omitempty"`
+	Raw  map[string]any `json:"-"`
 }
 
 func parseSessionSpendPage(d map[string]any) *SessionSpendPage {
-	p := &SessionSpendPage{Sessions: []SessionSpend{}, NextCursor: str(d["nextCursor"]), DataThrough: str(d["dataThrough"]), Raw: d}
+	p := &SessionSpendPage{Sessions: []SessionSpend{}, NextCursor: str(d["nextCursor"]), DataThrough: str(d["dataThrough"]), AsOf: str(d["asOf"]), Raw: d}
 	if list, ok := d["sessions"].([]any); ok {
 		for _, x := range list {
 			s := obj(x)
+			var settled *bool
+			if b, ok := s["settled"].(bool); ok {
+				settled = &b
+			}
 			p.Sessions = append(p.Sessions, SessionSpend{
 				SessionID:  str(s["sessionId"]),
 				Title:      str(s["title"]),
-				CostUSD:    num(s["costUsd"]),
-				ModelCalls: int(num(s["modelCalls"])),
+				CostUSD:    floatPtr(s["costUsd"]),
+				ModelCalls: intPtr(s["modelCalls"]),
 				FirstDay:   str(s["firstDay"]),
 				LastDay:    str(s["lastDay"]),
+				Settled:    settled,
 			})
 		}
 	}
