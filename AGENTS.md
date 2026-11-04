@@ -83,6 +83,11 @@ Releases go through CI only, never by hand:
 - `sai-sdk-py-v*` publishes `sai-sdk` to PyPI (`publish-sai-sdk-py.yml`, trusted publishing through the
   `pypi` environment); `sai-sdk-ts-v*` publishes `@simular-ai/sai-sdk` to npm (`publish-sai-sdk-ts.yml`).
   Bump the version in the package manifest and the version constant together; the workflow checks the tag.
+- `sai-sdk-java-v*` publishes `ai.simular:sai-sdk` to Maven Central (`publish-sai-sdk-java.yml`, a
+  Central Portal token and GPG key in the `maven-central` environment); `sai-sdk-dotnet-v*` publishes
+  `Simular.Sai` to NuGet (`publish-sai-sdk-dotnet.yml`, trusted publishing through the `nuget`
+  environment); `sai-sdk-ruby-v*` publishes `sai-sdk` to RubyGems (`publish-sai-sdk-ruby.yml`,
+  trusted publishing through the `rubygems` environment). Each workflow's header lists its setup.
 - The Go module is published by a `go/v*` tag (the Go proxy reads it from GitHub; no workflow). Bump
   `Version` in `go/version.go` first. This only works once this repo is public: the proxy cannot
   read a private one.

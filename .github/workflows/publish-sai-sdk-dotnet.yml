@@ -1,0 +1,79 @@
+name: Publish sai-sdk (.NET)
+
+# Publishes the .NET SDK (dotnet/) to NuGet as Simular.Sai.
+# Tests run in sdk.yml on every PR; this workflow only releases.
+#
+# Cutting a release:
+#   1. Bump <Version> in dotnet/src/Simular.Sai/Simular.Sai.csproj and Version in SaiClient.cs.
+#   2. Merge to main.
+#   3. git tag sai-sdk-dotnet-v<X.Y.Z> && git push origin sai-sdk-dotnet-v<X.Y.Z>
+#
+# Auth: NuGet trusted publishing (OIDC). Requires a trusted publishing policy on nuget.org
+# (account → Trusted Publishing): owner "simular-ai", repo "sai-sdk", workflow
+# "publish-sai-sdk-dotnet.yml", environment "nuget". NUGET_USER (a secret in that environment)
+# is the nuget.org account the policy belongs to; no API key is stored here.
+
+on:
+  push:
+    tags:
+      - 'sai-sdk-dotnet-v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build, test & publish to NuGet
+    if: startsWith(github.ref, 'refs/tags/sai-sdk-dotnet-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: nuget
+      url: https://www.nuget.org/packages/Simular.Sai
+    permissions:
+      contents: write # GitHub Release
+      id-token: write # NuGet trusted publishing
+    defaults:
+      run:
+        working-directory: dotnet
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      # The mock server is Node.
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: '.nvmrc'
+      # The package targets net8.0 and net10.0; the tests run on net10.0.
+      - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Verify tag matches package version
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF#refs/tags/sai-sdk-dotnet-v}"
+          PKG_VERSION="$(sed -nE 's/.*<Version>([^<]+)<\/Version>.*/\1/p' src/Simular.Sai/Simular.Sai.csproj)"
+          CODE_VERSION="$(sed -nE 's/.*const string Version = "([^"]+)".*/\1/p' src/Simular.Sai/SaiClient.cs)"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$PKG_VERSION" != "$CODE_VERSION" ]; then
+            echo "::error::tag $TAG_VERSION, Simular.Sai.csproj $PKG_VERSION, SaiClient.cs $CODE_VERSION must match." >&2
+            exit 1
+          fi
+      - run: dotnet test
+      - run: dotnet pack src/Simular.Sai -c Release -o out
+      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: nuget
+        with:
+          user: ${{ secrets.NUGET_USER }}
+      - run: dotnet nuget push "out/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+        env:
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create "$TAG_NAME" -R "$GITHUB_REPOSITORY" --title "$TAG_NAME" --generate-notes out/*.nupkg
