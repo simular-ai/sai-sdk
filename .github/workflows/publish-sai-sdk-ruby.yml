@@ -11,6 +11,9 @@ name: Publish sai-sdk (Ruby)
 # Auth: RubyGems trusted publishing (OIDC). Requires a trusted publisher on rubygems.org for
 # the gem sai-sdk (a pending one before the first release): repo simular-ai/sai-sdk, workflow
 # "publish-sai-sdk-ruby.yml", environment "rubygems". No API key is stored here.
+#
+# The `rubygems` environment only deploys tags `sai-sdk-ruby-v*` (Settings → Environments → deployment
+# branches and tags). Keep that rule, so a workflow on any other branch can't use it.
 
 on:
   push:
