@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "feature/sdk-session-cost-live",
-    "commit": "71436d0e4845397d0a0ba443db294f65a834dc17"
+    "ref": "main",
+    "commit": "e9e62c32067d45d5af72c5f7aa4a5d29cbb3c54e"
   },
   "snippets": [
     {
@@ -311,7 +311,7 @@
       "line": 203,
       "title": "Look up two sessions' spend",
       "context": "",
-      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=os.environ[\"SAI_ORG_ID\"])\npage = org.usage.sessions(\"Xk2p9QzR4tLm8vNa3bCd\", session_ids=[\"cs_01HZY\", \"cs_01J0A\"])\nfor s in page.sessions:\n    print(s.session_id, s.cost_usd, s.settled)\nprint(page.as_of)"
+      "code": "import os\nfrom sai import Sai\n\norg = Sai(api_key=os.environ[\"SAI_ORG_KEY\"], org_id=os.environ[\"SAI_ORG_ID\"])\npage = org.usage.sessions(\"Xk2p9QzR4tLm8vNa3bCd\", session_ids=[\"cs_01HZY\", \"cs_01J0A\"])\nfor s in page.sessions:\n    if s.cost_usd is None:\n        print(s.session_id, \"can't be read in full right now\")\n        continue\n    print(s.session_id, s.cost_usd, s.settled)\nprint(page.as_of)"
     },
     {
       "file": "organisations/tenant-machines.md",
@@ -406,56 +406,56 @@
     },
     {
       "file": "quickstart.md",
-      "line": 32,
+      "line": 59,
       "title": "List your computers",
       "context": "",
       "code": "from sai import Sai\n\nsai = Sai()\nfor machine in sai.machines.list():\n    print(machine.id, machine.name, machine.kind, machine.online)"
     },
     {
       "file": "quickstart.md",
-      "line": 123,
+      "line": 156,
       "title": "Check your account",
       "context": "",
       "code": "from sai import Sai\n\nsai = Sai()\nprint(sai.account.get())"
     },
     {
       "file": "quickstart.md",
-      "line": 201,
+      "line": 234,
       "title": "Give Sai a task",
       "context": "",
       "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create()\nturn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nprint(turn.id, turn.queued)"
     },
     {
       "file": "quickstart.md",
-      "line": 290,
+      "line": 325,
       "title": "Poll for events",
       "context": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.create()\nturn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nprint(turn.id, turn.queued)",
       "code": "# `turn` is what session.send() returned in step 4; events() polls until the turn ends.\nfor ev in turn.events():\n    print(ev.kind, ev.text)"
     },
     {
       "file": "quickstart.md",
-      "line": 376,
+      "line": 411,
       "title": "Answer an approval",
       "context": "",
       "code": "from sai import Sai\n\nsai = Sai()\nsession = sai.sessions.resume(\"cs_01HZY\")\nsession.respond(\"ap_7Qw\", \"yes\")"
     },
     {
       "file": "quickstart.md",
-      "line": 483,
+      "line": 520,
       "title": "Learn code for a task",
       "context": "",
       "code": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\njob = sai.learn.create(\n    task_template=\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    criteria=\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    reset={\"code\": \"\"\"\nfor (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()\n\"\"\"},\n    max_iterations=2,\n    rollouts=2,\n    machine=pc,\n)\ndone = sai.learn.wait(job)\nprint(done.status, done.test_result.status)\nprint(done.code)"
     },
     {
       "file": "quickstart.md",
-      "line": 700,
+      "line": 737,
       "title": "Run the learned code",
       "context": "from sai import Sai\n\nsai = Sai()\npc = sai.machines.list()[0]\njob = sai.learn.create(\n    task_template=\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    inputs={\"newsSite\": \"TechCrunch\", \"topic\": \"AI\", \"fileName\": \"techcrunch_headlines.txt\"},\n    criteria=\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\",\n    reset={\"code\": \"\"\"\nfor (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\nfor (const w of await machine.getWindow(\"Notepad\")) await w.close()\n\"\"\"},\n    max_iterations=2,\n    rollouts=2,\n    machine=pc,\n)\ndone = sai.learn.wait(job)\nprint(done.status, done.test_result.status)\nprint(done.code)",
       "code": "# Continue from the code above.\nwith sai.control.open(pc) as lease:\n    print(lease.run(done).result)"
     },
     {
       "file": "quickstart.md",
-      "line": 761,
+      "line": 798,
       "title": "Run a task",
       "context": "",
       "code": "from sai import Sai\n\nresult = Sai().sessions.create().run(\"Open Notepad, type hello, save it to the desktop as hello.txt\")\nprint(result.text)"
