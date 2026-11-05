@@ -196,7 +196,13 @@
         width: 100%;
         display: block;
       }
-      #screen-note {
+      /* The screen has the keyboard: show it, so the person knows where keys go. */
+      #screen > div:focus {
+        outline: 2px solid var(--ok);
+        outline-offset: -2px;
+      }
+      #screen-note,
+      #input-note {
         margin-top: 4px;
         color: var(--muted);
         font-size: 12px;
@@ -228,9 +234,14 @@
     <div id="screen-wrap" hidden>
       <div id="screen"></div>
       <div id="screen-note" hidden></div>
+      <div id="input-note" hidden></div>
       <button id="watch-here" hidden title="Take the live screen back to this view">
         Watch here
       </button>
+      <button id="use" hidden title="Connect to the computer and use its mouse and keyboard">
+        Use this computer
+      </button>
+      <button id="stop-use" hidden title="Disconnect and keep the last frame">Done</button>
     </div>
     <ol id="steps"></ol>
     <div id="steps-more"></div>

@@ -149,6 +149,45 @@ export function isDone(view: TaskView): boolean {
   return view.status === 'idle' || view.status === 'error'
 }
 
+/**
+ * Whether the person's mouse and keyboard reach the computer: only while Sai
+ * isn't working on it. That is while the task waits on their approval, or
+ * after the task ended while they use the computer (until they press Done).
+ */
+export function inputAllowed(view: TaskView, using: boolean): boolean {
+  return view.status === 'needs_approval' || (isDone(view) && using)
+}
+
+/** A `sai_view_poll` result, as the view reads it. */
+export type ViewPoll = Partial<PollResult> & { archived?: boolean; expired?: boolean }
+
+export const ANOTHER_TASK_NOTE =
+  'Sai started another task on this computer, so it has the mouse and keyboard again.'
+export const UNKNOWN_TASK_NOTE =
+  "Sai was restarted, so this view can't tell whether the computer is free. Send Sai a task instead."
+
+/**
+ * While the person uses the computer after the task, the view keeps polling.
+ * Why to stop (`undefined`: keep going): a newer task started on this computer
+ * (`archived`), the session started a new turn (its status is no longer done),
+ * or the server no longer knows this task (`expired`) and can't tell.
+ */
+export function useEnd(poll: ViewPoll): string | undefined {
+  if (poll.archived) return ANOTHER_TASK_NOTE
+  if (poll.expired) return UNKNOWN_TASK_NOTE
+  if (poll.status !== 'idle' && poll.status !== 'error') return ANOTHER_TASK_NOTE
+  return undefined
+}
+
+/**
+ * After the task, the live screen has no tunnel (`no_tunnel`) or its stream
+ * became unreachable: the computer is asleep or taken back. Using it stops
+ * then, instead of waiting for it; while the task runs, the view waits.
+ */
+export function useStopsOnLoss(view: TaskView, loss: 'no_tunnel' | string): boolean {
+  return isDone(view) && (loss === 'no_tunnel' || loss === 'unreachable')
+}
+
 /** The headline: what Sai is doing right now, in one line. */
 export function headline(view: TaskView): string {
   if (view.status === 'starting') return 'Starting Sai…'

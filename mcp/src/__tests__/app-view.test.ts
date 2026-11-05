@@ -149,6 +149,23 @@ describe('MCP Apps task view (server)', () => {
     expect(gone.structuredContent).toMatchObject({ expired: true })
   })
 
+  it('archives a task once a newer one starts on its machine, even in another session', async () => {
+    const wait = vi.fn().mockResolvedValue({ status: 'idle', events: [], text: '', cursor: 'c' })
+    const tasks = new TaskLog()
+    const { client } = await connect(wait, undefined, tasks)
+    const first = tasks.start('s1', 'm1')
+    tasks.start('s9', 'm2') // another machine: no effect
+    expect(tasks.state(first, 's1')).toBe('live')
+
+    tasks.start('s2', 'm1') // new_session on the same machine
+    const r = await client.callTool({
+      name: 'sai_view_poll',
+      arguments: { session_id: 's1', task_id: first },
+    })
+    expect(wait).not.toHaveBeenCalled()
+    expect(r.structuredContent).toMatchObject({ archived: true })
+  })
+
   it('accepts only a JPEG data URL as the saved frame', async () => {
     const tasks = new TaskLog()
     const { client } = await connect(vi.fn(), undefined, tasks)

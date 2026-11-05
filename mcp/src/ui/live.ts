@@ -1,9 +1,10 @@
 /**
  * The task view's live screen: the vendored Guacamole client (same copy as the
- * portal Playground) over the tunnel `sai_view_live` hands out. View-only: no
- * mouse or keyboard is wired, so watching can't touch the computer.
+ * portal Playground) over the tunnel `sai_view_live` hands out. Input starts
+ * off; the task view turns it on only while Sai isn't working (`setInput`).
  */
 import './guacamole/all.js'
+import { bindScreenInput } from './input.js'
 
 /**
  * Why a stream dropped. `blocked`: the WebSocket never opened at all — the
@@ -24,6 +25,8 @@ function dropKind(code: number | undefined): DropKind {
 }
 
 export interface LiveHandle {
+  /** Forward the person's mouse and keyboard to the computer, or stop (releasing anything held). */
+  setInput: (on: boolean) => void
   /**
    * Disconnect. With `keepFrame`, leave the last frame on screen as an image
    * and return it (a JPEG data URL); nothing if no frame ever arrived.
@@ -47,6 +50,7 @@ export function connectLive(
   const display = client.getDisplay()
   const el = display.getElement()
   container.replaceChildren(el)
+  const input = bindScreenInput(G, el, client)
 
   const fit = (): void => {
     const w = display.getWidth()
@@ -85,7 +89,12 @@ export function connectLive(
   }
 
   return {
+    setInput: (on) => {
+      if (!closed) input.set(on)
+    },
     close: (keepFrame = false) => {
+      // Before anything else, while the client can still send the key-ups.
+      input.dispose()
       let frame: string | undefined
       // A display that never got a frame flattens to an empty canvas: no image then.
       if (keepFrame && display.getWidth() > 0 && display.getHeight() > 0) {

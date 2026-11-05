@@ -4,6 +4,12 @@
  * the `watch_url` sai-mcp serves locally for hosts without MCP Apps. It follows the task with the
  * app-only `sai_view_poll` tool and shows what Sai is doing, approval
  * requests, and the answer. The model never sees any of it.
+ *
+ * The screen takes the person's mouse and keyboard whenever Sai isn't working
+ * on it: while a task waits for their approval (often a sign-in only they can
+ * do), and after it ends, once they choose to use the computer. While they use
+ * it, the view keeps polling and takes input away once Sai starts on the
+ * computer again.
  */
 import {
   HostBridge,
@@ -18,9 +24,13 @@ import {
   headline,
   initialView,
   inlineMarkdown,
+  inputAllowed,
   isDone,
   type PollResult,
+  useEnd,
+  useStopsOnLoss,
   type TaskView,
+  type ViewPoll,
 } from './view-model.js'
 
 declare const __SAI_VERSION__: string
@@ -47,6 +57,10 @@ interface Saved {
 }
 let live: LiveHandle | null = null
 let liveLoop = false
+/** The stream is up and drawing. */
+let liveConnected = false
+/** The task has ended and the person asked to use the computer: keep the screen live. */
+let using = false
 let displayMode: DisplayMode = 'inline'
 let hostModes: DisplayMode[] = []
 /**
@@ -65,6 +79,12 @@ const esc = (s: string): string =>
   )
 
 function render(): void {
+  const allowed = inputAllowed(view, using)
+  live?.setInput(liveConnected && allowed)
+  $('input-note').hidden = !liveConnected
+  $('input-note').textContent = allowed
+    ? 'Click the screen to use the mouse and keyboard. Control+Alt+Escape gives the keys back.'
+    : 'Sai is working. Input is paused until it finishes.'
   $('headline').textContent = headline(view)
   $('dot').className = `dot ${view.status}`
   const steps = view.steps.slice(-12)
@@ -90,7 +110,7 @@ function render(): void {
   }
   $('live').hidden = !view.playgroundUrl
   // The screen box: live while the task runs, its last frame after; nothing to show otherwise.
-  $('screen-wrap').hidden = !machineId || (isDone(view) && !lastFrame && !live)
+  $('screen-wrap').hidden = !machineId || (isDone(view) && !lastFrame && !live && !using)
   // Nothing will ever draw in a blocked card: keep the note, drop the empty box.
   $('screen').hidden = liveBlocked && !lastFrame
   document.documentElement.dataset.mode = displayMode
@@ -99,6 +119,9 @@ function render(): void {
   $('expand').hidden = displayMode !== 'inline' || !hostModes.includes('fullscreen')
   $('restore').hidden = displayMode === 'inline'
   $('watch-here').hidden = !takenOver || isDone(view)
+  // Taken over: another viewer (likely a newer task's card) has the screen; don't grab it back.
+  $('use').hidden = !isDone(view) || !machineId || liveLoop || liveBlocked || takenOver || using
+  $('stop-use').hidden = !using
   // Hosts without pip (Claude): keep it in view by opening it in a window instead.
   $('popout').hidden =
     !(bridge instanceof HostBridge) ||
@@ -150,9 +173,18 @@ function save(): void {
   void bridge.callTool('sai_view_save', { task_id: taskId, snapshot }).catch(() => {})
 }
 
-/** Follows the task until it ends; resolves once the first poll says whether it is live. */
+/**
+ * Follows the task until it ends, and after it while the person uses the
+ * computer (to take input away once Sai works on it again). Calls `onFirst`
+ * once the first poll says whether the task is live, or, after the task, whether
+ * the computer is still free to use.
+ */
 async function poll(onFirst: (live: boolean) => void): Promise<void> {
-  if (polling || !view.sessionId) return
+  if (polling || !view.sessionId) {
+    // Already following: when the person uses the computer, that loop keeps checking.
+    onFirst(polling && using)
+    return
+  }
   polling = true
   let first = true
   const settle = (live: boolean): void => {
@@ -160,7 +192,7 @@ async function poll(onFirst: (live: boolean) => void): Promise<void> {
     first = false
   }
   try {
-    while (view.sessionId && !isDone(view)) {
+    while (view.sessionId && (!isDone(view) || using)) {
       // Each poll is one `/events` request, and that endpoint is rate-limited
       // per account (shared with the agent's own waits): at most one per 4 s.
       const since = Date.now()
@@ -169,11 +201,23 @@ async function poll(onFirst: (live: boolean) => void): Promise<void> {
         ...(cursor && { cursor }),
         ...(taskId && { task_id: taskId }),
       })
-      const data = structured(res) as
-        | (PollResult & { archived?: boolean; expired?: boolean; saved?: Saved })
-        | undefined
+      const data = structured(res) as (ViewPoll & { saved?: Saved }) | undefined
       if (res.isError || !data) {
         await sleep(5_000)
+        continue
+      }
+      if (isDone(view)) {
+        // The task is over and the person is using the computer: Sai must not
+        // work on it at the same time. Don't fold in a newer turn's events.
+        const end = useEnd(data)
+        if (end) {
+          stopUsing(end)
+          settle(false)
+          return
+        }
+        cursor = data.cursor ?? cursor
+        settle(true)
+        await sleep(Math.max(0, 4_000 - (Date.now() - since)))
         continue
       }
       if (data.archived || data.expired) {
@@ -188,7 +232,7 @@ async function poll(onFirst: (live: boolean) => void): Promise<void> {
         return
       }
       cursor = data.cursor
-      view = applyPoll(view, data)
+      view = applyPoll(view, data as PollResult)
       // Reopened after it ended: what it saved has the final frame.
       if (first && isDone(view) && data.saved) restore({ ...data.saved, status: view.status })
       render()
@@ -206,9 +250,27 @@ function screenNote(text: string): void {
   $('screen-note').hidden = !text
 }
 
-async function untilDone(): Promise<'done'> {
-  while (!isDone(view)) await sleep(1_000)
-  return 'done'
+/** Keep the screen live: the task runs, or the person is using the computer after it. */
+const keepLive = (): boolean => !isDone(view) || using
+
+async function untilEnd(): Promise<'end'> {
+  while (keepLive()) await sleep(1_000)
+  return 'end'
+}
+
+/** Why using the computer after the task stopped, shown once the screen closes. */
+let endNote: string | undefined
+
+/**
+ * Stop using the computer after the task, input off at once. The computer may
+ * be asleep or taken back, or Sai started on it again: say so, don't wait on it.
+ */
+function stopUsing(note = "The computer isn't running now. Send Sai a task to start it."): void {
+  using = false
+  // An open screen shows the note once it closes; otherwise show it now.
+  if (liveLoop) endNote = note
+  else screenNote(note)
+  render()
 }
 
 /** Set when another viewer took the screen over: no reconnect until "Watch here". */
@@ -217,11 +279,11 @@ let takenOver = false
 let liveBlocked = false
 
 /**
- * Keeps the live screen up while the task runs; freezes the last frame when it
- * ends. A machine's screen has one viewer at a time, so two views (this card,
- * the Playground, another app) would knock each other off forever: once another
- * viewer takes over, this one stops and offers to take it back. Other drops
- * retry with a growing delay.
+ * Keeps the live screen up while the task runs, or while the person uses the
+ * computer after it; freezes the last frame when that ends. A machine's screen
+ * has one viewer at a time, so two views (this card, the Playground, another
+ * app) would knock each other off forever: once another viewer takes over, this
+ * one stops and offers to take it back. Other drops retry with a growing delay.
  */
 async function followScreen(): Promise<void> {
   if (liveLoop || !machineId) return
@@ -231,13 +293,17 @@ async function followScreen(): Promise<void> {
   let delay = 3_000
   let blocked = 0
   try {
-    while (!isDone(view) && !takenOver) {
+    while (keepLive() && !takenOver) {
       const res = await bridge
         .callTool('sai_view_live', { machine_id: machineId })
         .catch(() => null)
       const data = res && !res.isError ? structured(res) : undefined
       const url = typeof data?.websocket_url === 'string' ? data.websocket_url : null
       if (!url) {
+        if (useStopsOnLoss(view, 'no_tunnel')) {
+          stopUsing()
+          break
+        }
         screenNote('Waiting for the computer to start…')
         await sleep(8_000)
         continue
@@ -248,15 +314,20 @@ async function followScreen(): Promise<void> {
         handle = connectLive(url, $('screen'), {
           connected: () => {
             delay = 3_000
+            liveConnected = true
             screenNote('')
+            render()
           },
-          lost: (_reason, kind) => resolve(kind),
+          lost: (_reason, kind) => {
+            liveConnected = false
+            resolve(kind)
+          },
         })
       })
       live = handle
       // Stay connected until the stream drops or the task ends (finally keeps the frame).
-      const kind = await Promise.race([dropped, untilDone()])
-      if (isDone(view)) break
+      const kind = await Promise.race([dropped, untilEnd()])
+      if (!keepLive()) break
       lastFrame = handle.close(true) ?? lastFrame
       live = null
       // Only Guacamole's own conflict code means another viewer took over. Other
@@ -277,6 +348,10 @@ async function followScreen(): Promise<void> {
         liveBlocked = true
         break
       }
+      if (useStopsOnLoss(view, kind)) {
+        stopUsing()
+        break
+      }
       if (kind === 'unreachable') {
         // Asleep or waking: Sai wakes it for the task; check back at a steady pace.
         screenNote('Waiting for the computer to wake up…')
@@ -290,8 +365,11 @@ async function followScreen(): Promise<void> {
   } finally {
     lastFrame = live?.close(true) ?? lastFrame
     live = null
+    liveConnected = false
     liveLoop = false
-    if (!liveBlocked) screenNote(takenOver && !isDone(view) ? 'Being watched somewhere else.' : '')
+    using = false
+    if (!liveBlocked) screenNote(endNote ?? (takenOver ? 'Being watched somewhere else.' : ''))
+    endNote = undefined
     // The poll saved before the frame existed: save again with it.
     if (lastFrame && isDone(view)) save()
     render()
@@ -338,6 +416,21 @@ async function switchMode(mode: DisplayMode): Promise<void> {
 }
 $('pin').onclick = () => void switchMode('pip')
 $('watch-here').onclick = () => void followScreen()
+$('use').onclick = () => {
+  using = true
+  screenNote('')
+  render()
+  // Check Sai hasn't started on the computer again first; the poll keeps checking while in use.
+  void poll((free) => {
+    if (free) void followScreen()
+    else if (using) stopUsing()
+  })
+}
+$('stop-use').onclick = () => {
+  // render() turns input off now; the screen closes on untilEnd's next tick.
+  using = false
+  render()
+}
 $('popout').onclick = () => watchUrl && bridge.openLink(watchUrl)
 $('expand').onclick = () => void switchMode('fullscreen')
 $('restore').onclick = () => void switchMode('inline')

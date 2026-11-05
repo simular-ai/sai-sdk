@@ -156,7 +156,7 @@ export function createServer(): McpServer {
       run(async () => {
         const started = await tools.start(args)
         // Which task this call's view follows (the session outlives it).
-        const taskId = taskLog.start(started.session_id)
+        const taskId = taskLog.start(started.session_id, started.machine_id)
         // For hosts that can't render the view inline: the same page in a browser.
         const watchUrl = await localView
           ?.urlFor(started.session_id, started.machine_id, taskId)

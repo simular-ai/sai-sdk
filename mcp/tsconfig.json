@@ -24,6 +24,8 @@
     "src/ui/task-view.ts",
     "src/ui/bridge.ts",
     "src/ui/live.ts",
+    "src/ui/input.ts",
+    "src/ui/__tests__/**",
     "src/ui/guacamole/**"
   ]
 }
