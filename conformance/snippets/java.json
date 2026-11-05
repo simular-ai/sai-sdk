@@ -1,8 +1,8 @@
 {
   "source": {
     "repo": "simular-ai/sai-platform",
-    "ref": "feature/sdk-session-cost-live",
-    "commit": "71436d0e4845397d0a0ba443db294f65a834dc17"
+    "ref": "main",
+    "commit": "e9e62c32067d45d5af72c5f7aa4a5d29cbb3c54e"
   },
   "snippets": [
     {
@@ -308,10 +308,10 @@
     },
     {
       "file": "organisations/session-spend.md",
-      "line": 257,
+      "line": 266,
       "title": "Look up two sessions' spend",
       "context": "",
-      "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.SessionSpend;\nimport ai.simular.sai.SessionSpendOptions;\nimport ai.simular.sai.SessionSpendPage;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).orgId(System.getenv(\"SAI_ORG_ID\")).build();\nSessionSpendPage page = org.usage().sessions(\n    \"Xk2p9QzR4tLm8vNa3bCd\", new SessionSpendOptions().sessionIds(\"cs_01HZY\", \"cs_01J0A\"));\nfor (SessionSpend s : page.sessions()) System.out.println(s.sessionId() + \" \" + s.costUsd() + \" \" + s.settled());\nSystem.out.println(page.asOf());"
+      "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.SessionSpend;\nimport ai.simular.sai.SessionSpendOptions;\nimport ai.simular.sai.SessionSpendPage;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).orgId(System.getenv(\"SAI_ORG_ID\")).build();\nSessionSpendPage page = org.usage().sessions(\n    \"Xk2p9QzR4tLm8vNa3bCd\", new SessionSpendOptions().sessionIds(\"cs_01HZY\", \"cs_01J0A\"));\nfor (SessionSpend s : page.sessions()) {\n    if (s.costUsd() == null) {\n        System.out.println(s.sessionId() + \" can't be read in full right now\");\n        continue;\n    }\n    System.out.println(s.sessionId() + \" \" + s.costUsd() + \" \" + s.settled());\n}\nSystem.out.println(page.asOf());"
     },
     {
       "file": "organisations/tenant-machines.md",
@@ -406,168 +406,168 @@
     },
     {
       "file": "quickstart.md",
-      "line": 72,
+      "line": 99,
       "title": "List your computers",
       "context": "",
       "code": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\n\nSai sai = new Sai();\nfor (Machine machine : sai.machines().list()) {\n  System.out.println(machine.id() + \" \" + machine.name() + \" \" + machine.kind() + \" \" + machine.online());\n}"
     },
     {
       "file": "quickstart.md",
-      "line": 158,
+      "line": 191,
       "title": "Check your account",
       "context": "",
       "code": "import ai.simular.sai.Sai;\n\nSai sai = new Sai();\nSystem.out.println(sai.account().get());"
     },
     {
       "file": "quickstart.md",
-      "line": 244,
+      "line": 277,
       "title": "Give Sai a task",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\n\nSai sai = new Sai();\nSession session = sai.sessions().create();\nTurn turn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nSystem.out.println(turn.id() + \" \" + turn.queued());"
     },
     {
       "file": "quickstart.md",
-      "line": 313,
+      "line": 348,
       "title": "Poll for events",
       "context": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Turn;\n\nSai sai = new Sai();\nSession session = sai.sessions().create();\nTurn turn = session.send(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nSystem.out.println(turn.id() + \" \" + turn.queued());",
       "code": "// `turn` is what session.send() returned in step 4; events() polls until the turn ends.\nfor (var ev : turn.events()) {\n  System.out.println(ev.kind() + \" \" + ev.text());\n}"
     },
     {
       "file": "quickstart.md",
-      "line": 411,
+      "line": 446,
       "title": "Answer an approval",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\n\nSai sai = new Sai();\nSession session = sai.sessions().resume(\"cs_01HZY\");\nsession.respond(\"ap_7Qw\", \"yes\");"
     },
     {
       "file": "quickstart.md",
-      "line": 571,
+      "line": 608,
       "title": "Learn code for a task",
       "context": "",
       "code": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.LearnOptions;\nimport ai.simular.sai.LearnResult;\nimport ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\nLearnResult job = sai.learn().create(List.of(), new LearnOptions()\n    .taskTemplate(\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\")\n    .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n    .criteria(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\")\n    .reset(Map.of(\"code\", \"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\"\"\"))\n    .maxIterations(2)\n    .rollouts(2)\n    .machine(pc));\nLearnResult done = sai.learn().waitFor(job);\nSystem.out.println(done.status() + \" \" + (done.testResult() != null ? done.testResult().status() : null));\nSystem.out.println(done.code());"
     },
     {
       "file": "quickstart.md",
-      "line": 730,
+      "line": 767,
       "title": "Run the learned code",
       "context": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.LearnOptions;\nimport ai.simular.sai.LearnResult;\nimport ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport java.util.List;\nimport java.util.Map;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\nLearnResult job = sai.learn().create(List.of(), new LearnOptions()\n    .taskTemplate(\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\")\n    .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n    .criteria(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\")\n    .reset(Map.of(\"code\", \"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\"\"\"))\n    .maxIterations(2)\n    .rollouts(2)\n    .machine(pc));\nLearnResult done = sai.learn().waitFor(job);\nSystem.out.println(done.status() + \" \" + (done.testResult() != null ? done.testResult().status() : null));\nSystem.out.println(done.code());",
       "code": "// Continue from the code above.\ntry (ControlLease lease = sai.control().open(pc)) {\n  System.out.println(lease.run(done).result());\n}"
     },
     {
       "file": "quickstart.md",
-      "line": 801,
+      "line": 838,
       "title": "Run a task",
       "context": "",
       "code": "import ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSession session = new Sai().sessions().create();\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\nSystem.out.println(result.text());"
     },
     {
       "file": "sdks/java.md",
-      "line": 40,
+      "line": 39,
       "title": "Give Sai a task",
       "context": "",
       "code": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task"
     },
     {
       "file": "sdks/java.md",
-      "line": 65,
+      "line": 64,
       "title": "Watch the events",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.Event;\nimport ai.simular.sai.EventKind;\nimport ai.simular.sai.Turn;\n\nTurn turn = session.send(\"Find last month's invoices in Downloads and total them\");\nfor (Event ev : turn.events()) {\n  if (ev.kind() == EventKind.STEP) System.out.println(\"   \" + ev.text());\n  else if (ev.kind() == EventKind.APPROVAL) turn.respond(ev.approval(), \"yes\");\n}\nTurnResult done = turn.waitFor();"
     },
     {
       "file": "sdks/java.md",
-      "line": 93,
+      "line": 92,
       "title": "Approval handler",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.ApprovalAnswer;\nimport ai.simular.sai.WaitOptions;\nimport java.util.List;\nimport java.util.Map;\n\nTurnResult cleaned = session.run(\"Clean up the temp folder\", new WaitOptions().onApproval(approval -> {\n  if (approval.isLinkOnly()) {\n    System.out.println(\"Approve in a browser: \" + approval.url());\n    return null; // a person answers it; keep waiting\n  }\n  if (approval.type().equals(\"choice\")) {\n    List<List<String>> selections = approval.questions().stream()\n        .map(q -> List.of((String) ((Map<?, ?>) ((List<?>) q.get(\"options\")).get(0)).get(\"value\")))\n        .toList();\n    return ApprovalAnswer.of(\"yes\", selections);\n  }\n  return ApprovalAnswer.of(\"yes\");\n}));"
     },
     {
       "file": "sdks/java.md",
-      "line": 118,
+      "line": 117,
       "title": "Unattended run",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.SendOptions;\n\nsession.run(\"Export last month's invoices to CSV\", new SendOptions().autonomous(true));"
     },
     {
       "file": "sdks/java.md",
-      "line": 126,
+      "line": 125,
       "title": "Files, models, stopping",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.Attachment;\nimport ai.simular.sai.Model;\nimport ai.simular.sai.SendOptions;\nimport ai.simular.sai.Turn;\nimport java.nio.file.Path;\nimport java.util.List;\n\nAttachment report = sai.files().upload(Path.of(\"report.pdf\")); // or upload(bytes, \"report.pdf\")\nsession.run(\"Summarise the attached report\", new SendOptions().attachments(List.of(report)));\n\nList<String> allowed = sai.models().list().stream().filter(Model::allowed).map(Model::id).toList();\nsession.run(\"...\", new SendOptions().model(\"anthropic/claude-opus-5-5\")); // sticks to the session\n\nTurn turn = session.send(\"...\");\nturn.abort();"
     },
     {
       "file": "sdks/java.md",
-      "line": 150,
+      "line": 149,
       "title": "Typed output",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.SendOptions;\nimport java.util.List;\nimport java.util.Map;\n\nTurnResult typed = session.run(\n    \"Open https://news.ycombinator.com and read the title of the top story.\",\n    new SendOptions().outputSchema(Map.of(\n        \"type\", \"object\",\n        \"properties\", Map.of(\"title\", Map.of(\"type\", \"string\")),\n        \"required\", List.of(\"title\"))));\nif (typed.ok()) System.out.println(((Map<?, ?>) typed.record().output()).get(\"title\"));\nelse System.out.println(typed.record().reasonCode()); // e.g. output_invalid"
     },
     {
       "file": "sdks/java.md",
-      "line": 167,
+      "line": 166,
       "title": "Read a turn later",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.SendOptions;\nimport ai.simular.sai.TrajectoryStep;\nimport ai.simular.sai.Turn;\nimport ai.simular.sai.TurnRecord;\n\nTurn turn = session.send(\"...\", new SendOptions().recordTrajectory(true));\nTurnRecord record = sai.turns().waitFor(turn); // until succeeded, failed or needs_input\nfor (TrajectoryStep step : sai.turns().trajectory(turn)) {\n  System.out.println(step.index() + \" \" + step.title());\n}"
     },
     {
       "file": "sdks/java.md",
-      "line": 184,
+      "line": 183,
       "title": "Learn and repair code",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.Check;\nimport ai.simular.sai.ControlLease;\nimport ai.simular.sai.Evaluation;\nimport ai.simular.sai.ExecResult;\nimport ai.simular.sai.Judgement;\nimport ai.simular.sai.LearnOptions;\nimport ai.simular.sai.LearnResult;\nimport ai.simular.sai.SendOptions;\nimport ai.simular.sai.Turn;\nimport java.util.List;\nimport java.util.Map;\n\nTurn turn = session.send(\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\",\n    new SendOptions()\n        .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n        .recordTrajectory(true));\nsai.turns().waitFor(turn);\n\nLearnResult learned = sai.learn().create(List.of(turn)); // waits for the code; longer for a longer task\nControlLease lease = sai.control().open(pc);\nExecResult r = lease.run(learned, Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"Fintech\", \"fileName\", \"techcrunch_fintech.txt\")); // inputs over the defaults\nSystem.out.println(r.result());\nlease.close();\n\nLearnResult fixed = sai.learn().create(List.of(), new LearnOptions()\n    .initialCode(learned.code())\n    .evaluations(List.of(\n        new Evaluation(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"Fintech\", \"fileName\", \"techcrunch_fintech.txt\"))\n            .result(r)\n            .passed(false))));\nJudgement judgement = sai.judge().create(\n    List.of(turn),\n    List.of(new Check(\"file\", \"The agent saved the headlines to the file\")));"
     },
     {
       "file": "sdks/java.md",
-      "line": 224,
+      "line": 223,
       "title": "Run, judge and repair on a computer",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.LearnIteration;\nimport ai.simular.sai.LearnOptions;\nimport ai.simular.sai.LearnResult;\nimport ai.simular.sai.LearnRollout;\nimport ai.simular.sai.LearnRun;\nimport java.util.List;\nimport java.util.Map;\n\nLearnResult job = sai.learn().create(List.of(), new LearnOptions()\n    .taskTemplate(\"Open {{newsSite}}, find all {{topic}} news published today, write their headlines into Notepad, one per line, and save the file as {{fileName}}\")\n    .inputs(Map.of(\"newsSite\", \"TechCrunch\", \"topic\", \"AI\", \"fileName\", \"techcrunch_headlines.txt\"))\n    .machine(pc)\n    .criteria(\"techcrunch_headlines.txt is saved and holds, one per line, the headlines of the AI articles TechCrunch published today\")\n    .maxIterations(3) // up to 3 code versions; 0 (the default) only writes the code\n    .rollouts(3) // each version must pass 3 runs in a row\n    .reset(Map.of(\"code\", \"\"\"\n        for (const t of await machine.browser.listTabs()) await machine.browser.closeTab(t.tabId)\n        for (const w of await machine.getWindow(\"Notepad\")) await w.close()\"\"\"))\n    .continueWithAgent(true)); // after a failed run, the agent finishes the task and the repair learns from it\nLearnResult done = sai.learn().waitFor(job); // can take an hour; pass a timeout to stop waiting\nSystem.out.println(done.status() + \" \" + done.stopReason() + \" \" + done.testResult());\nSystem.out.println(done.code()); // the latest version\nfor (LearnIteration it : done.iterations()) {\n  System.out.println(it.index() + \" \" + it.changes() + \" \" + it.rollouts().stream().map(LearnRollout::verdict).toList());\n}\n\nLearnRun run = sai.learn().rollout(job, 1, 1); // what one run returned and logged, and its judgement\nsai.learn().cancel(job); // stops at once and keeps the last complete results"
     },
     {
       "file": "sdks/java.md",
-      "line": 261,
+      "line": 260,
       "title": "Drive a computer",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.ControlLease;\nimport ai.simular.sai.ExecResult;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\n\ntry (ControlLease lease = sai.control().open(pc)) {\n  System.out.println(lease.shell(\"hostname\").stdout());\n\n  lease.writeFile(\"C:\\\\data\\\\note.txt\", \"hello\");\n  System.out.println(lease.readFile(\"C:\\\\data\\\\note.txt\"));\n\n  ExecResult r = lease.exec(\"\"\"\n      var page = await machine.browser.newtab('https://example.com')\n      var snap = await page.snapshot()\n      snap.title\n      \"\"\");\n  System.out.println(r.result()); // Example Domain\n  Files.write(Path.of(\"page.\" + r.screenshotMimeType().split(\"/\")[1]), r.screenshot()); // jpeg or png\n}"
     },
     {
       "file": "sdks/java.md",
-      "line": 292,
+      "line": 291,
       "title": "Other calls",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "sai.account().get(); // plan and spendable credit\nsai.models().list(); // models, with allowed() for this plan\nsai.machines().live(pc); // a link to the screen for a person, and a stream for your viewer; see Live view\nsai.machines().revokeLive(pc); // every liveUrl stops working and its screen sessions end; returns how many"
     },
     {
       "file": "sdks/java.md",
-      "line": 300,
+      "line": 299,
       "title": "Who the key is, and its sessions",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "sai.auth().check(); // the user, and the Tenant and Organisation for a Tenant token\nsai.sessions().list(pc); // your sessions on the computer, any channel, most recent first"
     },
     {
       "file": "sdks/java.md",
-      "line": 310,
+      "line": 309,
       "title": "Hand the screen to a person",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.LiveView;\n\nLiveView view = sai.machines().live(pc);\nSystem.out.println(\"Sign in here, then tell me: \" + view.liveUrl()); // valid until view.expiresAt() (ms)\n// ... once they are done\nsession.run(\"I signed in. Carry on.\");\nsai.machines().revokeLive(pc); // returns the number of links revoked"
     },
     {
       "file": "sdks/java.md",
-      "line": 328,
+      "line": 327,
       "title": "Tenants",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.CreateTenantOptions;\nimport ai.simular.sai.Enrollment;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.Tenant;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).orgId(\"org_3f9a1c0b7e2d4a6f8c10\").build();\n\nTenant tenant = org.tenants().create(\"Riverside Clinic\", new CreateTenantOptions().externalId(\"clinic-4821\"));\nEnrollment enrollment = org.tenants().createEnrollment(tenant); // hand enrollment.token() to your installer\nSystem.out.println(org.tenantMachines().list(tenant));\n\nSai clinic = org.tenants().client(tenant); // acts as the Tenant\nSession visit = clinic.sessions().create();\nvisit.run(\"Open the calendar and read today's appointments\");"
     },
     {
       "file": "sdks/java.md",
-      "line": 354,
+      "line": 353,
       "title": "Cloud machines",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.CreateMachineOptions;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TenantMachine;\nimport java.util.UUID;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).orgId(\"org_3f9a1c0b7e2d4a6f8c10\").build();\n\nTenantMachine machine = org.tenantMachines().create(\"Xk2p9QzR4tLm8vNa3bCd\", \"windows\", new CreateMachineOptions()\n    .name(\"Riverside intake\")\n    .requestId(UUID.randomUUID().toString())\n    .waitForReady(true));\nSai clinic = org.tenants().client(\"Xk2p9QzR4tLm8vNa3bCd\");\nSession onCloud = clinic.sessions().create(machine.id());\nonCloud.run(\"Open Notepad and type hello\");\norg.tenantMachines().delete(\"Xk2p9QzR4tLm8vNa3bCd\", machine);"
     },
     {
       "file": "sdks/java.md",
-      "line": 384,
+      "line": 383,
       "title": "Usage",
       "context": "import ai.simular.sai.Machine;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.Session;\nimport ai.simular.sai.TurnResult;\n\nSai sai = new Sai();\nMachine pc = sai.machines().list().get(0);\n\nSession session = sai.sessions().create(pc);\nTurnResult result = session.run(\"Open Notepad, type hello, save it to the desktop as hello.txt\");\n\nSystem.out.println(result.status()); // idle, needs_approval or error\nSystem.out.println(result.text()); // Sai's answer\nSystem.out.println(result.usage()); // tokens and cost of this task",
       "code": "import ai.simular.sai.OrgUsage;\nimport ai.simular.sai.Sai;\nimport ai.simular.sai.SessionSpend;\nimport ai.simular.sai.SessionSpendPage;\nimport ai.simular.sai.TenantUsage;\nimport ai.simular.sai.UsageOptions;\n\nSai org = Sai.builder().apiKey(System.getenv(\"SAI_ORG_KEY\")).orgId(\"org_3f9a1c0b7e2d4a6f8c10\").build();\nOrgUsage usage = org.usage().get(new UsageOptions().granularity(\"month\").from(\"2026-10\").to(\"2026-10\"));\nfor (TenantUsage t : usage.totals().byTenant().values()) System.out.println(t.name() + \" \" + t.costCents());\n\nSessionSpendPage page = org.usage().sessions(\"Xk2p9QzR4tLm8vNa3bCd\", \"2026-10-01\", \"2026-10-31\");\nfor (SessionSpend s : page.sessions()) System.out.println(s.sessionId() + \" \" + s.costUsd());"
