@@ -1,15 +1,15 @@
 # sai-sdk (Python)
 
-Python SDK for the [Sai API](https://platform.simular.ai/documentation). Hand desktop work to Sai on a
-computer (a Sai cloud computer, or your own PC with the Sai app) and get the answer back, or drive a cloud
-computer yourself.
+Python SDK for the [Sai API](https://platform.simular.ai/documentation). Hand desktop work to Sai on
+a computer (a Sai cloud computer, or your own PC with the Sai app) and get the answer back, or drive
+a computer yourself.
 
 Status: **alpha (0.1)**. The surface may still change before 1.0.
 
 | Layer          | What it is                                    | Status           |
 | -------------- | --------------------------------------------- | ---------------- |
 | `sai.sessions` | A conversation with Sai on one computer       | available        |
-| `sai.control`  | Drive a cloud computer directly with Simulang | research preview |
+| `sai.control`  | Drive a computer (cloud or own) with Simulang | research preview |
 | `sai.turns`    | A turn's record: typed output, evidence       | available        |
 
 ## Install
@@ -186,8 +186,9 @@ approval is pending: answer it on `sai.sessions.resume(record.session_id)`), `fi
 ## Drive a computer yourself
 
 Direct control runs [Simulang](https://platform.simular.ai/documentation/concepts/direct-control)
-blocks on a cloud computer. No agent, no model cost. While the lease is open, Sai's own tasks on that
-computer wait, so always close it (a `with` block does).
+blocks on one of your computers, cloud or your own. No agent decides the steps; only the model calls
+your code makes are billed. While the lease is open, Sai's own tasks on that computer wait, so
+always close it (a `with` block does).
 
 ```python
 with sai.control.open(machine=pc) as lease:

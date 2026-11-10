@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 namespace Simular.Sai;
 
 /// <summary>
-/// Direct control: drive a cloud computer with Simulang. No agent. A lease on the machine: at most
+/// Direct control: drive a computer with Simulang. No agent. A lease on the machine: at most
 /// one per machine. Research preview; model calls the code makes are billed as usual.
 /// </summary>
 public sealed class Control
@@ -14,7 +14,7 @@ public sealed class Control
     internal Control(Http http) => _http = http;
 
     /// <summary>
-    /// Take a cloud computer. Returns once the lease holds it, up to ~3 minutes when a Sai task holds
+    /// Take a computer. Returns once the lease holds it, up to ~3 minutes when a Sai task holds
     /// it or it has to start; at once if the lease is already open. Close it when done
     /// (<c>await using</c>): Sai's tasks on that computer wait until then.
     /// </summary>
@@ -26,7 +26,7 @@ public sealed class Control
     }
 }
 
-/// <summary>A control lease on one cloud computer. Dispose it (<c>await using</c>) to release the computer.</summary>
+/// <summary>A control lease on one computer. Dispose it (<c>await using</c>) to release the computer.</summary>
 public sealed class ControlLease : IAsyncDisposable
 {
     private readonly Http _http;

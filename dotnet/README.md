@@ -2,7 +2,7 @@
 
 .NET SDK for the [Sai API](https://platform.simular.ai/documentation). Hand desktop work to Sai on a
 computer (a Sai cloud computer, or your own PC with the Sai app) and get the answer back, or drive a
-cloud computer yourself.
+computer yourself.
 
 Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 [Python SDK](../python/README.md) and the [TypeScript SDK](../typescript/README.md) method for method.
@@ -10,7 +10,7 @@ Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 | Layer          | What it is                                    | Status           |
 | -------------- | --------------------------------------------- | ---------------- |
 | `sai.Sessions` | A conversation with Sai on one computer       | available        |
-| `sai.Control`  | Drive a cloud computer directly with Simulang | research preview |
+| `sai.Control`  | Drive a computer (cloud or own) with Simulang | research preview |
 | `sai.Turns`    | A turn's record: typed output, evidence       | available        |
 
 ## Install
@@ -164,8 +164,8 @@ foreach (var step in await sai.Turns.TrajectoryAsync(later))
 ## Drive a computer yourself
 
 Direct control runs [Simulang](https://platform.simular.ai/documentation/concepts/direct-control)
-blocks on a cloud computer. While the lease is open, Sai's own tasks on that computer wait, so always
-close it: `ControlLease` is `IAsyncDisposable`.
+blocks on one of your computers, cloud or your own. While the lease is open, Sai's own tasks on that
+computer wait, so always close it: `ControlLease` is `IAsyncDisposable`.
 
 ```csharp
 await using (var lease = await sai.Control.OpenAsync(pc))

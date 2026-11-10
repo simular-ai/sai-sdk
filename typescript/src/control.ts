@@ -1,5 +1,5 @@
 /**
- * Direct control: drive a cloud computer with Simulang. No agent.
+ * Direct control: drive a computer with Simulang. No agent.
  *
  * Maps to `/v1/machines/{id}/control`, a lease on the machine: at most one per
  * machine, so the machine id is the handle. Research preview, open to every
@@ -20,7 +20,7 @@ export class Control {
   constructor(private readonly http: Http) {}
 
   /**
-   * Take a cloud computer. Resolves once the lease holds it, up to ~3
+   * Take a computer. Resolves once the lease holds it, up to ~3
    * minutes when a Sai task holds it or it has to start; at once if the lease
    * is already open. Close it when done (`await using`, or `try/finally`):
    * Sai's tasks on that computer wait until then.

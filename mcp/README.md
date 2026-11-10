@@ -6,7 +6,8 @@ Simular's computer-use agent, #1 on OSWorld 2.0 (73%). Sai uses apps and
 websites the way a person does, by seeing the screen, clicking and typing, so
 your agent can get work done where there is no API: web apps behind a login,
 admin consoles, desktop software, forms with no import. Sai runs on a
-cloud computer we host; the free plan includes one.
+cloud computer we host (the free plan includes one) or on your own Mac or
+Windows PC with the Sai Agent.
 
 Run a workflow once and Sai can save it as code: later runs replay that code
 and ask the model only where the screen matters, so they are faster and

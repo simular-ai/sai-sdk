@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * A lease on a cloud computer, from {@code sai.control().open()}. Close it when done:
+ * A lease on a computer, from {@code sai.control().open()}. Close it when done:
  * try-with-resources does.
  */
 public final class ControlLease implements AutoCloseable {

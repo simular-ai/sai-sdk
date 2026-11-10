@@ -102,7 +102,7 @@ public final class Sai {
     return judge;
   }
 
-  /** Drive a cloud computer yourself with Simulang (research preview). */
+  /** Drive a computer yourself with Simulang (research preview). */
   public Control control() {
     return control;
   }
