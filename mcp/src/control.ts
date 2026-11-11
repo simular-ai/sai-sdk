@@ -103,7 +103,7 @@ export const controlToolSchemas = {
 export const controlToolDescriptions: Record<keyof typeof controlToolSchemas, string> = {
   sai_control_open:
     "Take direct control of one of the user's computers (a Sai cloud computer, or their own Mac or PC with the Sai Agent) so YOU can drive it by running Simulang (JavaScript) blocks with sai_control_exec. " +
-    'On the user\'s own computer (kind "own") the blocks use their real screen, mouse and keyboard. ' +
+    'On the user\'s own computer (kind "own") the blocks use their real screen, mouse and keyboard, and the user must first turn this on from a signed-in session; until then it fails with own_computer_access_off, whose message says how. ' +
     'Use this instead of sai_task_start when you want step-by-step control, or want to write a script you can replay. ' +
     'Returns { machine_id, expires_after_idle_s }. Control holds the computer: Sai tasks on it wait until you close it. ' +
     'Calling it again while control is open is fine and returns at once. ' +
