@@ -12,6 +12,8 @@ import java.util.Map;
  * @param cloudMachineLimit most cloud machines the Tenant may have at once; null: no limit
  * @param residentialProxy the residential proxy switch (no effect yet); null from {@code list}
  * @param cloudMachineCount set by {@code get} and {@code update}; null from {@code list}
+ * @param ownComputerAccess whether learn jobs and direct control may run code on the Tenant's
+ *     enrolled machines; null from {@code list} and from older servers
  */
 public record Tenant(
     String id,
@@ -25,6 +27,7 @@ public record Tenant(
     Long cloudMachineLimit,
     Boolean residentialProxy,
     Long cloudMachineCount,
+    Boolean ownComputerAccess,
     Map<String, Object> raw) {
 
   static Tenant parse(Map<String, Object> d) {
@@ -40,6 +43,7 @@ public record Tenant(
         Json.lngOrNull(d.get("cloudMachineLimit")),
         d.get("residentialProxy") instanceof Boolean b ? b : null,
         Json.lngOrNull(d.get("cloudMachineCount")),
+        d.get("ownComputerAccess") instanceof Boolean o ? o : null,
         d);
   }
 }

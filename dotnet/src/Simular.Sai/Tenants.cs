@@ -35,6 +35,11 @@ public sealed class TenantUpdate
     /// <summary>The Tenant's residential proxy switch. It has no effect yet: traffic goes direct.</summary>
     public bool? ResidentialProxy { get; init; }
 
+    /// <summary>
+    /// Lets the Tenant's learn jobs and direct control run code on its enrolled machines (default off).
+    /// </summary>
+    public bool? OwnComputerAccess { get; init; }
+
     internal bool CloudMachineLimitSet { get; private init; }
 }
 
@@ -88,8 +93,8 @@ public sealed class Tenants
         Tenant.Parse(await _http.JsonAsync(HttpMethod.Get, PathOf(tenant), null, cancellationToken).ConfigureAwait(false));
 
     /// <summary>
-    /// Change a Tenant. Only the Organisation Key or an owner may set <c>CloudMachineLimit</c> and
-    /// <c>ResidentialProxy</c>.
+    /// Change a Tenant. Only the Organisation Key or an owner may set <c>CloudMachineLimit</c>,
+    /// <c>ResidentialProxy</c> and <c>OwnComputerAccess</c>.
     /// </summary>
     public async Task<Tenant> UpdateAsync(TenantRef tenant, TenantUpdate update, CancellationToken cancellationToken = default)
     {
@@ -99,6 +104,7 @@ public sealed class Tenants
         if (update.Status is not null) body["status"] = update.Status;
         if (update.CloudMachineLimitSet) body["cloudMachineLimit"] = update.CloudMachineLimit;
         if (update.ResidentialProxy is { } rp) body["residentialProxy"] = rp;
+        if (update.OwnComputerAccess is { } oca) body["ownComputerAccess"] = oca;
         return Tenant.Parse(await _http.JsonAsync(HttpMethod.Patch, PathOf(tenant), new RequestOptions { Json = body }, cancellationToken)
             .ConfigureAwait(false));
     }

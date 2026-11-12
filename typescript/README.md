@@ -307,6 +307,10 @@ await sai.learn.cancel(job) // stops at once and keeps the last complete results
 `stopped` with a `stopReason` such as `cancelled`, `time_limit` or `agent_failed`); `testResult` says
 how the returned code did on `inputs`. With `judgeInitialAgentRun: true`, a job whose agent run fails
 the judge stops before writing code; pass its `agentTurnId` as `turns` to start again from that run.
+`agentRunEnd` says how the job's agent run ended when it gave no answer: `time_limit` (still
+converted), or `needs_input` or the turn's `reason_code` such as `agent_error`, which stop the job
+(`agent_failed`) before it writes code. Nobody watches a job, so it approves like a control lease:
+commands and clicks go ahead, and sign-ins and choices fail at once.
 The runs do the task for real, so use test inputs or a test account.
 
 ## Run Sai for your customers
@@ -328,9 +332,10 @@ await session.run("Open the calendar and read today's appointments")
 
 - `tenants.list({ status, externalId, limit, cursor })` resolves with one page: `page.tenants`,
   `page.nextCursor`. `externalId` finds your customer's Tenant without storing `tenant.id`.
-- `tenants.update(tenant, { name, metadata, status: 'disabled' | 'active', cloudMachineLimit, residentialProxy })`.
+- `tenants.update(tenant, { name, metadata, status: 'disabled' | 'active', cloudMachineLimit, residentialProxy, ownComputerAccess })`.
   `cloudMachineLimit` is 0 to 1000, and `null` removes the cap. `tenants.get` also returns
-  `cloudMachineCount` and `residentialProxy`.
+  `cloudMachineCount`, `residentialProxy` and `ownComputerAccess`. `ownComputerAccess: true` lets the
+  Tenant's learn jobs and direct control run code on its enrolled machines (off by default).
 - `tenants.delete(tenant)` disables it and revokes every enrolled machine. Its cloud machines stay
   until you delete them.
 - `tenants.token(tenant)` is the raw exchange: a one-hour `TenantToken` to pass as

@@ -213,6 +213,8 @@ LearnResult done = sai.learn().waitFor(job); // can take an hour
 Judgement judgement = sai.judge().create(List.of(turn), List.of(new Check("title", "The agent reported a story title")));
 ```
 
+`done.agentRunEnd()` says how the job's agent run ended when it gave no answer: `time_limit` (still converted), or `needs_input` or the turn's `reason_code` such as `agent_error`, which stop the job (`agent_failed`) before it writes code.
+
 ## Run Sai for your customers
 
 ```java
@@ -222,6 +224,7 @@ Tenant tenant = org.tenants().create("Riverside Clinic", new CreateTenantOptions
 Enrollment code = org.tenants().createEnrollment(tenant); // hand code.token() to your installer
 System.out.println(org.tenantMachines().list(tenant));
 
+org.tenants().update(tenant, new UpdateTenantOptions().ownComputerAccess(true)); // learn and control on its enrolled machines
 Sai clinic = org.tenants().client(tenant); // acts as the Tenant; renews its token
 clinic.sessions().create().run("Open the calendar and read today's appointments");
 

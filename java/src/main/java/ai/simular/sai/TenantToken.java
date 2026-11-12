@@ -5,7 +5,8 @@ import java.util.Map;
 /**
  * A one-hour token that acts as a Tenant.
  *
- * @param token pass as {@code Sai.builder().apiKey(token)} to act as the Tenant
+ * @param token pass as {@code Sai.builder().apiKey(token)} to act as the Tenant on sessions, machines,
+ *     learn, judge and control
  * @param expiresAt Unix time in milliseconds, an hour after the exchange; exchange again then
  */
 public record TenantToken(String token, long expiresAt, String tenantId, Map<String, Object> raw) {

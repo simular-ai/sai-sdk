@@ -45,15 +45,19 @@ module Sai
     # Sends only what is given. +metadata+ replaces the whole map. +status: "disabled"+ stops the
     # Tenant's tokens and machines; +"active"+ brings it back. +cloud_machine_limit+ (0 to 1000)
     # caps the Tenant's cloud machines, and +cloud_machine_limit: nil+ removes the cap.
-    # +residential_proxy+ has no effect yet. Only the Organisation Key or an owner may set these two.
+    # +residential_proxy+ has no effect yet. +own_computer_access+ lets the Tenant's learn jobs and
+    # direct control run code on its enrolled machines (default off). Only the Organisation Key or
+    # an owner may set these three.
     # @return [Tenant]
-    def update(tenant, name: nil, metadata: nil, status: nil, cloud_machine_limit: UNSET, residential_proxy: nil)
+    def update(tenant, name: nil, metadata: nil, status: nil, cloud_machine_limit: UNSET, residential_proxy: nil,
+               own_computer_access: nil)
       body = {}
       body["name"] = name unless name.nil?
       body["metadata"] = metadata unless metadata.nil?
       body["status"] = status unless status.nil?
       body["cloudMachineLimit"] = cloud_machine_limit unless cloud_machine_limit.equal?(UNSET)
       body["residentialProxy"] = residential_proxy unless residential_proxy.nil?
+      body["ownComputerAccess"] = own_computer_access unless own_computer_access.nil?
       Tenant.parse(Parse.obj(@http.json("PATCH", self.class.path(tenant), json: body)))
     end
 

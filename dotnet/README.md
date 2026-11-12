@@ -217,6 +217,7 @@ var judgement = await sai.Judge.CreateAsync([recorded], new[] { new Check("title
 
 With `MaxIterations`, `Learn.CreateAsync` also runs the code on a machine, judges each run, and
 repairs the code after a failed run. It answers at once with a job; `WaitAsync` reads it until it ends.
+`done.AgentRunEnd` says how the job's agent run ended when it gave no answer: `time_limit` (still converted), or `needs_input` or the turn's `reason_code` such as `agent_error`, which stop the job (`agent_failed`) before it writes code.
 
 ```csharp
 var job = await sai.Learn.CreateAsync([], new LearnOptions
@@ -258,7 +259,8 @@ await org.Tenants.UpdateAsync(tenant, new TenantUpdate { CloudMachineLimit = nul
 - `Tenants.ListAsync(status:, externalId:, limit:, cursor:)` returns one page: `page.Tenants`,
   `page.NextCursor`.
 - `Tenants.UpdateAsync(tenant, new TenantUpdate { ... })` sends only what is set; setting
-  `CloudMachineLimit` to null removes the cap.
+  `CloudMachineLimit` to null removes the cap. `OwnComputerAccess = true` lets the Tenant's learn jobs
+  and direct control run code on its enrolled machines.
 - `TenantMachines.DeleteAsync(tenant, machine)` returns `"revoked"` for an enrolled machine and
   `"deleting"` for a cloud machine.
 - `Usage.GetAsync(granularity:, from:, to:)` and `Usage.SessionsAsync(tenant, from:, to:, cursor:)`

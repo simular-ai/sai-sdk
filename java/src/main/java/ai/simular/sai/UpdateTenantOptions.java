@@ -39,4 +39,13 @@ public final class UpdateTenantOptions {
     body.put("residentialProxy", residentialProxy);
     return this;
   }
+
+  /**
+   * Lets the Tenant's learn jobs and direct control run code on its enrolled machines (default
+   * off). Only the Organisation Key or an owner may set it.
+   */
+  public UpdateTenantOptions ownComputerAccess(boolean ownComputerAccess) {
+    body.put("ownComputerAccess", ownComputerAccess);
+    return this;
+  }
 }

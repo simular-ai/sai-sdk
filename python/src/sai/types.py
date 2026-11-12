@@ -623,6 +623,10 @@ class LearnResult:
     """While a job runs: `{ step, iteration, rollout }`."""
     agent_turn_id: Optional[str] = None
     """A job's agent run; pass it as `turns` to start again from that run."""
+    agent_run_end: Optional[str] = None
+    """How the agent run ended when it gave no answer; None when it answered. `time_limit` (still
+    converted), `needs_input` or the turn's `reason_code`, e.g. `agent_error`; every end but
+    `time_limit` stops the job (`agent_failed`) before conversion."""
     agent_run_reset: Optional[LearnReset] = None
     agent_judgement: Optional[dict[str, Any]] = None
     """With `judge_initial_agent_run`: `{ judgementId, verdict, summary }`."""
@@ -647,6 +651,7 @@ class LearnResult:
             test_result=LearnTestResult.parse(d.get("testResult")),
             progress=d.get("progress"),
             agent_turn_id=d.get("agentTurnId"),
+            agent_run_end=d.get("agentRunEnd"),
             agent_run_reset=LearnReset.parse(d.get("agentRunReset")),
             agent_judgement=d.get("agentJudgement"),
             version=d.get("version"),

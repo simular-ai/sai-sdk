@@ -51,6 +51,9 @@ class Tenant:
     `update`; None from `list` and from servers before cloud machines."""
     cloud_machine_count: Optional[int]
     """Set by `get` and `update`; None from `list` and from servers before cloud machines."""
+    own_computer_access: Optional[bool]
+    """Whether learn jobs and direct control may run code on the Tenant's enrolled machines. Set by
+    `get` and `update`; None from `list` and from older servers."""
     raw: dict[str, Any] = field(repr=False)
 
     @classmethod
@@ -67,6 +70,7 @@ class Tenant:
             cloud_machine_limit=d.get("cloudMachineLimit"),
             residential_proxy=d.get("residentialProxy"),
             cloud_machine_count=d.get("cloudMachineCount"),
+            own_computer_access=d.get("ownComputerAccess"),
             raw=d,
         )
 
@@ -137,7 +141,7 @@ class Enrollment:
 @dataclass
 class TenantToken:
     token: str
-    """Pass as `Sai(api_key=...)` to act as the Tenant on sessions, machines and turns."""
+    """Pass as `Sai(api_key=...)` to act as the Tenant on sessions, machines, learn, judge and control."""
     expires_at: int
     """Unix time in milliseconds, an hour after the exchange. There is no refresh: exchange again."""
     tenant_id: str
@@ -209,6 +213,7 @@ class Tenants:
         status: Optional[str] = None,
         cloud_machine_limit: Union[int, None, _Unset] = _UNSET,
         residential_proxy: Optional[bool] = None,
+        own_computer_access: Optional[bool] = None,
     ) -> Tenant:
         """`metadata` replaces the whole map. `status="disabled"` stops the Tenant's tokens and machines;
         `status="active"` brings it back.
@@ -216,7 +221,9 @@ class Tenants:
         `cloud_machine_limit` (0 to 1000) caps the Tenant's cloud machines; `None` removes the cap.
         Lowering it deletes nothing: creates are refused until the count fits.
         `residential_proxy` is the Tenant's residential proxy switch; it has no effect yet, and
-        traffic goes direct. Only the Organisation Key or an owner may set these two."""
+        traffic goes direct. `own_computer_access` lets the Tenant's learn jobs and direct control run
+        code on its enrolled machines (default off). Only the Organisation Key or an owner may set
+        these three."""
         body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
@@ -228,6 +235,8 @@ class Tenants:
             body["cloudMachineLimit"] = cloud_machine_limit
         if residential_proxy is not None:
             body["residentialProxy"] = residential_proxy
+        if own_computer_access is not None:
+            body["ownComputerAccess"] = own_computer_access
         return Tenant.parse(self._sai._http.json("PATCH", f"/v1/tenants/{_q(_tenant_id(tenant))}", json=body))
 
     def delete(self, tenant: TenantRef) -> None:

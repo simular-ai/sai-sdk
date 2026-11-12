@@ -26,6 +26,8 @@ Direct control is a JavaScript REPL running ON one of the user's computers: a Sa
 (Windows, Linux or macOS) or the user's own Mac or Windows PC with the Sai Agent.
 Top-level await works and variables persist between blocks (use \`var\`).
 The block's last expression is returned. console.log output comes back in \`logs\`.
+\`new Date()\` reads the account's clock (the timezone the user's Sai app reported, else UTC), the same clock
+learn jobs test code on; use \`toISOString()\` or \`getUTC*\` for UTC.
 
 ## The machine: \`machine\` (already held by your control lease)
 Shell and files:

@@ -113,7 +113,10 @@ type Tenant struct {
 	// direct. Set by Get and Update; nil from List.
 	ResidentialProxy *bool `json:"residential_proxy"`
 	// CloudMachineCount is set by Get and Update; nil from List.
-	CloudMachineCount *int           `json:"cloud_machine_count"`
+	CloudMachineCount *int `json:"cloud_machine_count"`
+	// OwnComputerAccess is whether learn jobs and direct control may run code on the Tenant's
+	// enrolled machines. Set by Get and Update; nil from List and from older servers.
+	OwnComputerAccess *bool          `json:"own_computer_access"`
 	Raw               map[string]any `json:"-"`
 }
 
@@ -128,6 +131,10 @@ func parseTenant(d map[string]any) *Tenant {
 	if b, ok := d["residentialProxy"].(bool); ok {
 		proxy = &b
 	}
+	var own *bool
+	if b, ok := d["ownComputerAccess"].(bool); ok {
+		own = &b
+	}
 	return &Tenant{
 		ID:                str(d["tenantId"]),
 		Name:              str(d["name"]),
@@ -140,6 +147,7 @@ func parseTenant(d map[string]any) *Tenant {
 		CloudMachineLimit: intPtr(d["cloudMachineLimit"]),
 		ResidentialProxy:  proxy,
 		CloudMachineCount: intPtr(d["cloudMachineCount"]),
+		OwnComputerAccess: own,
 		Raw:               d,
 	}
 }
@@ -773,7 +781,11 @@ type LearnResult struct {
 	// Progress is the step a running job is on.
 	Progress *LearnProgress `json:"progress"`
 	// AgentTurnID is a job's agent run; pass it in turns to start again from that run.
-	AgentTurnID    string          `json:"agent_turn_id,omitempty"`
+	AgentTurnID string `json:"agent_turn_id,omitempty"`
+	// AgentRunEnd is how the agent run ended when it gave no answer; empty when it answered.
+	// `time_limit` (still converted), `needs_input` or the turn's `reason_code`, e.g.
+	// `agent_error`; every end but `time_limit` stops the job (`agent_failed`) before conversion.
+	AgentRunEnd    string          `json:"agent_run_end,omitempty"`
 	AgentRunReset  *LearnReset     `json:"agent_run_reset"`
 	AgentJudgement *AgentJudgement `json:"agent_judgement"`
 	// Version is the iteration Code is from.
@@ -817,6 +829,7 @@ func parseLearnResult(d map[string]any) *LearnResult {
 		StopReason:    str(d["stopReason"]),
 		Message:       str(d["message"]),
 		AgentTurnID:   str(d["agentTurnId"]),
+		AgentRunEnd:   str(d["agentRunEnd"]),
 		AgentRunReset: parseLearnReset(d["agentRunReset"]),
 		Version:       intPtr(d["version"]),
 		Iterations:    []LearnIteration{},

@@ -180,6 +180,8 @@ done = sai.learn.wait(job) # timeout: to stop waiting
 run = sai.learn.rollout(job, 1, 1)
 ```
 
+`done.agent_run_end` says how the job's agent run ended when it gave no answer: `time_limit` (still converted), or `needs_input` or the turn's `reason_code` such as `agent_error`, which stop the job (`agent_failed`) before it writes code.
+
 ## Run Sai for your customers
 
 ```ruby
@@ -193,6 +195,7 @@ clinic = org.tenants.client(tenant) # acts as the Tenant; renews its token
 clinic.sessions.create(machine: machine.id).run("Open the calendar and read today's appointments")
 
 org.tenants.update(tenant, cloud_machine_limit: nil) # nil removes the cap; leaving it out changes nothing
+org.tenants.update(tenant, own_computer_access: true) # learn and control on its enrolled machines
 usage = org.usage.get(granularity: "month", from: "2026-10", to: "2026-10")
 page = org.usage.sessions(tenant, from: "2026-10-01", to: "2026-10-31")
 ```

@@ -241,7 +241,8 @@ fmt.Println(judgement.Verdict)
 With `MaxIterations`, `Learn` also runs the code on a machine, judges each run, and repairs the code
 after a failed run, for up to that many versions. The call returns at once with a job;
 `client.Learn.Wait(ctx, job.ID, nil)` reads it until it ends, `client.Learn.Rollout(ctx, job.ID, 1, 1)`
-returns one run, and `client.Learn.Cancel(ctx, job.ID)` stops it.
+returns one run, and `client.Learn.Cancel(ctx, job.ID)` stops it. `AgentRunEnd`
+says how the job's agent run ended when it gave no answer: `time_limit` (still converted), or `needs_input` or the turn's `reason_code` such as `agent_error`, which stop the job (`agent_failed`) before it writes code.
 
 ## Run Sai for your customers
 
@@ -262,7 +263,8 @@ machine, err := org.TenantMachines.Create(ctx, tenant.ID, &sai.TenantMachineCrea
 })
 ```
 
-- `Tenants.List`, `Get`, `Update` (`ClearCloudMachineLimit: true` sends a null limit), `Delete`, `Token`.
+- `Tenants.List`, `Get`, `Update` (`ClearCloudMachineLimit: true` sends a null limit; `OwnComputerAccess`
+  lets the Tenant's learn jobs and direct control use its enrolled machines), `Delete`, `Token`.
 - `TenantMachines.List`, `Get`, `Delete` (`"revoked"` or `"deleting"`), `Revoke`.
 - `Usage.Get` and `Usage.Sessions`: what the Organisation is charged, per Tenant and per session.
 
