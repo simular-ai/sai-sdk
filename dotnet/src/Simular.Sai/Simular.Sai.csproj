@@ -4,7 +4,7 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <RootNamespace>Simular.Sai</RootNamespace>
     <PackageId>Simular.Sai</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>Simular</Authors>
     <Company>Simular, Inc.</Company>
     <Description>.NET SDK for the Sai API: delegate desktop work to Sai, or drive a computer directly.</Description>
