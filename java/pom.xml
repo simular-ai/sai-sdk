@@ -6,7 +6,7 @@
 
   <groupId>ai.simular</groupId>
   <artifactId>sai-sdk</artifactId>
-  <version>0.2.0</version>
+  <version>0.2.1</version>
   <packaging>jar</packaging>
 
   <name>Sai SDK</name>
