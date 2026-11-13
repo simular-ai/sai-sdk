@@ -2,7 +2,7 @@
   "cases": [
     {
       "id": "machines.list",
-      "doc": "Machines parse their id, state, status and os; fields a server leaves out are null.",
+      "doc": "Machines parse their id, state, status, os and capabilities; fields a server leaves out are null, and capabilities that are not an object of three strings-or-nulls are null.",
       "steps": [
         {
           "call": "machines.list",
@@ -16,7 +16,8 @@
                 "state": "asleep",
                 "status": "hibernated",
                 "can_wake": true,
-                "os": "windows"
+                "os": "windows",
+                "capabilities": null
               },
               {
                 "id": "m_2",
@@ -24,9 +25,14 @@
                 "kind": "own",
                 "state": null,
                 "status": null,
-                "os": "macOS"
+                "os": "macOS",
+                "capabilities": {
+                  "can_see": null,
+                  "can_use_accessibility": "Turn on Accessibility for Sai in System Settings.",
+                  "can_control": "Turn on Accessibility for Sai in System Settings."
+                }
               },
-              { "id": "m_3", "os": null }
+              { "id": "m_3", "os": null, "capabilities": null }
             ]
           }
         }
@@ -47,8 +53,21 @@
                   "canWake": true,
                   "os": "windows"
                 },
-                { "machineId": "m_2", "kind": "own", "os": "macOS" },
-                { "machineId": "m_3", "kind": "cloud" }
+                {
+                  "machineId": "m_2",
+                  "kind": "own",
+                  "os": "macOS",
+                  "capabilities": {
+                    "canSee": null,
+                    "canUseAccessibility": "Turn on Accessibility for Sai in System Settings.",
+                    "canControl": "Turn on Accessibility for Sai in System Settings."
+                  }
+                },
+                {
+                  "machineId": "m_3",
+                  "kind": "own",
+                  "capabilities": { "canSee": 1, "canUseAccessibility": null }
+                }
               ]
             }
           }

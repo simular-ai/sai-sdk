@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from ._errors import BadRequestError, NotFoundError
-from .types import LiveView
+from .types import LiveView, MachineCapabilities
 
 if TYPE_CHECKING:
     from ._client import Sai
@@ -28,6 +28,9 @@ class Machine:
     """`running`, `starting`, `asleep`, `creating` or `unknown`; None on servers that do not send it yet."""
     os: Optional[str] = None
     """`windows`, `linux`, `macOS` or `android`; None when the server does not know it or does not send it yet."""
+    capabilities: Optional[MachineCapabilities] = None
+    """What stands in the way of driving it. None when there is no answer yet: the machine has not
+    reported (its runtime is too old to, or has not yet), or its check failed; also from older servers."""
 
     @classmethod
     def parse(cls, d: dict[str, Any]) -> Machine:
@@ -41,6 +44,7 @@ class Machine:
             raw=d,
             state=d.get("state"),
             os=d.get("os"),
+            capabilities=MachineCapabilities.parse(d.get("capabilities")),
         )
 
 

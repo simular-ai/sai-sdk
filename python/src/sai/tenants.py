@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from ._errors import RateLimitError, SaiError
+from .types import MachineCapabilities
 
 if TYPE_CHECKING:
     from ._client import Sai
@@ -104,6 +105,9 @@ class TenantMachine:
     created_at: Optional[int]
     """Unix time in milliseconds. None from servers before cloud machines."""
     raw: dict[str, Any] = field(repr=False)
+    capabilities: Optional[MachineCapabilities] = None
+    """What stands in the way of driving it. None when there is no answer yet: the machine has not
+    reported (its runtime is too old to, or has not yet), or its check failed; also from older servers."""
 
     @classmethod
     def parse(cls, d: dict[str, Any]) -> TenantMachine:
@@ -122,6 +126,7 @@ class TenantMachine:
             machine_class=d.get("machineClass"),
             created_at=d.get("createdAt"),
             raw=d,
+            capabilities=MachineCapabilities.parse(d.get("capabilities")),
         )
 
 

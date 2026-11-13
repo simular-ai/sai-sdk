@@ -57,6 +57,36 @@ export function parseModel(d: Json): Model {
   }
 }
 
+/**
+ * What stands in the way of driving a machine, as the Sai runtime on it last reported. Each field is
+ * null when nothing was found in the way (a check that cannot tell counts as fine), else a sentence
+ * for the user saying what is missing and how to fix it.
+ * See https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities.
+ */
+export interface MachineCapabilities {
+  /** Screenshots show what is on screen. */
+  canSee: string | null
+  /** Other apps' accessibility trees can be read and acted on. */
+  canUseAccessibility: string | null
+  /** Mouse, keyboard and element actions reach other apps. Needs what `canUseAccessibility` needs. */
+  canControl: string | null
+}
+
+/** null unless the value is an object whose three answers are each a string or null. */
+export function parseMachineCapabilities(v: unknown): MachineCapabilities | null {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null
+  const d = v as Json
+  const answer = (x: unknown): string | null | undefined =>
+    x === null || typeof x === 'string' ? x : undefined
+  const canSee = answer(d.canSee)
+  const canUseAccessibility = answer(d.canUseAccessibility)
+  const canControl = answer(d.canControl)
+  if (canSee === undefined || canUseAccessibility === undefined || canControl === undefined) {
+    return null
+  }
+  return { canSee, canUseAccessibility, canControl }
+}
+
 export interface Machine {
   id: string
   name: string | null
@@ -74,6 +104,11 @@ export interface Machine {
   canWake: boolean
   /** `windows`, `linux`, `macOS` or `android`; `null` when the server does not know it or does not send it yet. */
   os: string | null
+  /**
+   * What stands in the way of driving it. null when there is no answer yet: the machine has not
+   * reported (its runtime is too old to, or has not yet), or its check failed; also from older servers.
+   */
+  capabilities: MachineCapabilities | null
   raw: Json
 }
 
@@ -87,6 +122,7 @@ export function parseMachine(d: Json): Machine {
     status: str(d.status) ?? null,
     canWake: Boolean(d.canWake),
     os: str(d.os) ?? null,
+    capabilities: parseMachineCapabilities(d.capabilities),
     raw: d,
   }
 }
@@ -168,6 +204,11 @@ export interface TenantMachine {
   machineClass: string | null
   /** Unix time in milliseconds. null from servers before cloud machines. */
   createdAt: number | null
+  /**
+   * What stands in the way of driving it. null when there is no answer yet: the machine has not
+   * reported (its runtime is too old to, or has not yet), or its check failed; also from older servers.
+   */
+  capabilities: MachineCapabilities | null
   raw: Json
 }
 
@@ -186,6 +227,7 @@ export function parseTenantMachine(d: Json): TenantMachine {
     state,
     machineClass: str(d.machineClass) ?? null,
     createdAt: typeof d.createdAt === 'number' ? d.createdAt : null,
+    capabilities: parseMachineCapabilities(d.capabilities),
     raw: d,
   }
 }

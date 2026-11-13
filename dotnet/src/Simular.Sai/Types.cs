@@ -68,18 +68,48 @@ public sealed record Model(string Id, string Name, string Provider, string Tier,
 }
 
 /// <summary>
+/// What stands in the way of driving a machine, as the Sai runtime on it last reported. Each field is
+/// null when nothing was found in the way (a check that cannot tell counts as fine), else a sentence for
+/// the user saying what is missing and how to fix it:
+/// <see cref="CanSee"/> (screenshots show what is on screen), <see cref="CanUseAccessibility"/> (other
+/// apps' accessibility trees can be read and acted on), <see cref="CanControl"/> (mouse, keyboard and
+/// element actions reach other apps; needs what <c>CanUseAccessibility</c> needs). See
+/// https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities.
+/// </summary>
+public sealed record MachineCapabilities(string? CanSee, string? CanUseAccessibility, string? CanControl)
+{
+    /// <summary>Null unless <paramref name="v"/> is an object whose three answers are each a string or null.</summary>
+    internal static MachineCapabilities? Parse(JsonElement v)
+    {
+        if (!v.IsObject()) return null;
+        string[] keys = ["canSee", "canUseAccessibility", "canControl"];
+        foreach (var key in keys)
+        {
+            if (!v.Has(key)) return null;
+            var kind = v.Get(key).ValueKind;
+            if (kind != JsonValueKind.Null && kind != JsonValueKind.String) return null;
+        }
+        return new(v.Str("canSee"), v.Str("canUseAccessibility"), v.Str("canControl"));
+    }
+}
+
+/// <summary>
 /// A computer Sai works on. <see cref="Kind"/> is <c>cloud</c> or <c>own</c>; <see cref="State"/> is
 /// <c>running</c>, <c>starting</c>, <c>asleep</c>, <c>creating</c> or <c>unknown</c> (null on older
 /// servers); <see cref="Os"/> is <c>windows</c>, <c>linux</c>, <c>macOS</c> or <c>android</c>.
+/// <see cref="Capabilities"/> is what stands in the way of driving it; null when there is no answer yet:
+/// the machine has not reported (its runtime is too old to, or has not yet), or its check failed; also
+/// from older servers.
 /// </summary>
 public sealed record Machine(
     string Id, string? Name, string Kind, bool Online, string? State,
     string? Status,
-    bool CanWake, string? Os, JsonElement Raw)
+    bool CanWake, string? Os, MachineCapabilities? Capabilities, JsonElement Raw)
 {
     internal static Machine Parse(JsonElement d) => new(
         d.Str("machineId") ?? "", d.Str("name"), d.Str("kind") ?? "", d.Truthy("online"), d.Str("state"),
-        d.Str("status"), d.Truthy("canWake"), d.Str("os"), d);
+        d.Str("status"), d.Truthy("canWake"), d.Str("os"),
+        MachineCapabilities.Parse(d.Get("capabilities")), d);
 }
 
 /// <summary>
@@ -112,11 +142,14 @@ public sealed record TenantPage(IReadOnlyList<Tenant> Tenants, string? NextCurso
 /// <summary>
 /// A Tenant's computer: enrolled, or a cloud machine Sai hosts for it. <see cref="State"/> is
 /// <c>online</c> or <c>offline</c> (enrolled), or <c>provisioning</c>, <c>ready</c>, <c>starting</c>,
-/// <c>hibernated</c>, <c>deleting</c> or <c>failed</c> (cloud).
+/// <c>hibernated</c>, <c>deleting</c> or <c>failed</c> (cloud). <see cref="Capabilities"/> is what
+/// stands in the way of driving it; null when there is no answer yet: the machine has not reported (its
+/// runtime is too old to, or has not yet), or its check failed; also from older servers.
 /// </summary>
 public sealed record TenantMachine(
     string Id, string? Name, string? Platform, string Status, bool Online, long? LastSeen, string? RuntimeVersion,
-    string Kind, string State, string? MachineClass, long? CreatedAt, JsonElement Raw)
+    string Kind, string State, string? MachineClass, long? CreatedAt, MachineCapabilities? Capabilities,
+    JsonElement Raw)
 {
     internal static TenantMachine Parse(JsonElement d)
     {
@@ -127,7 +160,7 @@ public sealed record TenantMachine(
             d.Str("machineId") ?? "", d.Str("name"), d.Str("platform"), d.Str("status") ?? "",
             d.Has("online") ? d.Truthy("online") : state is "online" or "ready", d.Long("lastSeen"),
             d.Str("runtimeVersion"), d.Str("kind") == "cloud" ? "cloud" : "enrolled", state, d.Str("machineClass"),
-            d.Long("createdAt"), d);
+            d.Long("createdAt"), MachineCapabilities.Parse(d.Get("capabilities")), d);
     }
 }
 

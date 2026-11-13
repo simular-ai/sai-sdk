@@ -255,6 +255,7 @@ class Fake {
       status: 'running',
       canWake: true,
       os: 'windows',
+      capabilities: null,
     }
   }
 
@@ -603,6 +604,7 @@ class Fake {
         state: 'provisioning',
         machineClass: body.os === 'linux' ? 'linux-standard' : 'windows-standard',
         createdAt: Date.now(),
+        capabilities: null,
       }
       this.tenantMachines.set(id, machine)
       const { tenantId: _, ...out } = machine
@@ -622,6 +624,7 @@ class Fake {
         state: 'ready',
         machineClass: null,
         createdAt: 1767225600000,
+        capabilities: { canSee: null, canUseAccessibility: null, canControl: null },
       }
       if (m[1] === 'DELETE') {
         if (machine.kind === 'cloud') {

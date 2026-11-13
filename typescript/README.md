@@ -344,6 +344,10 @@ await session.run("Open the calendar and read today's appointments")
   `machine.kind` is `enrolled` or `cloud`, and `machine.state` is `online` / `offline` for an
   enrolled machine, or `provisioning`, `ready`, `starting`, `hibernated`, `deleting` or `failed` for a
   cloud one.
+- A machine from `tenantMachines` or `machines.list` has `capabilities`: what stands in the way of
+  driving it (`canSee`, `canUseAccessibility`, `canControl`, each null when nothing was found in the
+  way, else a sentence saying what to fix), or null when there is no answer yet (the machine has not
+  reported, or its check failed). See [machine capabilities](https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities).
 - `tenantMachines.delete(tenant, machine)` resolves with `'revoked'` for an enrolled machine and
   `'deleting'` for a cloud machine, whose disk goes with it.
 
