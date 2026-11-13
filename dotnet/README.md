@@ -263,6 +263,9 @@ await org.Tenants.UpdateAsync(tenant, new TenantUpdate { CloudMachineLimit = nul
   and direct control run code on its enrolled machines.
 - `TenantMachines.DeleteAsync(tenant, machine)` returns `"revoked"` for an enrolled machine and
   `"deleting"` for a cloud machine.
+- A `TenantMachine` or `Machine` has `Capabilities`: what stands in the way of driving it (`CanSee`,
+  `CanUseAccessibility`, `CanControl`, each null or a sentence saying what to fix), or null for a cloud
+  machine and a runtime that has not reported. See [machine capabilities](https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities).
 - `Usage.GetAsync(granularity:, from:, to:)` and `Usage.SessionsAsync(tenant, from:, to:, cursor:)`
   report what the Organisation and each Tenant's sessions spent.
 

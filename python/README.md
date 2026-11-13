@@ -314,6 +314,10 @@ clinic.sessions.create().run("Open the calendar and read today's appointments")
 - `tenant_machines.list(tenant)` and `tenant_machines.get(tenant, machine_id)` return both kinds:
   `machine.kind` is `enrolled` or `cloud`, and `machine.state` is `online` / `offline` for an enrolled
   machine, or `provisioning`, `ready`, `starting`, `hibernated`, `deleting` or `failed` for a cloud one.
+- A machine from `tenant_machines` or `machines.list` has `capabilities`: what stands in the way of
+  driving it (`can_see`, `can_use_accessibility`, `can_control`, each None or a sentence saying what
+  to fix), or None for a cloud machine and a runtime that has not reported. See
+  [machine capabilities](https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities).
 - `tenant_machines.delete(tenant, machine)` returns `"revoked"` for an enrolled machine and
   `"deleting"` for a cloud machine, whose disk goes with it.
 

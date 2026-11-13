@@ -235,6 +235,11 @@ TenantMachine machine = org.tenantMachines().create(tenant, "windows", new Creat
 OrgUsage usage = org.usage().get(new UsageOptions().granularity("month").from("2026-10").to("2026-10"));
 ```
 
+A `TenantMachine` or `Machine` has `capabilities()`: what stands in the way of driving it
+(`canSee()`, `canUseAccessibility()`, `canControl()`, each null or a sentence saying what to fix), or
+null for a cloud machine and a runtime that has not reported. See
+[machine capabilities](https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities).
+
 To charge for a task as soon as it ends, look its session up in real time instead of a date range:
 
 ```java

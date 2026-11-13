@@ -266,6 +266,9 @@ machine, err := org.TenantMachines.Create(ctx, tenant.ID, &sai.TenantMachineCrea
 - `Tenants.List`, `Get`, `Update` (`ClearCloudMachineLimit: true` sends a null limit; `OwnComputerAccess`
   lets the Tenant's learn jobs and direct control use its enrolled machines), `Delete`, `Token`.
 - `TenantMachines.List`, `Get`, `Delete` (`"revoked"` or `"deleting"`), `Revoke`.
+- A `TenantMachine` or `Machine` has `Capabilities`: what stands in the way of driving it (`CanSee`,
+  `CanUseAccessibility`, `CanControl`, each nil or a sentence saying what to fix), or nil for a cloud
+  machine and a runtime that has not reported. See [machine capabilities](https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities).
 - `Usage.Get` and `Usage.Sessions`: what the Organisation is charged, per Tenant and per session.
 
 To charge for a task as soon as it ends, look its session up in real time instead of a date range:

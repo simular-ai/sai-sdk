@@ -13,6 +13,9 @@ import java.util.Map;
  *     ready}, {@code starting}, {@code hibernated}, {@code deleting} or {@code failed}.
  * @param machineClass cloud only: the billing class, e.g. {@code win32-4c8g}
  * @param createdAt Unix time in milliseconds; null from servers before cloud machines
+ * @param capabilities what stands in the way of driving it; null for a cloud machine, before the
+ *     runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older
+ *     servers
  */
 public record TenantMachine(
     String id,
@@ -26,6 +29,7 @@ public record TenantMachine(
     String state,
     String machineClass,
     Long createdAt,
+    MachineCapabilities capabilities,
     Map<String, Object> raw) {
 
   static TenantMachine parse(Map<String, Object> d) {
@@ -46,6 +50,7 @@ public record TenantMachine(
         state,
         Json.str(d.get("machineClass")),
         Json.lngOrNull(d.get("createdAt")),
+        MachineCapabilities.parse(d.get("capabilities")),
         d);
   }
 }

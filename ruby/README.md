@@ -200,6 +200,11 @@ usage = org.usage.get(granularity: "month", from: "2026-10", to: "2026-10")
 page = org.usage.sessions(tenant, from: "2026-10-01", to: "2026-10-31")
 ```
 
+A machine from `tenant_machines` or `machines.list` has `capabilities`: what stands in the way of
+driving it (`can_see`, `can_use_accessibility`, `can_control`, each nil or a sentence saying what to
+fix), or nil for a cloud machine and a runtime that has not reported. See
+[machine capabilities](https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities).
+
 `usage.sessions` pages what each of a Tenant's sessions spent on AI calls, for UTC days `from:` to `to:`
 (at most 93). A page can be empty and still have a `next_cursor`: keep paging until it is `nil`.
 

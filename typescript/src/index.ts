@@ -67,6 +67,7 @@ export {
   type LearnTestResult,
   type LiveView,
   type Machine,
+  type MachineCapabilities,
   type Model,
   type OrgUsage,
   type SessionSpend,

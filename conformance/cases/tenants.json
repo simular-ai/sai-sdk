@@ -334,7 +334,7 @@
     },
     {
       "id": "tenant_machines.enrolled",
-      "doc": "list, get, delete and revoke for enrolled machines; delete says revoked (204) or deleting (202); the older shape without kind parses as enrolled.",
+      "doc": "list, get, delete and revoke for enrolled machines; delete says revoked (204) or deleting (202); the older shape without kind parses as enrolled; capabilities parse, null when null or absent.",
       "steps": [
         {
           "call": "tenant_machines.list",
@@ -353,7 +353,12 @@
                 "machine_class": null,
                 "created_at": 1789000000000,
                 "last_seen": 1790003600000,
-                "runtime_version": "1.2.0"
+                "runtime_version": "1.2.0",
+                "capabilities": {
+                  "can_see": "Turn on Screen Recording for Sai in System Settings.",
+                  "can_use_accessibility": null,
+                  "can_control": null
+                }
               },
               {
                 "id": "cm_1",
@@ -361,7 +366,8 @@
                 "state": "ready",
                 "online": true,
                 "machine_class": "win32-4c8g",
-                "platform": "win32"
+                "platform": "win32",
+                "capabilities": null
               },
               {
                 "id": "tm_2",
@@ -369,7 +375,8 @@
                 "state": "online",
                 "online": true,
                 "status": "active",
-                "created_at": null
+                "created_at": null,
+                "capabilities": null
               }
             ]
           }
@@ -377,7 +384,16 @@
         {
           "call": "tenant_machines.get",
           "args": { "tenant": "t_1", "machine_id": "tm_1" },
-          "expect": { "result": { "name": "Front desk PC" } }
+          "expect": {
+            "result": {
+              "name": "Front desk PC",
+              "capabilities": {
+                "can_see": null,
+                "can_use_accessibility": null,
+                "can_control": null
+              }
+            }
+          }
         },
         {
           "call": "tenant_machines.delete",
@@ -409,7 +425,12 @@
                   "state": "offline",
                   "lastSeen": 1790003600000,
                   "runtimeVersion": "1.2.0",
-                  "createdAt": 1789000000000
+                  "createdAt": 1789000000000,
+                  "capabilities": {
+                    "canSee": "Turn on Screen Recording for Sai in System Settings.",
+                    "canUseAccessibility": null,
+                    "canControl": null
+                  }
                 },
                 {
                   "machineId": "cm_1",
@@ -420,7 +441,8 @@
                   "state": "ready",
                   "lastSeen": null,
                   "runtimeVersion": null,
-                  "createdAt": 1790000000000
+                  "createdAt": 1790000000000,
+                  "capabilities": null
                 },
                 {
                   "machineId": "tm_2",
@@ -443,7 +465,8 @@
               "kind": "enrolled",
               "name": "Front desk PC",
               "platform": "darwin",
-              "state": "online"
+              "state": "online",
+              "capabilities": { "canSee": null, "canUseAccessibility": null, "canControl": null }
             }
           }
         },

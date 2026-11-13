@@ -105,10 +105,31 @@ module Sai
     end
   end
 
+  # What stands in the way of driving a machine, as the Sai runtime on it last reported. Each field
+  # is nil when nothing does, else a sentence for the user saying what is missing and how to fix it:
+  # +can_see+ (screenshots show what is on screen), +can_use_accessibility+ (other apps'
+  # accessibility trees can be read and acted on), +can_control+ (mouse, keyboard and element
+  # actions reach other apps; needs what +can_use_accessibility+ needs). See
+  # https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities.
+  MachineCapabilities = Struct.new(:can_see, :can_use_accessibility, :can_control,
+                                   keyword_init: true) do
+    # nil unless +v+ is an object whose three answers are each a string or nil.
+    def self.parse(v)
+      return nil unless v.is_a?(Hash)
+      return nil unless %w[canSee canUseAccessibility canControl].all? { |k| v.key?(k) && (v[k].nil? || v[k].is_a?(String)) }
+
+      new(can_see: v["canSee"], can_use_accessibility: v["canUseAccessibility"],
+          can_control: v["canControl"])
+    end
+  end
+
   # A computer Sai works on. +kind+ is +cloud+ or +own+; +state+ is +running+, +starting+,
   # +asleep+, +creating+ or +unknown+ (nil on servers that do not send it). +status+ is deprecated.
-  Machine = Struct.new(:id, :name, :kind, :online, :state, :status, :can_wake, :os, :raw,
-                       keyword_init: true) do
+  # +capabilities+ is what stands in the way of driving it; nil for a cloud machine, before the
+  # runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older
+  # servers.
+  Machine = Struct.new(:id, :name, :kind, :online, :state, :status, :can_wake, :os, :capabilities,
+                       :raw, keyword_init: true) do
     def self.parse(d)
       new(
         id: Parse.str(d["machineId"]) || "",
@@ -119,6 +140,7 @@ module Sai
         status: Parse.str(d["status"]),
         can_wake: Parse.truthy(d["canWake"]),
         os: Parse.str(d["os"]),
+        capabilities: MachineCapabilities.parse(d["capabilities"]),
         raw: d
       )
     end
@@ -578,9 +600,12 @@ module Sai
 
   # A Tenant's computer: enrolled, or a cloud machine Sai hosts. +kind+ is +enrolled+ or +cloud+;
   # +state+ is +online+/+offline+ (enrolled) or +provisioning+, +ready+, +starting+,
-  # +hibernated+, +deleting+ or +failed+ (cloud).
+  # +hibernated+, +deleting+ or +failed+ (cloud). +capabilities+ is what stands in the way of
+  # driving it; nil for a cloud machine, before the runtime has reported, from a runtime older than
+  # 0.1.3, when its check failed, and from older servers.
   TenantMachine = Struct.new(:id, :name, :platform, :status, :online, :last_seen, :runtime_version,
-                             :kind, :state, :machine_class, :created_at, :raw, keyword_init: true) do
+                             :kind, :state, :machine_class, :created_at, :capabilities, :raw,
+                             keyword_init: true) do
     def self.parse(d)
       # Servers before cloud machines send online and status and no kind or state.
       state = Parse.present(d["state"]) || (Parse.truthy(d["online"]) ? "online" : "offline")
@@ -596,6 +621,7 @@ module Sai
         state: state,
         machine_class: Parse.str(d["machineClass"]),
         created_at: Parse.num_or_nil(d["createdAt"]),
+        capabilities: MachineCapabilities.parse(d["capabilities"]),
         raw: d
       )
     end

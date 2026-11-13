@@ -59,6 +59,47 @@ func parseModel(d map[string]any) *Model {
 	}
 }
 
+// MachineCapabilities is what stands in the way of driving a machine, as the Sai runtime on it
+// last reported. Each field is nil when nothing does, else a sentence for the user saying what is
+// missing and how to fix it. See
+// https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities.
+type MachineCapabilities struct {
+	// CanSee: screenshots show what is on screen.
+	CanSee *string `json:"can_see"`
+	// CanUseAccessibility: other apps' accessibility trees can be read and acted on.
+	CanUseAccessibility *string `json:"can_use_accessibility"`
+	// CanControl: mouse, keyboard and element actions reach other apps. Needs what
+	// CanUseAccessibility needs.
+	CanControl *string `json:"can_control"`
+}
+
+// parseMachineCapabilities is nil unless v is an object whose three answers are each a string or
+// null.
+func parseMachineCapabilities(v any) *MachineCapabilities {
+	d, ok := v.(map[string]any)
+	if !ok {
+		return nil
+	}
+	answer := func(key string) (*string, bool) {
+		x, present := d[key]
+		if !present {
+			return nil, false
+		}
+		if x == nil {
+			return nil, true
+		}
+		s, isStr := x.(string)
+		return &s, isStr
+	}
+	see, ok1 := answer("canSee")
+	ax, ok2 := answer("canUseAccessibility")
+	control, ok3 := answer("canControl")
+	if !ok1 || !ok2 || !ok3 {
+		return nil
+	}
+	return &MachineCapabilities{CanSee: see, CanUseAccessibility: ax, CanControl: control}
+}
+
 // Machine is a computer Sai works on: a cloud computer, or a PC with the Sai app.
 type Machine struct {
 	ID   string `json:"id"`
@@ -75,21 +116,26 @@ type Machine struct {
 	Status  string `json:"status,omitempty"`
 	CanWake bool   `json:"can_wake"`
 	// OS is `windows`, `linux`, `macOS` or `android`; empty when unknown.
-	OS  string         `json:"os,omitempty"`
-	Raw map[string]any `json:"-"`
+	OS string `json:"os,omitempty"`
+	// Capabilities is what stands in the way of driving it. nil for a cloud machine, before the
+	// runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older
+	// servers.
+	Capabilities *MachineCapabilities `json:"capabilities"`
+	Raw          map[string]any       `json:"-"`
 }
 
 func parseMachine(d map[string]any) *Machine {
 	return &Machine{
-		ID:      str(d["machineId"]),
-		Name:    str(d["name"]),
-		Kind:    str(d["kind"]),
-		Online:  truthy(d["online"]),
-		State:   str(d["state"]),
-		Status:  str(d["status"]),
-		CanWake: truthy(d["canWake"]),
-		OS:      str(d["os"]),
-		Raw:     d,
+		ID:           str(d["machineId"]),
+		Name:         str(d["name"]),
+		Kind:         str(d["kind"]),
+		Online:       truthy(d["online"]),
+		State:        str(d["state"]),
+		Status:       str(d["status"]),
+		CanWake:      truthy(d["canWake"]),
+		OS:           str(d["os"]),
+		Capabilities: parseMachineCapabilities(d["capabilities"]),
+		Raw:          d,
 	}
 }
 
@@ -179,8 +225,12 @@ type TenantMachine struct {
 	// MachineClass is the billing class of a cloud machine, e.g. `win32-4c8g`.
 	MachineClass string `json:"machine_class,omitempty"`
 	// CreatedAt is Unix time in milliseconds; nil from servers before cloud machines.
-	CreatedAt *int64         `json:"created_at"`
-	Raw       map[string]any `json:"-"`
+	CreatedAt *int64 `json:"created_at"`
+	// Capabilities is what stands in the way of driving it. nil for a cloud machine, before the
+	// runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older
+	// servers.
+	Capabilities *MachineCapabilities `json:"capabilities"`
+	Raw          map[string]any       `json:"-"`
 }
 
 func parseTenantMachine(d map[string]any) *TenantMachine {
@@ -212,6 +262,7 @@ func parseTenantMachine(d map[string]any) *TenantMachine {
 		State:          state,
 		MachineClass:   str(d["machineClass"]),
 		CreatedAt:      int64Ptr(d["createdAt"]),
+		Capabilities:   parseMachineCapabilities(d["capabilities"]),
 		Raw:            d,
 	}
 }
