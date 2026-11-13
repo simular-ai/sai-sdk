@@ -69,7 +69,8 @@ public sealed record Model(string Id, string Name, string Provider, string Tier,
 
 /// <summary>
 /// What stands in the way of driving a machine, as the Sai runtime on it last reported. Each field is
-/// null when nothing does, else a sentence for the user saying what is missing and how to fix it:
+/// null when nothing was found in the way (a check that cannot tell counts as fine), else a sentence for
+/// the user saying what is missing and how to fix it:
 /// <see cref="CanSee"/> (screenshots show what is on screen), <see cref="CanUseAccessibility"/> (other
 /// apps' accessibility trees can be read and acted on), <see cref="CanControl"/> (mouse, keyboard and
 /// element actions reach other apps; needs what <c>CanUseAccessibility</c> needs). See
@@ -96,8 +97,9 @@ public sealed record MachineCapabilities(string? CanSee, string? CanUseAccessibi
 /// A computer Sai works on. <see cref="Kind"/> is <c>cloud</c> or <c>own</c>; <see cref="State"/> is
 /// <c>running</c>, <c>starting</c>, <c>asleep</c>, <c>creating</c> or <c>unknown</c> (null on older
 /// servers); <see cref="Os"/> is <c>windows</c>, <c>linux</c>, <c>macOS</c> or <c>android</c>.
-/// <see cref="Capabilities"/> is what stands in the way of driving it; null for a cloud machine, before
-/// the runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older servers.
+/// <see cref="Capabilities"/> is what stands in the way of driving it; null when there is no answer yet:
+/// the machine has not reported (its runtime is too old to, or has not yet), or its check failed; also
+/// from older servers.
 /// </summary>
 public sealed record Machine(
     string Id, string? Name, string Kind, bool Online, string? State,
@@ -141,8 +143,8 @@ public sealed record TenantPage(IReadOnlyList<Tenant> Tenants, string? NextCurso
 /// A Tenant's computer: enrolled, or a cloud machine Sai hosts for it. <see cref="State"/> is
 /// <c>online</c> or <c>offline</c> (enrolled), or <c>provisioning</c>, <c>ready</c>, <c>starting</c>,
 /// <c>hibernated</c>, <c>deleting</c> or <c>failed</c> (cloud). <see cref="Capabilities"/> is what
-/// stands in the way of driving it; null for a cloud machine, before the runtime has reported, from a
-/// runtime older than 0.1.3, when its check failed, and from older servers.
+/// stands in the way of driving it; null when there is no answer yet: the machine has not reported (its
+/// runtime is too old to, or has not yet), or its check failed; also from older servers.
 /// </summary>
 public sealed record TenantMachine(
     string Id, string? Name, string? Platform, string Status, bool Online, long? LastSeen, string? RuntimeVersion,

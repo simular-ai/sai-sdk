@@ -106,8 +106,8 @@ class TenantMachine:
     """Unix time in milliseconds. None from servers before cloud machines."""
     raw: dict[str, Any] = field(repr=False)
     capabilities: Optional[MachineCapabilities] = None
-    """What stands in the way of driving it. None for a cloud machine, before the runtime has
-    reported, from a runtime older than 0.1.3, when its check failed, and from older servers."""
+    """What stands in the way of driving it. None when there is no answer yet: the machine has not
+    reported (its runtime is too old to, or has not yet), or its check failed; also from older servers."""
 
     @classmethod
     def parse(cls, d: dict[str, Any]) -> TenantMachine:

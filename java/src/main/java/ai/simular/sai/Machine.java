@@ -12,9 +12,9 @@ import java.util.Map;
  *     unknown}; null on servers that do not send it yet. Prefer it over {@code status}.
  * @param status deprecated: the server's internal lifecycle value; use {@code state}
  * @param os {@code windows}, {@code linux}, {@code macOS} or {@code android}; null when unknown
- * @param capabilities what stands in the way of driving it; null for a cloud machine, before the
- *     runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older
- *     servers
+ * @param capabilities what stands in the way of driving it; null when there is no answer yet: the
+ *     machine has not reported (its runtime is too old to, or has not yet), or its check failed;
+ *     also from older servers
  */
 public record Machine(
     String id,

@@ -98,8 +98,8 @@ class LiveView:
 @dataclass
 class MachineCapabilities:
     """What stands in the way of driving a machine, as the Sai runtime on it last reported. Each
-    field is None when nothing does, else a sentence for the user saying what is missing and how to
-    fix it. See
+    field is None when nothing was found in the way (a check that cannot tell counts as fine), else a
+    sentence for the user saying what is missing and how to fix it. See
     https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities."""
 
     can_see: Optional[str]

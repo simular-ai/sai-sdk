@@ -60,8 +60,8 @@ func parseModel(d map[string]any) *Model {
 }
 
 // MachineCapabilities is what stands in the way of driving a machine, as the Sai runtime on it
-// last reported. Each field is nil when nothing does, else a sentence for the user saying what is
-// missing and how to fix it. See
+// last reported. Each field is nil when nothing was found in the way (a check that cannot tell
+// counts as fine), else a sentence for the user saying what is missing and how to fix it. See
 // https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities.
 type MachineCapabilities struct {
 	// CanSee: screenshots show what is on screen.
@@ -117,9 +117,9 @@ type Machine struct {
 	CanWake bool   `json:"can_wake"`
 	// OS is `windows`, `linux`, `macOS` or `android`; empty when unknown.
 	OS string `json:"os,omitempty"`
-	// Capabilities is what stands in the way of driving it. nil for a cloud machine, before the
-	// runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older
-	// servers.
+	// Capabilities is what stands in the way of driving it. nil when there is no answer yet: the
+	// machine has not reported (its runtime is too old to, or has not yet), or its check failed;
+	// also from older servers.
 	Capabilities *MachineCapabilities `json:"capabilities"`
 	Raw          map[string]any       `json:"-"`
 }
@@ -226,9 +226,9 @@ type TenantMachine struct {
 	MachineClass string `json:"machine_class,omitempty"`
 	// CreatedAt is Unix time in milliseconds; nil from servers before cloud machines.
 	CreatedAt *int64 `json:"created_at"`
-	// Capabilities is what stands in the way of driving it. nil for a cloud machine, before the
-	// runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older
-	// servers.
+	// Capabilities is what stands in the way of driving it. nil when there is no answer yet: the
+	// machine has not reported (its runtime is too old to, or has not yet), or its check failed;
+	// also from older servers.
 	Capabilities *MachineCapabilities `json:"capabilities"`
 	Raw          map[string]any       `json:"-"`
 }

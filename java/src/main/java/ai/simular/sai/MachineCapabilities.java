@@ -4,7 +4,8 @@ import java.util.Map;
 
 /**
  * What stands in the way of driving a machine, as the Sai runtime on it last reported. Each field
- * is null when nothing does, else a sentence for the user saying what is missing and how to fix it.
+ * is null when nothing was found in the way (a check that cannot tell counts as fine), else a
+ * sentence for the user saying what is missing and how to fix it.
  * See <a
  * href="https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities">machine
  * capabilities</a>.

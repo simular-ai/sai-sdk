@@ -106,7 +106,8 @@ module Sai
   end
 
   # What stands in the way of driving a machine, as the Sai runtime on it last reported. Each field
-  # is nil when nothing does, else a sentence for the user saying what is missing and how to fix it:
+  # is nil when nothing was found in the way (a check that cannot tell counts as fine), else a
+  # sentence for the user saying what is missing and how to fix it:
   # +can_see+ (screenshots show what is on screen), +can_use_accessibility+ (other apps'
   # accessibility trees can be read and acted on), +can_control+ (mouse, keyboard and element
   # actions reach other apps; needs what +can_use_accessibility+ needs). See
@@ -125,9 +126,9 @@ module Sai
 
   # A computer Sai works on. +kind+ is +cloud+ or +own+; +state+ is +running+, +starting+,
   # +asleep+, +creating+ or +unknown+ (nil on servers that do not send it). +status+ is deprecated.
-  # +capabilities+ is what stands in the way of driving it; nil for a cloud machine, before the
-  # runtime has reported, from a runtime older than 0.1.3, when its check failed, and from older
-  # servers.
+  # +capabilities+ is what stands in the way of driving it; nil when there is no answer yet: the
+  # machine has not reported (its runtime is too old to, or has not yet), or its check failed; also
+  # from older servers.
   Machine = Struct.new(:id, :name, :kind, :online, :state, :status, :can_wake, :os, :capabilities,
                        :raw, keyword_init: true) do
     def self.parse(d)
@@ -601,8 +602,8 @@ module Sai
   # A Tenant's computer: enrolled, or a cloud machine Sai hosts. +kind+ is +enrolled+ or +cloud+;
   # +state+ is +online+/+offline+ (enrolled) or +provisioning+, +ready+, +starting+,
   # +hibernated+, +deleting+ or +failed+ (cloud). +capabilities+ is what stands in the way of
-  # driving it; nil for a cloud machine, before the runtime has reported, from a runtime older than
-  # 0.1.3, when its check failed, and from older servers.
+  # driving it; nil when there is no answer yet: the machine has not reported (its runtime is too
+  # old to, or has not yet), or its check failed; also from older servers.
   TenantMachine = Struct.new(:id, :name, :platform, :status, :online, :last_seen, :runtime_version,
                              :kind, :state, :machine_class, :created_at, :capabilities, :raw,
                              keyword_init: true) do

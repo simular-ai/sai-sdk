@@ -236,9 +236,9 @@ OrgUsage usage = org.usage().get(new UsageOptions().granularity("month").from("2
 ```
 
 A `TenantMachine` or `Machine` has `capabilities()`: what stands in the way of driving it
-(`canSee()`, `canUseAccessibility()`, `canControl()`, each null or a sentence saying what to fix), or
-null for a cloud machine and a runtime that has not reported. See
-[machine capabilities](https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities).
+(`canSee()`, `canUseAccessibility()`, `canControl()`, each null when nothing was found in the way,
+else a sentence saying what to fix), or null when there is no answer yet (the machine has not
+reported, or its check failed). See [machine capabilities](https://platform.simular.ai/documentation/organisations/tenant-machines#machine-capabilities).
 
 To charge for a task as soon as it ends, look its session up in real time instead of a date range:
 
