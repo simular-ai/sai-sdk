@@ -203,7 +203,10 @@ export function parseEnrollment(d: Json): Enrollment {
 }
 
 export interface TenantToken {
-  /** Pass as `new Sai({ apiKey })` to act as the Tenant on sessions, machines, learn, judge and control. */
+  /**
+   * Pass as `new Sai({ apiKey })` to act as the Tenant on sessions, machines, turns, learn, judge
+   * and control.
+   */
   token: string
   /** Unix time in milliseconds, an hour after the exchange. There is no refresh: exchange again. */
   expiresAt: number

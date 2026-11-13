@@ -141,7 +141,8 @@ class Enrollment:
 @dataclass
 class TenantToken:
     token: str
-    """Pass as `Sai(api_key=...)` to act as the Tenant on sessions, machines, learn, judge and control."""
+    """Pass as `Sai(api_key=...)` to act as the Tenant on sessions, machines, turns, learn, judge and
+    control."""
     expires_at: int
     """Unix time in milliseconds, an hour after the exchange. There is no refresh: exchange again."""
     tenant_id: str
