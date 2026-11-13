@@ -36,7 +36,7 @@ public sealed class SaiClientOptions
 public sealed class SaiClient : IDisposable
 {
     /// <summary>This package's version.</summary>
-    public const string Version = "0.2.0";
+    public const string Version = "0.2.1";
 
     internal const string DefaultBaseUrl = "https://api.simular.ai";
 
