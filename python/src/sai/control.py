@@ -1,4 +1,4 @@
-"""Direct control: drive a cloud computer with Simulang. No agent.
+"""Direct control: drive a computer with Simulang. No agent.
 
 Maps to `/v1/machines/{id}/control`, a lease on the machine: at most one per
 machine, so the machine id is the handle. Research preview, open to every account;
@@ -29,7 +29,7 @@ class Control:
         self._sai = sai
 
     def open(self, machine: Union[Machine, str]) -> ControlLease:
-        """Take a cloud computer. Returns once the lease holds it, up to ~3 minutes
+        """Take a computer. Returns once the lease holds it, up to ~3 minutes
         when a Sai task holds it or it has to start; at once if the lease is already
         open. Use as a context manager so it is always released: Sai's tasks on that
         computer wait until then."""

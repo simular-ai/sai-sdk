@@ -89,17 +89,21 @@ public sealed record Machine(
 /// </summary>
 public sealed record LiveView(string MachineId, string? LiveUrl, long? ExpiresAt, string WebsocketUrl, int Width, int Height);
 
-/// <summary>One of your customers under an Organisation.</summary>
+/// <summary>
+/// One of your customers under an Organisation. <c>OwnComputerAccess</c>: whether learn jobs and direct
+/// control may run code on its enrolled machines; null from <c>ListAsync</c> and from older servers.
+/// </summary>
 public sealed record Tenant(
     string Id, string Name, string? ExternalId, IReadOnlyDictionary<string, string> Metadata, string Status,
     long CreatedAt, long? DisabledAt, long MachineCount, long? CloudMachineLimit, bool? ResidentialProxy,
-    long? CloudMachineCount, JsonElement Raw)
+    long? CloudMachineCount, bool? OwnComputerAccess, JsonElement Raw)
 {
     internal static Tenant Parse(JsonElement d) => new(
         d.Str("tenantId") ?? "", d.Str("name") ?? "", d.Str("externalId"),
         d.Obj("metadata").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.Str() ?? p.Value.GetRawText()),
         d.Str("status") ?? "", d.Long("createdAt") ?? 0, d.Long("disabledAt"), d.Long("machineCount") ?? 0,
-        d.Long("cloudMachineLimit"), d.BoolOrNull("residentialProxy"), d.Long("cloudMachineCount"), d);
+        d.Long("cloudMachineLimit"), d.BoolOrNull("residentialProxy"), d.Long("cloudMachineCount"),
+        d.BoolOrNull("ownComputerAccess"), d);
 }
 
 /// <summary>One page of Tenants. Pass <see cref="NextCursor"/> as <c>cursor</c> for the next; null on the last page.</summary>
@@ -371,11 +375,14 @@ public sealed record LearnValidation(IReadOnlyList<string> Errors, IReadOnlyList
 /// The result of <c>Learn.CreateAsync</c>: Simulang code, a repair, or a learn job.
 /// <see cref="Mode"/> is <c>convert</c>, <c>heal</c> or <c>policyIteration</c>; <see cref="Status"/> is
 /// <c>succeeded</c>, <c>failed</c>, <c>running</c> or <c>stopped</c>. Run the code with
-/// <c>lease.RunAsync(learned, inputs)</c>. Research preview.
+/// <c>lease.RunAsync(learned, inputs)</c>. <see cref="AgentRunEnd"/> is how a job's agent run ended when it gave
+/// no answer (null when it answered): <c>time_limit</c> (still converted), <c>needs_input</c> or the turn's
+/// <c>reason_code</c>, e.g. <c>agent_error</c>; every end but <c>time_limit</c> stops the job
+/// (<c>agent_failed</c>) before conversion. Research preview.
 /// </summary>
 public sealed record LearnResult(
     string Id, string Mode, string Status, string? StopReason, string? Message, LearnTestResult? TestResult,
-    LearnProgress? Progress, string? AgentTurnId, LearnReset? AgentRunReset, AgentJudgement? AgentJudgement,
+    LearnProgress? Progress, string? AgentTurnId, string? AgentRunEnd, LearnReset? AgentRunReset, AgentJudgement? AgentJudgement,
     int? Version, IReadOnlyList<LearnIteration> Iterations, string? Title, string? Template,
     IReadOnlyList<LearnParameter> Parameters, string Code, JsonElement? OutputSchema, LearnValidation Validation,
     string? Changes, IReadOnlyList<string> SourceTurns, Usage? Usage, string? Error, bool Replayed, JsonElement Raw)
@@ -396,7 +403,7 @@ public sealed record LearnResult(
             t.Truthy() ? new LearnTestResult(t.Str("status") ?? "not_judged", t.Int("passedRuns") ?? 0, t.Int("requiredRuns") ?? 0,
                 t.Get("inputs").Truthy() ? t.Obj("inputs") : null) : null,
             p.Truthy() ? new LearnProgress(p.Str("step") ?? "", p.Int("iteration"), p.Int("rollout")) : null,
-            d.Str("agentTurnId"), LearnReset.Parse(d.Get("agentRunReset")),
+            d.Str("agentTurnId"), d.Str("agentRunEnd"), LearnReset.Parse(d.Get("agentRunReset")),
             aj.Truthy() ? new AgentJudgement(aj.Str("judgementId") ?? "", aj.Str("verdict") ?? "", aj.Str("summary")) : null,
             d.Int("version"), d.Arr("iterations").Select(LearnIteration.Parse).ToList(), d.Str("title"), d.Str("template"),
             d.Arr("parameters").Select(x => new LearnParameter(x.Str("name") ?? "", x.Str("defaultValue") ?? "", x.Str("description"))).ToList(),

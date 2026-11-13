@@ -324,6 +324,7 @@ class ConformanceTest {
             o.cloudMachineLimit(n == null ? null : n.intValue());
           }
           if (a.containsKey("residential_proxy")) o.residentialProxy((Boolean) a.get("residential_proxy"));
+          if (a.containsKey("own_computer_access")) o.ownComputerAccess((Boolean) a.get("own_computer_access"));
           return sai.tenants().update(tenantId(tenant), o);
         }
         case "tenants.delete":

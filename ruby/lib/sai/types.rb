@@ -417,9 +417,12 @@ module Sai
 
   # The result of +sai.learn.create+: Simulang code made from recorded turns or an agent run, a
   # repair of code you sent, or a learn job. Run the code with +lease.run(learned, inputs)+.
-  # +status+ is +succeeded+, +failed+, +running+ or +stopped+. Research preview.
+  # +status+ is +succeeded+, +failed+, +running+ or +stopped+. +agent_run_end+ is how a job's agent
+  # run ended when it gave no answer (nil when it answered): +time_limit+ (still converted),
+  # +needs_input+ or the turn's +reason_code+, e.g. +agent_error+; every end but +time_limit+ stops
+  # the job (+agent_failed+) before conversion. Research preview.
   LearnResult = Struct.new(:id, :mode, :status, :stop_reason, :message, :test_result, :progress,
-                           :agent_turn_id, :agent_run_reset, :agent_judgement, :version, :iterations,
+                           :agent_turn_id, :agent_run_end, :agent_run_reset, :agent_judgement, :version, :iterations,
                            :title, :template, :parameters, :code, :output_schema, :validation,
                            :changes, :source_turns, :usage, :error, :replayed, :raw,
                            keyword_init: true) do
@@ -447,6 +450,7 @@ module Sai
           rollout: Parse.num_or_nil(p["rollout"])
         ),
         agent_turn_id: Parse.str(d["agentTurnId"]),
+        agent_run_end: Parse.str(d["agentRunEnd"]),
         agent_run_reset: LearnReset.parse(d["agentRunReset"]),
         agent_judgement: aj && AgentJudgement.new(
           judgement_id: Parse.str(aj["judgementId"]) || "",
@@ -545,10 +549,11 @@ module Sai
   end
 
   # One of your customers under an Organisation. Times are Unix milliseconds;
-  # +cloud_machine_limit+ nil means no limit.
+  # +cloud_machine_limit+ nil means no limit. +own_computer_access+: whether learn jobs and direct
+  # control may run code on its enrolled machines; nil from +list+ and from older servers.
   Tenant = Struct.new(:id, :name, :external_id, :metadata, :status, :created_at, :disabled_at,
                       :machine_count, :cloud_machine_limit, :residential_proxy, :cloud_machine_count,
-                      :raw, keyword_init: true) do
+                      :own_computer_access, :raw, keyword_init: true) do
     def self.parse(d)
       new(
         id: Parse.str(d["tenantId"]) || "",
@@ -562,6 +567,7 @@ module Sai
         cloud_machine_limit: Parse.num_or_nil(d["cloudMachineLimit"]),
         residential_proxy: [true, false].include?(d["residentialProxy"]) ? d["residentialProxy"] : nil,
         cloud_machine_count: Parse.num_or_nil(d["cloudMachineCount"]),
+        own_computer_access: [true, false].include?(d["ownComputerAccess"]) ? d["ownComputerAccess"] : nil,
         raw: d
       )
     end

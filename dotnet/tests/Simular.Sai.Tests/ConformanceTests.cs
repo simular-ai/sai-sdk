@@ -229,6 +229,7 @@ public class ConformanceTests(MockServer server) : IClassFixture<MockServer>
                     Metadata = StringMap("metadata"),
                     Status = OptS("status"),
                     ResidentialProxy = OptB("residential_proxy"),
+                    OwnComputerAccess = OptB("own_computer_access"),
                     CloudMachineLimit = limit.ValueKind == JsonValueKind.Number ? limit.GetInt64() : null,
                 }
                 : new TenantUpdate
@@ -237,6 +238,7 @@ public class ConformanceTests(MockServer server) : IClassFixture<MockServer>
                     Metadata = StringMap("metadata"),
                     Status = OptS("status"),
                     ResidentialProxy = OptB("residential_proxy"),
+                    OwnComputerAccess = OptB("own_computer_access"),
                 };
         }
     }

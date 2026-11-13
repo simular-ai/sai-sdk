@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Direct control: drive a cloud computer with Simulang. No agent. Maps to
+// Direct control: drive a computer with Simulang. No agent. Maps to
 // /v1/machines/{id}/control, a lease on the machine: at most one per machine, so the machine id
 // is the handle. Research preview, open to every account; model calls the code makes are billed
 // as usual.
@@ -18,7 +18,7 @@ func controlPath(machineID string) string { return "/v1/machines/" + esc(machine
 // ControlService opens control leases.
 type ControlService struct{ t *transport }
 
-// Open takes a cloud computer. It returns once the lease holds it, up to ~3 minutes when a Sai
+// Open takes a computer. It returns once the lease holds it, up to ~3 minutes when a Sai
 // task holds it or it has to start; at once if the lease is already open. Close it when done
 // (defer lease.Close(ctx)): Sai's tasks on that computer wait until then.
 func (s *ControlService) Open(ctx context.Context, machineID string) (*ControlLease, error) {
@@ -49,7 +49,7 @@ type ShellResult struct {
 	TimedOut bool   `json:"timed_out"`
 }
 
-// ControlLease holds one cloud computer and runs Simulang blocks on it.
+// ControlLease holds one computer and runs Simulang blocks on it.
 type ControlLease struct {
 	MachineID      string
 	IdleTimeoutSec int

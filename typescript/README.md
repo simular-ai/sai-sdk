@@ -1,8 +1,8 @@
 # @simular-ai/sai-sdk (TypeScript)
 
-TypeScript SDK for the [Sai API](https://platform.simular.ai/documentation). Hand desktop work to Sai on
-a computer (a Sai cloud computer, or your own PC with the Sai app) and get the answer back, or drive a
-cloud computer yourself.
+TypeScript SDK for the [Sai API](https://platform.simular.ai/documentation). Hand desktop work to
+Sai on a computer (a Sai cloud computer, or your own PC with the Sai app) and get the answer back,
+or drive a computer yourself.
 
 Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 [Python SDK](../python/README.md) method for method.
@@ -10,7 +10,7 @@ Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 | Layer          | What it is                                    | Status           |
 | -------------- | --------------------------------------------- | ---------------- |
 | `sai.sessions` | A conversation with Sai on one computer       | available        |
-| `sai.control`  | Drive a cloud computer directly with Simulang | research preview |
+| `sai.control`  | Drive a computer (cloud or own) with Simulang | research preview |
 | `sai.turns`    | A turn's record: typed output, evidence       | available        |
 
 ## Install
@@ -202,7 +202,8 @@ approval is pending: answer it on `sai.sessions.resume(record.sessionId)`), `fin
 ## Drive a computer yourself
 
 Direct control runs [Simulang](https://platform.simular.ai/documentation/concepts/direct-control)
-blocks on a cloud computer. While the lease is open, Sai's own tasks on that computer wait, so always close it.
+blocks on one of your computers, cloud or your own. While the lease is open, Sai's own tasks on that
+computer wait, so always close it.
 
 ```ts
 const lease = await sai.control.open({ machine: pc })
@@ -306,6 +307,10 @@ await sai.learn.cancel(job) // stops at once and keeps the last complete results
 `stopped` with a `stopReason` such as `cancelled`, `time_limit` or `agent_failed`); `testResult` says
 how the returned code did on `inputs`. With `judgeInitialAgentRun: true`, a job whose agent run fails
 the judge stops before writing code; pass its `agentTurnId` as `turns` to start again from that run.
+`agentRunEnd` says how the job's agent run ended when it gave no answer: `time_limit` (still
+converted), or `needs_input` or the turn's `reason_code` such as `agent_error`, which stop the job
+(`agent_failed`) before it writes code. Nobody watches a job, so it approves like a control lease:
+commands and clicks go ahead, and sign-ins and choices fail at once.
 The runs do the task for real, so use test inputs or a test account.
 
 ## Run Sai for your customers
@@ -327,9 +332,10 @@ await session.run("Open the calendar and read today's appointments")
 
 - `tenants.list({ status, externalId, limit, cursor })` resolves with one page: `page.tenants`,
   `page.nextCursor`. `externalId` finds your customer's Tenant without storing `tenant.id`.
-- `tenants.update(tenant, { name, metadata, status: 'disabled' | 'active', cloudMachineLimit, residentialProxy })`.
+- `tenants.update(tenant, { name, metadata, status: 'disabled' | 'active', cloudMachineLimit, residentialProxy, ownComputerAccess })`.
   `cloudMachineLimit` is 0 to 1000, and `null` removes the cap. `tenants.get` also returns
-  `cloudMachineCount` and `residentialProxy`.
+  `cloudMachineCount`, `residentialProxy` and `ownComputerAccess`. `ownComputerAccess: true` lets the
+  Tenant's learn jobs and direct control run code on its enrolled machines (off by default).
 - `tenants.delete(tenant)` disables it and revokes every enrolled machine. Its cloud machines stay
   until you delete them.
 - `tenants.token(tenant)` is the raw exchange: a one-hour `TenantToken` to pass as

@@ -24,6 +24,7 @@
               "machine_count": 2,
               "cloud_machine_limit": null,
               "residential_proxy": null,
+              "own_computer_access": null,
               "cloud_machine_count": null
             }
           }
@@ -167,15 +168,21 @@
     },
     {
       "id": "tenants.update.limits",
-      "doc": "update() sends only what is given; cloud_machine_limit null clears the cap and is sent as null.",
+      "doc": "update() sends only what is given, own_computer_access included; cloud_machine_limit null clears the cap and is sent as null.",
       "steps": [
         {
           "call": "tenants.update",
-          "args": { "tenant": "t_1", "cloud_machine_limit": 5, "residential_proxy": true },
+          "args": {
+            "tenant": "t_1",
+            "cloud_machine_limit": 5,
+            "residential_proxy": true,
+            "own_computer_access": true
+          },
           "expect": {
             "result": {
               "cloud_machine_limit": 5,
               "residential_proxy": true,
+              "own_computer_access": true,
               "cloud_machine_count": 2
             }
           }
@@ -196,7 +203,7 @@
           "request": {
             "method": "PATCH",
             "path": "/v1/tenants/t_1",
-            "json": { "cloudMachineLimit": 5, "residentialProxy": true }
+            "json": { "cloudMachineLimit": 5, "residentialProxy": true, "ownComputerAccess": true }
           },
           "response": {
             "json": {
@@ -205,6 +212,7 @@
               "status": "active",
               "cloudMachineLimit": 5,
               "residentialProxy": true,
+              "ownComputerAccess": true,
               "cloudMachineCount": 2
             }
           }

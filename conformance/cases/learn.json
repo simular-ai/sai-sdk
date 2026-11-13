@@ -322,6 +322,7 @@
               "ok": true,
               "version": 2,
               "agent_turn_id": "turn_9",
+              "agent_run_end": "time_limit",
               "test_result": {
                 "status": "passed",
                 "passed_runs": 2,
@@ -435,6 +436,7 @@
                 "inputs": { "site": "x" }
               },
               "agentTurnId": "turn_9",
+              "agentRunEnd": "time_limit",
               "iterations": [
                 {
                   "index": 1,

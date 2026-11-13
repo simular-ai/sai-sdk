@@ -114,6 +114,11 @@ export interface Tenant {
   residentialProxy: boolean | null
   /** Set by `get` and `update`; null from `list` and from servers before cloud machines. */
   cloudMachineCount: number | null
+  /**
+   * Whether learn jobs and direct control may run code on the Tenant's enrolled machines. Set by
+   * `get` and `update`; null from `list` and from older servers.
+   */
+  ownComputerAccess: boolean | null
   raw: Json
 }
 
@@ -130,6 +135,7 @@ export function parseTenant(d: Json): Tenant {
     cloudMachineLimit: typeof d.cloudMachineLimit === 'number' ? d.cloudMachineLimit : null,
     residentialProxy: typeof d.residentialProxy === 'boolean' ? d.residentialProxy : null,
     cloudMachineCount: typeof d.cloudMachineCount === 'number' ? d.cloudMachineCount : null,
+    ownComputerAccess: typeof d.ownComputerAccess === 'boolean' ? d.ownComputerAccess : null,
     raw: d,
   }
 }
@@ -197,7 +203,10 @@ export function parseEnrollment(d: Json): Enrollment {
 }
 
 export interface TenantToken {
-  /** Pass as `new Sai({ apiKey })` to act as the Tenant on sessions, machines and turns. */
+  /**
+   * Pass as `new Sai({ apiKey })` to act as the Tenant on sessions, machines, turns, learn, judge
+   * and control.
+   */
   token: string
   /** Unix time in milliseconds, an hour after the exchange. There is no refresh: exchange again. */
   expiresAt: number
@@ -650,6 +659,12 @@ export interface LearnResult {
   progress: { step: string; iteration: number | null; rollout: number | null } | null
   /** A job's agent run; pass it as `turns` to start again from that run. */
   agentTurnId: string | null
+  /**
+   * How the agent run ended when it gave no answer; null when it answered. `time_limit` (still
+   * converted), `needs_input` or the turn's `reason_code`, e.g. `agent_error`; every end but
+   * `time_limit` stops the job (`agent_failed`) before conversion.
+   */
+  agentRunEnd: string | null
   agentRunReset: LearnReset | null
   /** With `judgeInitialAgentRun`: the judgement of the agent run. */
   agentJudgement: { judgementId: string; verdict: string; summary: string | null } | null
@@ -739,6 +754,7 @@ export function parseLearnResult(d: Json): LearnResult {
         }
       : null,
     agentTurnId: str(d.agentTurnId) ?? null,
+    agentRunEnd: str(d.agentRunEnd) ?? null,
     agentRunReset: parseLearnReset(d.agentRunReset),
     agentJudgement: aj
       ? {

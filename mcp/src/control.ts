@@ -22,9 +22,12 @@ export const EXEC_MAX_S = 110
 /** The core Simulang direct control runs, in one page. Also served as `sai://simulang/reference`. */
 export const SIMULANG_REFERENCE = `# Simulang in Sai direct control
 
-Direct control is a JavaScript REPL running ON one cloud computer (Windows, Linux or macOS).
+Direct control is a JavaScript REPL running ON one of the user's computers: a Sai cloud computer
+(Windows, Linux or macOS) or the user's own Mac or Windows PC with the Sai Agent.
 Top-level await works and variables persist between blocks (use \`var\`).
 The block's last expression is returned. console.log output comes back in \`logs\`.
+\`new Date()\` reads the account's clock (the timezone the user's Sai app reported, else UTC), the same clock
+learn jobs test code on; use \`toISOString()\` or \`getUTC*\` for UTC.
 
 ## The machine: \`machine\` (already held by your control lease)
 Shell and files:
@@ -63,13 +66,18 @@ Refs come from the LATEST snapshot: snapshot, act, snapshot again.
 
 ## Also
   await wait({ waitTime: 2 })   seconds (unit: 'ms' for milliseconds)
+  callLLM({ prompt, context? }) → a model's answer as a string (context: { text?, imageBase64? }); billed to the account
+  showMessageToUser({ message }) writes "[message] ..." to logs
   $lastVisualObservation, $lastAccessibilityObservation, $lastExec
 
-Not available in direct control: sai.*, integrations (google, slack, …), callLLM, askUser,
+Not available in direct control: sai.*, integrations (google, slack, …), askUser, askChoice,
 requestApproval, generateImage, secrets. Do those from your own program.
 `
 
-const machineId = z.string().min(1).describe('Cloud computer from sai_machines.')
+const machineId = z
+  .string()
+  .min(1)
+  .describe("A computer from sai_machines, cloud or the user's own.")
 
 export const controlToolSchemas = {
   sai_control_open: { machine_id: machineId },
@@ -96,7 +104,8 @@ export const controlToolSchemas = {
 
 export const controlToolDescriptions: Record<keyof typeof controlToolSchemas, string> = {
   sai_control_open:
-    'Take direct control of a Sai cloud computer so YOU can drive it by running Simulang (JavaScript) blocks with sai_control_exec. ' +
+    "Take direct control of one of the user's computers (a Sai cloud computer, or their own Mac or PC with the Sai Agent) so YOU can drive it by running Simulang (JavaScript) blocks with sai_control_exec. " +
+    'On the user\'s own computer (kind "own") the blocks use their real screen, mouse and keyboard, and the user must first turn this on from a signed-in session; until then it fails with own_computer_access_off, whose message says how. ' +
     'Use this instead of sai_task_start when you want step-by-step control, or want to write a script you can replay. ' +
     'Returns { machine_id, expires_after_idle_s }. Control holds the computer: Sai tasks on it wait until you close it. ' +
     'Calling it again while control is open is fine and returns at once. ' +

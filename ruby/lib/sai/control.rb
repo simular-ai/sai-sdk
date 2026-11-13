@@ -3,7 +3,7 @@
 require "json"
 
 module Sai
-  # Direct control: drive a cloud computer with Simulang. No agent. A lease on the machine: at
+  # Direct control: drive a computer with Simulang. No agent. A lease on the machine: at
   # most one per machine. Research preview; model calls the code makes are billed as usual.
   class Control
     OPEN_TIMEOUT = 240
@@ -13,7 +13,7 @@ module Sai
       @http = http
     end
 
-    # Take a cloud computer (a Machine or its id). Returns once the lease holds it, up to about
+    # Take a computer (a Machine or its id). Returns once the lease holds it, up to about
     # three minutes when a Sai task holds it or it has to start. Sai's tasks on that computer wait
     # until the lease is closed. With a block, yields the lease, closes it after, and returns the
     # block's value.
@@ -36,7 +36,7 @@ module Sai
   # The result of ControlLease#shell.
   ShellResult = Struct.new(:stdout, :stderr, :exit_code, :timed_out, keyword_init: true)
 
-  # A lease on a cloud computer. Close it when done: Sai's tasks on that computer wait until then.
+  # A lease on a computer. Close it when done: Sai's tasks on that computer wait until then.
   class ControlLease
     attr_reader :machine_id, :idle_timeout_sec
 

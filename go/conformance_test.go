@@ -410,6 +410,10 @@ func callClient(ctx context.Context, c *sai.Client, method string, a args) (any,
 			proxy := a.bool("residential_proxy")
 			o.ResidentialProxy = &proxy
 		}
+		if a.has("own_computer_access") {
+			own := a.bool("own_computer_access")
+			o.OwnComputerAccess = &own
+		}
 		return c.Tenants.Update(ctx, id(a["tenant"]), o)
 	case "tenants.delete":
 		return nil, c.Tenants.Delete(ctx, id(a["tenant"]))

@@ -5,7 +5,7 @@
 //   - Client.Learn, Client.Judge: turn recorded turns or a task into Simulang code, repair it,
 //     run, judge and repair it on a machine (policy iteration), judge turns.
 //
-//   - Client.Control: drive a cloud computer yourself with Simulang.
+//   - Client.Control: drive a computer yourself with Simulang.
 //
 //   - Client.Machines, Client.Models, Client.Files, Client.Account, Client.Auth.
 //

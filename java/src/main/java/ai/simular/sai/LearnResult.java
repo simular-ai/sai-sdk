@@ -18,6 +18,10 @@ import java.util.Map;
  * @param stopReason why a job ended early, e.g. {@code cancelled}, {@code time_limit}, {@code
  *     agent_failed}
  * @param agentTurnId a job's agent run; pass it as {@code turns} to start again from that run
+ * @param agentRunEnd how the agent run ended when it gave no answer; null when it answered. {@code
+ *     time_limit} (still converted), {@code needs_input} or the turn's {@code reason_code}, e.g.
+ *     {@code agent_error}; every end but {@code time_limit} stops the job ({@code agent_failed})
+ *     before conversion
  * @param version which iteration {@code code} is from
  * @param template the task with {@code {{name}}} placeholders
  * @param code {@code async function main(params = { ... })}
@@ -34,6 +38,7 @@ public record LearnResult(
     LearnTestResult testResult,
     LearnProgress progress,
     String agentTurnId,
+    String agentRunEnd,
     LearnReset agentRunReset,
     AgentJudgement agentJudgement,
     Integer version,
@@ -88,6 +93,7 @@ public record LearnResult(
             : new LearnProgress(
                 Json.str(p.get("step"), ""), Json.intOrNull(p.get("iteration")), Json.intOrNull(p.get("rollout"))),
         Json.str(d.get("agentTurnId")),
+        Json.str(d.get("agentRunEnd")),
         LearnReset.parse(d.get("agentRunReset")),
         aj == null
             ? null

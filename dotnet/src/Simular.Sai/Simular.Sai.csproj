@@ -7,7 +7,7 @@
     <Version>0.1.0</Version>
     <Authors>Simular</Authors>
     <Company>Simular, Inc.</Company>
-    <Description>.NET SDK for the Sai API: delegate desktop work to Sai, or drive a cloud computer directly.</Description>
+    <Description>.NET SDK for the Sai API: delegate desktop work to Sai, or drive a computer directly.</Description>
     <PackageTags>sai;simular;agent;computer-use;automation</PackageTags>
     <PackageProjectUrl>https://platform.simular.ai/documentation/sdks/dotnet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/simular-ai/sai-sdk</RepositoryUrl>

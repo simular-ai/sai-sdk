@@ -1,7 +1,7 @@
 [project]
 name = "sai-sdk"
 version = "0.4.0"
-description = "Python SDK for the Sai API: delegate desktop work to Sai, or drive a cloud computer directly."
+description = "Python SDK for the Sai API: delegate desktop work to Sai, or drive a computer directly."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

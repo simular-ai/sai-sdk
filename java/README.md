@@ -2,7 +2,7 @@
 
 Java SDK for the [Sai API](https://platform.simular.ai/documentation). Hand desktop work to Sai on a
 computer (a Sai cloud computer, or your own PC with the Sai app) and get the answer back, or drive a
-cloud computer yourself.
+computer yourself.
 
 Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 [Python SDK](../python/README.md) and the [TypeScript SDK](../typescript/README.md) method for method.
@@ -10,7 +10,7 @@ Status: **alpha (0.1)**. The surface may still change before 1.0. It matches the
 | Layer              | What it is                                    | Status           |
 | ------------------ | --------------------------------------------- | ---------------- |
 | `sai.sessions()`   | A conversation with Sai on one computer       | available        |
-| `sai.control()`    | Drive a cloud computer directly with Simulang | research preview |
+| `sai.control()`    | Drive a computer (cloud or own) with Simulang | research preview |
 | `sai.turns()`      | A turn's record: typed output, evidence       | available        |
 
 ## Install
@@ -170,8 +170,8 @@ Each takes a `Turn`, a `TurnRecord` or the id string.
 ## Drive a computer yourself
 
 Direct control runs [Simulang](https://platform.simular.ai/documentation/concepts/direct-control)
-blocks on a cloud computer. While the lease is open, Sai's own tasks on that computer wait, so always
-close it: `ControlLease` is `AutoCloseable`.
+blocks on one of your computers, cloud or your own. While the lease is open, Sai's own tasks on that
+computer wait, so always close it: `ControlLease` is `AutoCloseable`.
 
 ```java
 try (ControlLease lease = sai.control().open(pc)) {
@@ -213,6 +213,8 @@ LearnResult done = sai.learn().waitFor(job); // can take an hour
 Judgement judgement = sai.judge().create(List.of(turn), List.of(new Check("title", "The agent reported a story title")));
 ```
 
+`done.agentRunEnd()` says how the job's agent run ended when it gave no answer: `time_limit` (still converted), or `needs_input` or the turn's `reason_code` such as `agent_error`, which stop the job (`agent_failed`) before it writes code.
+
 ## Run Sai for your customers
 
 ```java
@@ -222,6 +224,7 @@ Tenant tenant = org.tenants().create("Riverside Clinic", new CreateTenantOptions
 Enrollment code = org.tenants().createEnrollment(tenant); // hand code.token() to your installer
 System.out.println(org.tenantMachines().list(tenant));
 
+org.tenants().update(tenant, new UpdateTenantOptions().ownComputerAccess(true)); // learn and control on its enrolled machines
 Sai clinic = org.tenants().client(tenant); // acts as the Tenant; renews its token
 clinic.sessions().create().run("Open the calendar and read today's appointments");
 

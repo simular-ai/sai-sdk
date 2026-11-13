@@ -48,8 +48,12 @@ type TenantUpdateOptions struct {
 	// ClearCloudMachineLimit sends a null CloudMachineLimit, which removes the cap.
 	ClearCloudMachineLimit bool
 	// ResidentialProxy is the Tenant's residential proxy switch; it has no effect yet, and
-	// traffic goes direct. Only the Organisation Key or an owner may set it and the limit.
+	// traffic goes direct.
 	ResidentialProxy *bool
+	// OwnComputerAccess lets the Tenant's learn jobs and direct control run code on its enrolled
+	// machines (default off). Only the Organisation Key or an owner may set it, ResidentialProxy
+	// and the limit.
+	OwnComputerAccess *bool
 }
 
 // TenantTokenOptions are the options of Tenants.Token and Tenants.Client.
@@ -138,6 +142,9 @@ func (s *TenantsService) Update(ctx context.Context, tenantID string, opts *Tena
 		}
 		if opts.ResidentialProxy != nil {
 			body["residentialProxy"] = *opts.ResidentialProxy
+		}
+		if opts.OwnComputerAccess != nil {
+			body["ownComputerAccess"] = *opts.OwnComputerAccess
 		}
 	}
 	d, err := s.t.json(ctx, "PATCH", tenantPath(tenantID), &request{json: body})

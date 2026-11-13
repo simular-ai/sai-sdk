@@ -4,7 +4,7 @@
  * - `sai.sessions`: give Sai a task on a computer and get the answer back.
  * - `sai.learn`, `sai.judge`: turn recorded turns or a task into Simulang code, repair it, run
  *   judge and repair it on a machine (policy iteration), judge turns.
- * - `sai.control`: drive a cloud computer yourself with Simulang.
+ * - `sai.control`: drive a computer yourself with Simulang.
  * - `sai.machines`, `sai.models`, `sai.files`, `sai.account`, `sai.auth`.
  * - `sai.tenants`, `sai.tenantMachines`: your customers under an Organisation (an Organisation Key).
  * - `sai.usage`: what the Organisation is charged, per Tenant and per session (an Organisation Key).

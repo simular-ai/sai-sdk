@@ -292,7 +292,15 @@ async function callClient(sai: Sai, method: string, a: Args): Promise<unknown> {
     case 'tenants.update':
       return sai.tenants.update(
         a.tenant as string,
-        opts(a, 'name', 'metadata', 'status', 'cloud_machine_limit', 'residential_proxy'),
+        opts(
+          a,
+          'name',
+          'metadata',
+          'status',
+          'cloud_machine_limit',
+          'residential_proxy',
+          'own_computer_access',
+        ),
       )
     case 'tenants.delete':
       return sai.tenants.delete(a.tenant as string)
