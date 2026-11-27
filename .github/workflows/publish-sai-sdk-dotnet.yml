@@ -45,15 +45,15 @@ jobs:
       run:
         working-directory: dotnet
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v6.0.2
         with:
           persist-credentials: false
       # The mock server is Node.
-      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+      - uses: actions/setup-node@v6.2.0
         with:
           node-version-file: '.nvmrc'
       # The package targets net8.0 and net10.0; the tests run on net10.0.
-      - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+      - uses: actions/setup-dotnet@v5.0.0
         with:
           dotnet-version: 10.0.x
       - name: Verify tag matches package version
@@ -68,7 +68,7 @@ jobs:
           fi
       - run: dotnet test
       - run: dotnet pack src/Simular.Sai -c Release -o out
-      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+      - uses: NuGet/login@v1.2.0
         id: nuget
         with:
           user: ${{ secrets.NUGET_USER }}
